@@ -1,7 +1,7 @@
 {
   "name": "nefco-books",
   "version": "1.0.0",
-  "description": "Nefco Books - Zoho-inspired Cloud Accounting and Business SaaS for Bangladeshi Taka (BDT)",
+  "description": "Nefco Books - Cloud Accounting & Business Management Application",
   "private": true,
   "scripts": {
     "dev": "next dev",

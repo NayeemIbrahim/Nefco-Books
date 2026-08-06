@@ -1,11 +1,10 @@
-# Nefco Books - Cloud Accounting & Business Management SaaS
+# Nefco Books - Cloud Accounting & Business Management Application
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
-[![Currency](https://img.shields.io/badge/currency-BDT%20%28%E0%A7%B3%29-emerald.svg)]()
 [![Framework](https://img.shields.io/badge/Next.js-14%20App%20Router-black.svg)](https://nextjs.org/)
 [![Database](https://img.shields.io/badge/Prisma-PostgreSQL-indigo.svg)](https://www.prisma.io/)
 
-**Nefco Books** is a comprehensive, Zoho Books inspired Cloud Accounting and Business Management SaaS application designed exclusively for Bangladeshi businesses, operating strictly in **Bangladeshi Taka (BDT `৳`)**.
+**Nefco Books** is a comprehensive Cloud Accounting and Business Management Application.
 
 ---
 

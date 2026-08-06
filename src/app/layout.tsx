@@ -4,8 +4,8 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 
 export const metadata: Metadata = {
-  title: "Nefco Books - BDT Cloud Accounting & Business SaaS",
-  description: "Double-entry cloud accounting and business management app powered by Nefco Books",
+  title: "Nefco Books - Cloud Accounting & Business Application",
+  description: "Cloud Accounting and Business Management Application powered by Nefco Books",
 };
 
 export default function RootLayout({
