@@ -1,0 +1,366 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  ACCOUNTANT
+  STAFF
+}
+
+enum ContactType {
+  CUSTOMER
+  VENDOR
+  BOTH
+}
+
+enum ItemType {
+  GOODS
+  SERVICE
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum AccountSubType {
+  CASH_AND_BANK
+  ACCOUNTS_RECEIVABLE
+  OTHER_CURRENT_ASSET
+  FIXED_ASSET
+  ACCOUNTS_PAYABLE
+  OTHER_CURRENT_LIABILITY
+  LONG_TERM_LIABILITY
+  EQUITY
+  OPERATING_REVENUE
+  OTHER_REVENUE
+  COST_OF_GOODS_SOLD
+  OPERATING_EXPENSE
+  OTHER_EXPENSE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum BillStatus {
+  DRAFT
+  RECEIVED
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CHEQUE
+  MOBILE_BANKING // bKash, Nagad, Rocket
+}
+
+enum PaymentType {
+  CUSTOMER_PAYMENT
+  VENDOR_PAYMENT
+}
+
+enum EntryStatus {
+  DRAFT
+  POSTED
+  VOID
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(ADMIN)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  journalEntries JournalEntry[]
+}
+
+model Contact {
+  id              String      @id @default(cuid())
+  name            String
+  companyName     String?
+  email           String?
+  phone           String?
+  whatsappNumber  String      // Required field for WhatsApp notifications (e.g. +8801700000000)
+  type            ContactType @default(CUSTOMER)
+  address         String?
+  city            String?     @default("Dhaka")
+  country         String      @default("Bangladesh")
+  taxNumber       String?
+  openingBalance  Float       @default(0.0) // BDT
+  currentBalance  Float       @default(0.0) // Positive = Receivable, Negative = Payable
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  bookings        Booking[]
+  invoices        Invoice[]
+  bills           Bill[]
+  payments        Payment[]
+
+  @@index([type])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  items       Item[]
+}
+
+model Item {
+  id               String       @id @default(cuid())
+  name             String
+  sku              String?      @unique
+  type             ItemType     @default(SERVICE)
+  description      String?
+  salesPrice       Float        @default(0.0) // BDT
+  purchasePrice    Float        @default(0.0) // BDT
+  unit             String       @default("Pcs")
+  stockQuantity    Float        @default(0.0)
+
+  categoryId       String?
+  category         Category?    @relation(fields: [categoryId], references: [id])
+
+  salesAccountId    String?
+  salesAccount      Account?     @relation("SalesAccount", fields: [salesAccountId], references: [id])
+
+  purchaseAccountId String?
+  purchaseAccount   Account?     @relation("PurchaseAccount", fields: [purchaseAccountId], references: [id])
+
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  bookingItems     BookingLineItem[]
+  invoiceItems     InvoiceLineItem[]
+  billItems        BillLineItem[]
+}
+
+model Account {
+  id             String         @id @default(cuid())
+  code           String         @unique // e.g. "1000", "1100", "4000"
+  name           String         // e.g. "Cash on Hand", "Accounts Receivable"
+  type           AccountType
+  subType        AccountSubType
+  description    String?
+  isSystem       Boolean        @default(false)
+  balance        Float          @default(0.0) // Running balance in BDT
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  salesItems     Item[]         @relation("SalesAccount")
+  purchaseItems  Item[]         @relation("PurchaseAccount")
+
+  journalLines   JournalLine[]
+  payments       Payment[]
+
+  @@index([type])
+}
+
+model Booking {
+  id            String        @id @default(cuid())
+  bookingNumber String        @unique // e.g. BKG-2026-0001
+  contactId     String
+  contact       Contact       @relation(fields: [contactId], references: [id])
+
+  bookingDate   DateTime      @default(now())
+  serviceDate   DateTime?
+  status        BookingStatus @default(PENDING)
+  notes         String?
+  totalAmount   Float         @default(0.0) // BDT
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  lineItems     BookingLineItem[]
+  invoices      Invoice[]
+}
+
+model BookingLineItem {
+  id          String   @id @default(cuid())
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  itemId      String?
+  item        Item?    @relation(fields: [itemId], references: [id])
+  description String
+  quantity    Float    @default(1.0)
+  unitPrice   Float    @default(0.0)
+  amount      Float    @default(0.0)
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique // e.g. INV-2026-0001
+  bookingId     String?
+  booking       Booking?      @relation(fields: [bookingId], references: [id])
+  contactId     String
+  contact       Contact       @relation(fields: [contactId], references: [id])
+
+  issueDate     DateTime      @default(now())
+  dueDate       DateTime
+  status        InvoiceStatus @default(DRAFT)
+
+  subtotal      Float         @default(0.0)
+  taxAmount     Float         @default(0.0)
+  discountAmount Float        @default(0.0)
+  totalAmount   Float         @default(0.0) // BDT
+  paidAmount    Float         @default(0.0)
+
+  notes         String?
+  terms         String?
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  lineItems     InvoiceLineItem[]
+  payments      Payment[]
+  journalEntry  JournalEntry?
+}
+
+model InvoiceLineItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  itemId      String?
+  item        Item?    @relation(fields: [itemId], references: [id])
+  description String
+  quantity    Float    @default(1.0)
+  unitPrice   Float    @default(0.0)
+  amount      Float    @default(0.0)
+}
+
+model Bill {
+  id            String      @id @default(cuid())
+  billNumber    String      @unique // e.g. BIL-2026-0001
+  contactId     String
+  contact       Contact     @relation(fields: [contactId], references: [id])
+
+  issueDate     DateTime    @default(now())
+  dueDate       DateTime
+  status        BillStatus  @default(DRAFT)
+
+  subtotal      Float       @default(0.0)
+  taxAmount     Float       @default(0.0)
+  totalAmount   Float       @default(0.0) // BDT
+  paidAmount    Float       @default(0.0)
+
+  notes         String?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  lineItems     BillLineItem[]
+  payments      Payment[]
+  journalEntry  JournalEntry?
+}
+
+model BillLineItem {
+  id          String   @id @default(cuid())
+  billId      String
+  bill        Bill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  itemId      String?
+  item        Item?    @relation(fields: [itemId], references: [id])
+  description String
+  quantity    Float    @default(1.0)
+  unitPrice   Float    @default(0.0)
+  amount      Float    @default(0.0)
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  paymentNumber   String        @unique // e.g. PAY-2026-0001
+  type            PaymentType
+  contactId       String
+  contact         Contact       @relation(fields: [contactId], references: [id])
+
+  invoiceId       String?
+  invoice         Invoice?      @relation(fields: [invoiceId], references: [id])
+
+  billId          String?
+  bill            Bill?         @relation(fields: [billId], references: [id])
+
+  accountId       String        // Bank/Cash Account credited or debited
+  account         Account       @relation(fields: [accountId], references: [id])
+
+  paymentDate     DateTime      @default(now())
+  amount          Float         // BDT
+  paymentMethod   PaymentMethod @default(CASH)
+  referenceNumber String?
+  notes           String?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  journalEntry    JournalEntry?
+}
+
+model JournalEntry {
+  id                  String      @id @default(cuid())
+  entryNumber         String      @unique // e.g. JRN-2026-0001
+  date                DateTime    @default(now())
+  reference           String?
+  description         String?
+  status              EntryStatus @default(POSTED)
+
+  sourceDocumentType  String?     // INVOICE, BILL, PAYMENT, MANUAL
+  sourceDocumentId    String?
+
+  createdById         String?
+  createdBy           User?       @relation(fields: [createdById], references: [id])
+
+  invoiceId           String?     @unique
+  invoice             Invoice?    @relation(fields: [invoiceId], references: [id])
+
+  billId              String?     @unique
+  bill                Bill?       @relation(fields: [billId], references: [id])
+
+  paymentId           String?     @unique
+  payment             Payment?    @relation(fields: [paymentId], references: [id])
+
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  lines               JournalLine[]
+}
+
+model JournalLine {
+  id             String       @id @default(cuid())
+  journalEntryId String
+  journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+
+  accountId      String
+  account        Account      @relation(fields: [accountId], references: [id])
+
+  debit          Float        @default(0.0) // BDT
+  credit         Float        @default(0.0) // BDT
+  description    String?
+
+  createdAt      DateTime     @default(now())
+}
