@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.1] - 2026-09-17
+
+### Added
+- **DirectAdmin Production Server Entry Point**: Created `server.js` Node.js HTTP server wrapper for Next.js 14 for compatibility with Phusion Passenger / DirectAdmin Node.js App Selector on `https://app.nefconit.com/`.
+
+### Changed
+- **Package Startup Script**: Updated `"start"` command in `package.json` to `node server.js`.
+
+---
+
 ## [1.1.0] - 2026-09-11
 
 ### Changed
