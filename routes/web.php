@@ -44,6 +44,7 @@ Route::post('banking/journal-entries', [BankingController::class, 'storeJournalE
 Route::prefix('reports')->name('reports.')->group(function () {
     Route::get('/', [ReportController::class, 'index'])->name('index');
     Route::get('/profit-and-loss', [ReportController::class, 'profitAndLoss'])->name('profit-and-loss');
+    Route::get('/profit-loss', [ReportController::class, 'profitAndLoss']);
     Route::get('/balance-sheet', [ReportController::class, 'balanceSheet'])->name('balance-sheet');
     Route::get('/trial-balance', [ReportController::class, 'trialBalance'])->name('trial-balance');
 });
