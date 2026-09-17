@@ -1,7 +1,7 @@
 import React from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { formatBDT } from "@/lib/utils";
-import { TrendingUp, ArrowLeft, Printer } from "lucide-react";
+import { BarChart3, Printer, ArrowLeft, TrendingUp } from "lucide-react";
 import { Head, Link } from "@inertiajs/react";
 
 export default function ProfitAndLoss({
@@ -13,110 +13,98 @@ export default function ProfitAndLoss({
   totalExpense,
   netProfit,
 }) {
+  const allExpenses = [...(cogs || []), ...(expenses || [])];
+  const totalAllExpenses = (parseFloat(totalExpense) || 0) + (parseFloat(cogs?.reduce((sum, a) => sum + parseFloat(a.balance || 0), 0)) || 0);
+
   return (
     <AuthenticatedLayout>
-      <Head title="Profit and Loss Statement - Nefco Books" />
+      <Head title="Profit & Loss Statement - Nefco Books" />
 
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="space-y-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-between">
           <Link
             href="/reports"
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900"
           >
-            <ArrowLeft className="h-4 w-4" />
-            <span>Back to Reports</span>
+            <ArrowLeft className="h-4 w-4" /> Back to Financial Reports
           </Link>
+
           <button
             onClick={() => window.print()}
-            className="px-3 py-1.5 bg-white border border-slate-200 rounded-md text-xs font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 shadow-xs transition"
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 px-3 py-1.5 rounded-md shadow-xs hover:bg-slate-50 transition"
           >
-            <Printer className="h-3.5 w-3.5" />
-            <span>Print Report</span>
+            <Printer className="h-4 w-4" /> Print / Export PDF
           </button>
         </div>
 
-        {/* Statement Sheet */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-8 space-y-6">
-          <div className="text-center border-b border-slate-100 pb-4">
-            <h1 className="text-lg font-bold text-slate-900">Profit & Loss Statement</h1>
-            <p className="text-xs text-slate-500 font-medium">Nefco Books &bull; All Currencies in BDT (৳)</p>
+        <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
+          {/* Title & Metadata */}
+          <div className="border-b border-slate-200 pb-6 text-center space-y-1">
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">PROFIT & LOSS STATEMENT</h1>
+            <div className="text-xs font-bold text-blue-600">Nefco Books</div>
+            <p className="text-[11px] text-slate-400">For Financial Year 2026-2027 (Amounts in Bangladeshi Taka)</p>
           </div>
 
-          <div className="space-y-6 text-xs">
-            {/* Operating Revenue */}
-            <div>
-              <div className="bg-slate-50 px-3 py-1.5 font-bold text-slate-800 uppercase tracking-wider text-[11px] rounded flex justify-between">
-                <span>Operating Revenue</span>
-                <span>Amount (৳)</span>
-              </div>
-              <div className="divide-y divide-slate-100 mt-1">
-                {revenues?.map((acc) => (
-                  <div key={acc.id} className="py-2 px-3 flex justify-between">
-                    <span className="text-slate-700">{acc.code} - {acc.name}</span>
-                    <span className="font-mono font-medium text-slate-900">{formatBDT(acc.balance)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="py-2 px-3 bg-blue-50/50 rounded flex justify-between font-bold text-slate-900 mt-1">
-                <span>Total Operating Revenue</span>
-                <span className="font-mono text-blue-600">{formatBDT(totalRevenue)}</span>
-              </div>
+          {/* Operating Revenue Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between bg-slate-100 p-2.5 rounded font-bold text-xs text-slate-800 uppercase tracking-wider">
+              <span>Operating Revenue (4000 Series)</span>
+              <span>BDT Amount</span>
             </div>
 
-            {/* Cost of Goods Sold */}
-            <div>
-              <div className="bg-slate-50 px-3 py-1.5 font-bold text-slate-800 uppercase tracking-wider text-[11px] rounded flex justify-between">
-                <span>Cost of Goods Sold (COGS)</span>
-                <span>Amount (৳)</span>
-              </div>
-              <div className="divide-y divide-slate-100 mt-1">
-                {cogs?.length > 0 ? (
-                  cogs.map((acc) => (
-                    <div key={acc.id} className="py-2 px-3 flex justify-between">
-                      <span className="text-slate-700">{acc.code} - {acc.name}</span>
-                      <span className="font-mono font-medium text-slate-900">{formatBDT(acc.balance)}</span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="py-2 px-3 text-slate-400">No COGS accounts active</div>
-                )}
-              </div>
+            <div className="space-y-1.5 px-3 text-xs">
+              {revenues?.map((acc, idx) => (
+                <div key={idx} className="flex justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-700 font-medium">
+                    <span className="font-mono text-blue-600 mr-2">{acc.code}</span>
+                    {acc.name}
+                  </span>
+                  <span className="font-semibold text-slate-900">{formatBDT(acc.balance)}</span>
+                </div>
+              ))}
             </div>
 
-            {/* Gross Profit */}
-            <div className="py-3 px-4 bg-slate-100/80 rounded-lg flex justify-between font-bold text-sm text-slate-900 border border-slate-200">
-              <span>Gross Profit (Revenue - COGS)</span>
-              <span className="font-mono">{formatBDT(grossProfit)}</span>
+            <div className="flex justify-between p-3 bg-blue-50/70 border border-blue-100 rounded text-xs font-bold text-blue-900">
+              <span>TOTAL OPERATING REVENUE</span>
+              <span>{formatBDT(totalRevenue)}</span>
+            </div>
+          </div>
+
+          {/* Operating Expenses Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between bg-slate-100 p-2.5 rounded font-bold text-xs text-slate-800 uppercase tracking-wider">
+              <span>Operating Expenses & COGS (5000/6000 Series)</span>
+              <span>BDT Amount</span>
             </div>
 
-            {/* Operating Expenses */}
-            <div>
-              <div className="bg-slate-50 px-3 py-1.5 font-bold text-slate-800 uppercase tracking-wider text-[11px] rounded flex justify-between">
-                <span>Operating Expenses</span>
-                <span>Amount (৳)</span>
-              </div>
-              <div className="divide-y divide-slate-100 mt-1">
-                {expenses?.map((acc) => (
-                  <div key={acc.id} className="py-2 px-3 flex justify-between">
-                    <span className="text-slate-700">{acc.code} - {acc.name}</span>
-                    <span className="font-mono font-medium text-slate-900">{formatBDT(acc.balance)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="py-2 px-3 bg-slate-50 rounded flex justify-between font-bold text-slate-900 mt-1">
-                <span>Total Operating Expenses</span>
-                <span className="font-mono text-slate-800">{formatBDT(totalExpense)}</span>
-              </div>
+            <div className="space-y-1.5 px-3 text-xs">
+              {allExpenses.map((acc, idx) => (
+                <div key={idx} className="flex justify-between py-1 border-b border-slate-100">
+                  <span className="text-slate-700 font-medium">
+                    <span className="font-mono text-amber-600 mr-2">{acc.code}</span>
+                    {acc.name}
+                  </span>
+                  <span className="font-semibold text-slate-900">{formatBDT(acc.balance)}</span>
+                </div>
+              ))}
             </div>
 
-            {/* Net Profit / Loss */}
-            <div className={`py-4 px-4 rounded-lg flex justify-between font-bold text-base border ${
-              netProfit >= 0
-                ? "bg-emerald-50 text-emerald-900 border-emerald-200"
-                : "bg-rose-50 text-rose-900 border-rose-200"
-            }`}>
-              <span>Net Profit / (Loss)</span>
-              <span className="font-mono">{formatBDT(netProfit)}</span>
+            <div className="flex justify-between p-3 bg-amber-50/70 border border-amber-100 rounded text-xs font-bold text-amber-900">
+              <span>TOTAL OPERATING EXPENSES</span>
+              <span>{formatBDT(totalAllExpenses)}</span>
+            </div>
+          </div>
+
+          {/* Net Profit Summary */}
+          <div className="p-5 bg-emerald-600 text-white rounded-xl flex items-center justify-between shadow-md">
+            <div className="space-y-1">
+              <div className="text-xs uppercase font-semibold text-emerald-200 tracking-wider">
+                Net Profit (Revenue - Expenses)
+              </div>
+              <div className="text-2xl font-extrabold">{formatBDT(netProfit)}</div>
+            </div>
+            <div className="p-3 bg-emerald-700/60 rounded-lg">
+              <TrendingUp className="h-8 w-8 text-white" />
             </div>
           </div>
         </div>

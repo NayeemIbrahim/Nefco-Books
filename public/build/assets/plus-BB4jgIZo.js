@@ -1,4 +1,4 @@
-import{c as e}from"./AuthenticatedLayout-CVETMEib.js";/**
+import{c as e}from"./AuthenticatedLayout-C6bwr8Wm.js";/**
  * @license lucide-react v0.453.0 - ISC
  *
  * This source code is licensed under the ISC license.

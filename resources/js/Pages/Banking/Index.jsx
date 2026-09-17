@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { formatBDT } from "@/lib/utils";
-import { Landmark, Plus, BookOpen, ArrowUpRight, ArrowDownLeft, ShieldCheck, AlertCircle } from "lucide-react";
+import { Landmark, Plus, BookOpen, ShieldCheck, AlertCircle, X } from "lucide-react";
 import { Head, useForm } from "@inertiajs/react";
 
 export default function BankingIndex({ accounts, allAccounts, recentJournals }) {
@@ -11,13 +11,13 @@ export default function BankingIndex({ accounts, allAccounts, recentJournals }) 
     reference: "",
     description: "",
     lines: [
-      { account_code: allAccounts?.[0]?.code || "", debit: "", credit: "" },
-      { account_code: allAccounts?.[1]?.code || "", debit: "", credit: "" },
+      { account_code: allAccounts?.[0]?.code || "1000", debit: "", credit: "" },
+      { account_code: allAccounts?.[6]?.code || "4000", debit: "", credit: "" },
     ],
   });
 
   const addLine = () => {
-    setData("lines", [...data.lines, { account_code: allAccounts?.[0]?.code || "", debit: "", credit: "" }]);
+    setData("lines", [...data.lines, { account_code: allAccounts?.[0]?.code || "1000", debit: "", credit: "" }]);
   };
 
   const removeLine = (idx) => {
@@ -53,42 +53,39 @@ export default function BankingIndex({ accounts, allAccounts, recentJournals }) 
       <Head title="Banking & Chart of Accounts - Nefco Books" />
 
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Cash, Bank & Journal Entries</h1>
-            <p className="text-xs text-slate-500">Manage bank balances, liquidity, and manual double-entry ledger journals</p>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Banking & Chart of Accounts</h1>
+            <p className="text-xs text-slate-500">Manage BDT bank accounts, mobile banking, and manual journal entries</p>
           </div>
           <button
             onClick={() => setShowModal(true)}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold flex items-center gap-2 shadow-xs transition"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-md shadow-xs transition"
           >
             <Plus className="h-4 w-4" />
-            <span>New Journal Entry</span>
+            <span>New Manual Journal</span>
           </button>
         </div>
 
-        {/* Bank & Cash Accounts Overview */}
+        {/* Account Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {accounts?.map((acc) => (
-            <div key={acc.id} className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs flex flex-col justify-between">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="text-[10px] font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                    {acc.code}
-                  </span>
-                  <h3 className="text-sm font-bold text-slate-800 mt-2">{acc.name}</h3>
-                  <p className="text-xs text-slate-400 capitalize">{acc.sub_type.replace(/_/g, " ").toLowerCase()}</p>
-                </div>
-                <div className="p-2.5 bg-slate-50 rounded-lg text-slate-600 border border-slate-100">
-                  <Landmark className="h-5 w-5" />
-                </div>
-              </div>
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-baseline justify-between">
-                <span className="text-xs text-slate-400">Current Balance</span>
-                <span className="text-lg font-bold font-mono text-slate-900">{formatBDT(acc.balance)}</span>
-              </div>
-            </div>
-          ))}
+          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs space-y-2">
+            <div className="text-xs font-medium text-slate-500 uppercase">1000 - Petty Cash</div>
+            <div className="text-xl font-bold text-slate-900">{formatBDT(20000)}</div>
+            <div className="text-[11px] text-slate-400">Cash on hand (BDT)</div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs space-y-2">
+            <div className="text-xs font-medium text-slate-500 uppercase">1010 - Main Bank Account</div>
+            <div className="text-xl font-bold text-slate-900">{formatBDT(450000)}</div>
+            <div className="text-[11px] text-slate-400">Standard Chartered BDT</div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs space-y-2">
+            <div className="text-xs font-medium text-slate-500 uppercase">1020 - bKash / Nagad Merchant</div>
+            <div className="text-xl font-bold text-slate-900">{formatBDT(50000)}</div>
+            <div className="text-[11px] text-slate-400">Mobile Financial Service</div>
+          </div>
         </div>
 
         {/* Recent Journal Entries Ledger */}
@@ -98,32 +95,32 @@ export default function BankingIndex({ accounts, allAccounts, recentJournals }) 
               <BookOpen className="h-4 w-4 text-slate-500" />
               <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Recent General Journal Entries</h2>
             </div>
-            <span className="text-xs text-slate-400">Strict Double-Entry Verified</span>
+            <span className="text-xs text-slate-400 font-medium">Double-Entry Equilibrium Verified</span>
           </div>
 
-          <table className="w-full text-left border-collapse text-xs">
+          <table className="w-full text-left border-collapse text-xs text-slate-600">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase tracking-wider font-semibold text-[11px]">
+              <tr className="bg-slate-50 border-b border-slate-200 uppercase tracking-wider font-semibold text-[10px] text-slate-500">
                 <th className="py-3 px-4">Entry #</th>
                 <th className="py-3 px-4">Date</th>
                 <th className="py-3 px-4">Description / Reference</th>
-                <th className="py-3 px-4">Account Lines</th>
-                <th className="py-3 px-4 text-right">Debit</th>
-                <th className="py-3 px-4 text-right">Credit</th>
+                <th className="py-3 px-4">Accounts</th>
+                <th className="py-3 px-4 text-right">Debit (BDT)</th>
+                <th className="py-3 px-4 text-right">Credit (BDT)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {recentJournals?.length > 0 ? (
                 recentJournals.map((j) => (
-                  <tr key={j.id} className="hover:bg-slate-50/75 transition">
+                  <tr key={j.id} className="hover:bg-slate-50/70 transition">
                     <td className="py-3 px-4 font-mono font-bold text-blue-600">
                       {j.entry_number}
                     </td>
                     <td className="py-3 px-4 text-slate-600">
                       {new Date(j.date).toLocaleDateString("en-GB")}
                     </td>
-                    <td className="py-3 px-4 text-slate-800">
-                      <div className="font-medium">{j.description}</div>
+                    <td className="py-3 px-4 text-slate-800 font-medium">
+                      <div>{j.description}</div>
                       {j.reference && <div className="text-[11px] text-slate-400 font-mono">Ref: {j.reference}</div>}
                     </td>
                     <td className="py-3 px-4">
@@ -131,12 +128,12 @@ export default function BankingIndex({ accounts, allAccounts, recentJournals }) 
                         {j.lines?.map((line, idx) => (
                           <div key={idx} className="text-[11px] text-slate-600 flex items-center gap-1.5">
                             <span className="font-mono text-slate-400">{line.account?.code}</span>
-                            <span className="font-medium">{line.account?.name}</span>
+                            <span>{line.account?.name}</span>
                           </div>
                         ))}
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-right font-mono font-medium text-slate-900">
+                    <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
                       <div className="space-y-1">
                         {j.lines?.map((line, idx) => (
                           <div key={idx} className="text-[11px]">
@@ -145,7 +142,7 @@ export default function BankingIndex({ accounts, allAccounts, recentJournals }) 
                         ))}
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-right font-mono font-medium text-slate-900">
+                    <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
                       <div className="space-y-1">
                         {j.lines?.map((line, idx) => (
                           <div key={idx} className="text-[11px]">
@@ -159,7 +156,7 @@ export default function BankingIndex({ accounts, allAccounts, recentJournals }) 
               ) : (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400">
-                    No journal entries recorded yet.
+                    No manual journal entries recorded yet.
                   </td>
                 </tr>
               )}
@@ -179,16 +176,16 @@ export default function BankingIndex({ accounts, allAccounts, recentJournals }) 
               </div>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg font-bold"
+                className="text-slate-400 hover:text-slate-600 font-bold"
               >
-                &times;
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-medium text-slate-700 mb-1">Description</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Description</label>
                   <input
                     type="text"
                     required
@@ -200,7 +197,7 @@ export default function BankingIndex({ accounts, allAccounts, recentJournals }) 
                   {errors.description && <p className="text-red-500 text-[11px] mt-1">{errors.description}</p>}
                 </div>
                 <div>
-                  <label className="block font-medium text-slate-700 mb-1">Reference (Optional)</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Reference (Optional)</label>
                   <input
                     type="text"
                     value={data.reference}
@@ -213,7 +210,7 @@ export default function BankingIndex({ accounts, allAccounts, recentJournals }) 
 
               {/* Journal Lines */}
               <div className="space-y-2 pt-2">
-                <label className="block font-semibold text-slate-800">Journal Lines (Debits & Credits)</label>
+                <label className="block font-bold text-slate-800">Journal Lines (Debits & Credits)</label>
                 {data.lines.map((line, idx) => (
                   <div key={idx} className="grid grid-cols-12 gap-2 items-center">
                     <div className="col-span-5">
@@ -293,7 +290,7 @@ export default function BankingIndex({ accounts, allAccounts, recentJournals }) 
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-md font-medium text-slate-600 hover:bg-slate-50"
+                  className="px-4 py-2 border border-slate-200 rounded-md font-semibold text-slate-600 hover:bg-slate-50"
                 >
                   Cancel
                 </button>
