@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.1] - 2026-09-17
+
+### Fixed & Enhanced
+- **Zoho Books Desktop UI Restoration**:
+  - Restored full Zoho Books desktop layout, sidebar navigation, dark headers, status badges, and color tokens (`slate-900`, `amber-500`, `indigo-500`, `emerald-600`).
+  - Restored interactive slide-out drawers across Invoices, Contacts, Items, Bills, and Banking modules.
+  - Configured `@layer base` CSS variables and Tailwind content globs for flawless rendering.
+  - Added route aliases for financial reporting (`/reports/profit-loss` and `/reports/profit-and-loss`).
+  - Re-compiled production Vite bundle into `public/build/` for zero-build deployment on DirectAdmin.
+
+---
+
 ## [2.0.0] - 2026-09-17
 
 ### Changed - Full Architectural Migration (Next.js 14 to Laravel 11 + Inertia.js React)
