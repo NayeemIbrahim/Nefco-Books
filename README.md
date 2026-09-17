@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
 [![Framework](https://img.shields.io/badge/Next.js-14%20App%20Router-black.svg)](https://nextjs.org/)
-[![Database](https://img.shields.io/badge/Prisma-PostgreSQL-indigo.svg)](https://www.prisma.io/)
+[![Database](https://img.shields.io/badge/Prisma-MySQL-blue.svg)](https://www.prisma.io/)
 
 **Nefco Books** is a comprehensive Cloud Accounting and Business Management Application.
 
@@ -24,7 +24,7 @@
 
 - **Frontend & Backend**: Next.js 14 (App Router, TypeScript)
 - **Styling**: Tailwind CSS + Shadcn UI (Lucide Icons, Radix UI)
-- **Database & ORM**: PostgreSQL & Prisma ORM
+- **Database & ORM**: MySQL & Prisma ORM
 - **Messaging**: Meta WhatsApp Cloud API (`lib/whatsapp.ts`)
 - **Base Currency**: Bangladeshi Taka (`BDT / ৳`)
 
@@ -34,7 +34,7 @@
 
 ### Prerequisites
 - Node.js `v18.x` or higher (`v24.x` recommended)
-- PostgreSQL Database server
+- MySQL / MariaDB server (Compatible with DirectAdmin & standard MySQL hosts)
 
 ### Installation
 
@@ -57,7 +57,7 @@
 
    Ensure `.env` contains:
    ```env
-   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nefco_books_db?schema=public"
+   DATABASE_URL="mysql://cpaneluser_dbuser:password@localhost:3306/cpaneluser_dbname"
    NEXTAUTH_URL="http://localhost:3000"
    NEXTAUTH_SECRET="your-super-secret-key"
    WHATSAPP_PHONE_NUMBER_ID="your_phone_number_id"

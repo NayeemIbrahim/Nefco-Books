@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-09-11
+
+### Changed
+- **Database Architecture Migration**: Migrated Prisma ORM provider from PostgreSQL to **MySQL** for full compatibility with DirectAdmin live web hosting environments.
+- **Environment & Setup Configurations**: Updated `.env` and `.env.example` connection strings to MySQL format (`mysql://username:password@localhost:3306/dbname`).
+- **Documentation**: Updated `README.md` database badges and prerequisites.
+
+---
+
 ## [1.0.0] - 2026-08-06
 
 ### Added
