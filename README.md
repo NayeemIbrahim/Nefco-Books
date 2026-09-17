@@ -1,99 +1,102 @@
-# Nefco Books - Cloud Accounting & Business Management Application
+# Nefco Books 📚
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
-[![Framework](https://img.shields.io/badge/Next.js-14%20App%20Router-black.svg)](https://nextjs.org/)
-[![Database](https://img.shields.io/badge/Prisma-MySQL-blue.svg)](https://www.prisma.io/)
-
-**Nefco Books** is a comprehensive Cloud Accounting and Business Management Application.
+> **Cloud Accounting & Business Management Application for Bangladeshi Businesses**  
+> Inspired by the desktop aesthetic of **Zoho Books**, powered by **Laravel 11**, **Inertia.js (React)**, and **MySQL**, adhering strictly to double-entry accounting standards in **BDT (৳)**.
 
 ---
 
-## Key Features
+## 🚀 Key Highlights & Tech Stack
 
-- 💼 **Double-Entry Accounting Ledger**: Full Chart of Accounts (Assets, Liabilities, Equity, Revenue, Expense) with automated balanced journal entry posting (`Debit === Credit`).
-- 📱 **CRM & WhatsApp Automation**: Customer/Vendor management with mandatory WhatsApp fields, direct `wa.me` chat links, and automated WhatsApp notifications (via Meta Cloud API) when invoices are generated or payments are received.
-- 📦 **Items & Inventory Management**: Goods vs Services tracking, SKU codes, custom units of measure, and BDT purchase/sales price management.
-- 📅 **Order/Booking Pipeline**: Status tracking (`PENDING`, `CONFIRMED`, `COMPLETED`, `CANCELLED`) with **1-Click Conversion** of confirmed bookings into draft/sent invoices.
-- 📄 **Sales Invoicing & Receipts**: Printable/PDF invoices with tax & discount breakdowns in BDT (`৳`).
-- 📊 **Executive Financial Reports**: Real-time Profit & Loss Statement, Balance Sheet (`Assets = Liabilities + Equity`), and Trial Balance verification.
-- 🎨 **Zoho Books Inspired UI**: Clean desktop software aesthetic built with Tailwind CSS, Shadcn UI primitives, slide-out drawer forms, and dense data tables.
-
----
-
-## Tech Stack
-
-- **Frontend & Backend**: Next.js 14 (App Router, TypeScript)
-- **Styling**: Tailwind CSS + Shadcn UI (Lucide Icons, Radix UI)
-- **Database & ORM**: MySQL & Prisma ORM
-- **Messaging**: Meta WhatsApp Cloud API (`lib/whatsapp.ts`)
-- **Base Currency**: Bangladeshi Taka (`BDT / ৳`)
+- **Backend**: Laravel 11 (PHP 8.2+) with Eloquent ORM.
+- **Frontend**: Inertia.js with React 18, Tailwind CSS, Lucide Icons, and Vite.
+- **Database**: MySQL (Production) / SQLite (Local dev option).
+- **Accounting Engine**: Strict Double-Entry Ledger with `bcmath` balance verification, atomic database transactions (`DB::transaction`), and running balance updates.
+- **Communications**: Meta WhatsApp Cloud API integration for automated invoice and payment dispatch.
+- **Hosting Native**: Native PHP execution on DirectAdmin / cPanel / Apache / LiteSpeed, avoiding Node.js Passenger memory limits.
 
 ---
 
-## Getting Started
+## 📂 Core Business Modules
+
+1. **Executive Dashboard**: Real-time liquidity summary (Cash, Bank, bKash), Receivables vs. Payables, Net Cash Flow, and Recent Invoices.
+2. **Contacts & CRM**: Customer and Vendor directory, real-time balance tracking, and 1-click WhatsApp chat (`wa.me`).
+3. **Products & Services Catalog**: SKU, unit measures, sales price, purchase cost, and inventory stock tracking in BDT.
+4. **Bookings & Advance Orders**: Service appointments, advance deposits, and 1-click conversion to sales invoices.
+5. **Sales & Invoices**: Invoice generation, itemized tax and discount computations, printable layout, and WhatsApp notification queue.
+6. **Purchases & Vendor Bills**: Accounts payable tracking, vendor bills, and expense reconciliation.
+7. **Cash, Banking & General Journal**: Bank account balances and balanced manual journal entries (`Debit = Credit`).
+8. **Financial Statements**:
+   - **Profit & Loss**: Operating Revenue minus COGS and Operating Expenses.
+   - **Balance Sheet**: Assets = Liabilities + Equity validation.
+   - **Trial Balance**: Complete general ledger equilibrium verification.
+
+---
+
+## 💻 Local Development Setup
 
 ### Prerequisites
-- Node.js `v18.x` or higher (`v24.x` recommended)
-- MySQL / MariaDB server (Compatible with DirectAdmin & standard MySQL hosts)
+- **PHP 8.2+** (with `bcmath`, `pdo_mysql` / `pdo_sqlite`, `mbstring`, `openssl`, `curl`)
+- **Composer** (v2.x)
+- **Node.js** (v18+) & **npm**
 
-### Installation
+### Installation Steps
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-username/nefco-books.git
-   cd nefco-books
+   git clone https://github.com/NayeemIbrahim/Nefco-Books.git
+   cd Nefco-Books
    ```
 
-2. **Install dependencies**:
+2. **Install PHP dependencies**:
+   ```bash
+   composer install
+   ```
+
+3. **Install JavaScript dependencies & build assets**:
    ```bash
    npm install
+   npm run build
    ```
 
-3. **Configure Environment Variables**:
-   Copy `.env.example` to `.env` and fill in your database credentials:
+4. **Configure Environment**:
    ```bash
    cp .env.example .env
+   php artisan key:generate
    ```
+   *Configure your `DB_CONNECTION`, `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD` in `.env`.*
 
-   Ensure `.env` contains:
-   ```env
-   DATABASE_URL="mysql://cpaneluser_dbuser:password@localhost:3306/cpaneluser_dbname"
-   NEXTAUTH_URL="http://localhost:3000"
-   NEXTAUTH_SECRET="your-super-secret-key"
-   WHATSAPP_PHONE_NUMBER_ID="your_phone_number_id"
-   WHATSAPP_ACCESS_TOKEN="your_access_token"
-   NEXT_PUBLIC_APP_NAME="Nefco Books"
-   NEXT_PUBLIC_CURRENCY_SYMBOL="৳"
-   NEXT_PUBLIC_CURRENCY_CODE="BDT"
-   ```
-
-4. **Initialize Database & Prisma**:
+5. **Run Migrations & Seeders**:
    ```bash
-   npx prisma generate
-   npx prisma db push
-   npm run prisma:seed
+   php artisan migrate --seed
    ```
 
-5. **Run Development Server**:
+6. **Start Local Development Server**:
    ```bash
-   npm run dev
+   php artisan serve
    ```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+   Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser.
 
 ---
 
-## Financial Reports & Double-Entry Mapping
+## 🌐 Live Server Deployment (DirectAdmin / cPanel)
 
-| Transaction | Debit Account | Credit Account |
-| :--- | :--- | :--- |
-| **Invoice Confirmation** | `1100 Accounts Receivable` | `4000 Sales Revenue` |
-| **Customer Payment Received** | `1000 Cash / 1010 Bank / 1020 bKash` | `1100 Accounts Receivable` |
-| **Vendor Bill Received** | `6000 Expense / 5000 COGS` | `2000 Accounts Payable` |
-| **Vendor Bill Paid** | `2000 Accounts Payable` | `1010 Bank Account` |
+Because Nefco Books is powered by **Laravel 11**, deployment on shared hosting (such as DirectAdmin at `https://app.nefconit.com/`) is seamless:
+
+1. **Point Web Root to `/public`**:
+   - In DirectAdmin / cPanel, set the domain's document root (or create a symbolic link) to the `public/` directory of this project.
+2. **Environment Configuration**:
+   - Copy `.env.example` to `.env`.
+   - Set `APP_ENV=production`, `APP_DEBUG=false`, and `APP_URL=https://app.nefconit.com`.
+   - Fill in your live MySQL database credentials.
+   - Run `php artisan key:generate`.
+3. **Database Migration**:
+   - Run `php artisan migrate --seed --force` to create the tables and seed the Chart of Accounts.
+4. **Permissions**:
+   - Ensure `storage/` and `bootstrap/cache/` directories are writable by the web server (`chmod -R 775 storage bootstrap/cache`).
+5. **No Node Daemon Required**:
+   - Frontend Vite assets are pre-compiled and tracked in `public/build/`, requiring zero Node.js daemon processes or RAM overhead on the server!
 
 ---
 
-## License
-
-Private / Proprietary software built for **Nefco Books**.
+## 📄 License
+This project is proprietary and confidential to **Nefco Books**.
