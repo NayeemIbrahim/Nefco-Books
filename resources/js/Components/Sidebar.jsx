@@ -9,6 +9,7 @@ import {
   CreditCard,
   Landmark,
   BarChart3,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ const navigation = [
   { name: "Bills & Purchases", href: "/purchases/bills", icon: CreditCard },
   { name: "Banking & Ledger", href: "/banking", icon: Landmark },
   { name: "Financial Reports", href: "/reports", icon: BarChart3 },
+  { name: "Settings & Setup", href: "/settings", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -29,7 +31,7 @@ export function Sidebar() {
   return (
     <div className="flex flex-col w-64 bg-slate-900 text-slate-200 border-r border-slate-800 min-h-screen shrink-0">
       <div className="flex items-center gap-3 h-16 px-6 bg-slate-950 border-b border-slate-800">
-        <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white shadow-md">
+        <div className="h-8 w-8 rounded-lg bg-amber-600 flex items-center justify-center font-bold text-white shadow-md">
           NB
         </div>
         <div>
@@ -53,7 +55,7 @@ export function Sidebar() {
               className={cn(
                 "flex items-center gap-3 px-3 py-2 text-xs font-medium rounded-md transition-all duration-150",
                 isActive
-                  ? "bg-blue-600 text-white shadow-sm font-semibold"
+                  ? "bg-amber-600 text-white shadow-sm font-semibold"
                   : "text-slate-300 hover:bg-slate-800 hover:text-white"
               )}
             >
@@ -67,7 +69,7 @@ export function Sidebar() {
       <div className="p-4 border-t border-slate-800 bg-slate-950/50">
         <div className="flex items-center justify-between text-[11px] text-slate-400">
           <span>Currency Base</span>
-          <span className="bg-blue-950 text-blue-300 px-2 py-0.5 rounded font-mono font-bold">BDT (৳)</span>
+          <span className="bg-amber-950 text-amber-300 px-2 py-0.5 rounded font-mono font-bold">BDT (৳)</span>
         </div>
       </div>
     </div>

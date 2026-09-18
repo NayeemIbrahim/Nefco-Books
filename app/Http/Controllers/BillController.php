@@ -6,7 +6,9 @@ use App\Models\Bill;
 use App\Models\Contact;
 use App\Models\Item;
 use App\Services\AccountingService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,9 +21,76 @@ class BillController extends Controller
     public function index(): Response
     {
         return Inertia::render('Bills/Index', [
-            'bills'    => Bill::with(['contact', 'lineItems'])->latest()->paginate(15),
-            'vendors'  => Contact::whereIn('type', ['VENDOR', 'BOTH'])->get(['id', 'name']),
-            'items'    => Item::all(),
+            'bills'   => Bill::with(['contact', 'lineItems'])->latest()->paginate(25),
+            'vendors' => Contact::whereIn('type', ['VENDOR', 'BOTH'])->get(['id', 'name', 'phone', 'whatsapp_number']),
+            'items'   => Item::all(),
         ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'contact_name'   => 'required|string|max:255',
+            'bill_date'      => 'required|date',
+            'due_date'       => 'nullable|date',
+            'notes'          => 'nullable|string',
+            'subtotal'       => 'required|numeric|min:0',
+            'tax_amount'     => 'nullable|numeric|min:0',
+            'discount_amount'=> 'nullable|numeric|min:0',
+            'total_amount'   => 'required|numeric|min:0',
+            'line_items'     => 'required|array|min:1',
+            'line_items.*.description' => 'required|string',
+            'line_items.*.quantity'    => 'required|numeric|min:1',
+            'line_items.*.unit_price'  => 'required|numeric|min:0',
+            'line_items.*.amount'      => 'required|numeric|min:0',
+        ]);
+
+        $vendor = Contact::firstOrCreate(
+            ['name' => $validated['contact_name']],
+            ['type' => 'VENDOR', 'currency' => 'BDT']
+        );
+
+        $billCount = Bill::count() + 1;
+        $billNumber = 'BIL-2026-' . str_pad($billCount, 4, '0', STR_PAD_LEFT);
+
+        DB::transaction(function () use ($validated, $vendor, $billNumber) {
+            $bill = Bill::create([
+                'bill_number'    => $billNumber,
+                'contact_id'     => $vendor->id,
+                'bill_date'      => $validated['bill_date'],
+                'due_date'       => $validated['due_date'] ?? $validated['bill_date'],
+                'status'         => 'RECEIVED',
+                'subtotal'       => $validated['subtotal'],
+                'tax_amount'     => $validated['tax_amount'] ?? 0,
+                'discount_amount'=> $validated['discount_amount'] ?? 0,
+                'total_amount'   => $validated['total_amount'],
+                'notes'          => $validated['notes'] ?? null,
+            ]);
+
+            foreach ($validated['line_items'] as $item) {
+                $bill->lineItems()->create([
+                    'description' => $item['description'],
+                    'quantity'    => $item['quantity'],
+                    'unit_price'  => $item['unit_price'],
+                    'amount'      => $item['amount'],
+                ]);
+            }
+
+            // Double-entry posting: Debit 6000 Expenses, Credit 2000 AP
+            $this->accountingService->postBill($bill);
+        });
+
+        return back()->with('success', "Vendor Bill {$billNumber} recorded and posted to general ledger!");
+    }
+
+    public function markAsPaid(Bill $bill): RedirectResponse
+    {
+        if ($bill->status === 'PAID') {
+            return back()->with('info', "Bill {$bill->bill_number} is already marked as PAID.");
+        }
+
+        $bill->update(['status' => 'PAID']);
+
+        return back()->with('success', "Bill {$bill->bill_number} marked as PAID.");
     }
 }
