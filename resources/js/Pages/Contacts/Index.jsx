@@ -8,6 +8,7 @@ export default function ContactsIndex({ contacts, filters }) {
   const [search, setSearch] = useState(filters?.search || "");
   const [activeTab, setActiveTab] = useState(filters?.type || "ALL");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [editingContact, setEditingContact] = useState(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -19,6 +20,34 @@ export default function ContactsIndex({ contacts, filters }) {
     address: "",
     city: "Dhaka",
   });
+
+  const handleOpenCreateDrawer = () => {
+    setEditingContact(null);
+    setFormData({
+      name: "",
+      company_name: "",
+      type: "CUSTOMER",
+      whatsapp_number: "+8801",
+      email: "",
+      address: "",
+      city: "Dhaka",
+    });
+    setIsDrawerOpen(true);
+  };
+
+  const handleOpenEditDrawer = (contact) => {
+    setEditingContact(contact);
+    setFormData({
+      name: contact.name || "",
+      company_name: contact.company_name || "",
+      type: contact.type || "CUSTOMER",
+      whatsapp_number: contact.whatsapp_number || "+8801",
+      email: contact.email || "",
+      address: contact.address || "",
+      city: contact.city || "Dhaka",
+    });
+    setIsDrawerOpen(true);
+  };
 
   const handleFilter = (type) => {
     setActiveTab(type);
@@ -32,20 +61,20 @@ export default function ContactsIndex({ contacts, filters }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    router.post("/contacts", formData, {
-      onSuccess: () => {
-        setIsDrawerOpen(false);
-        setFormData({
-          name: "",
-          company_name: "",
-          type: "CUSTOMER",
-          whatsapp_number: "+8801",
-          email: "",
-          address: "",
-          city: "Dhaka",
-        });
-      },
-    });
+    if (editingContact) {
+      router.post(`/contacts/${editingContact.id}`, formData, {
+        onSuccess: () => {
+          setIsDrawerOpen(false);
+          setEditingContact(null);
+        },
+      });
+    } else {
+      router.post("/contacts", formData, {
+        onSuccess: () => {
+          setIsDrawerOpen(false);
+        },
+      });
+    }
   };
 
   const contactList = contacts?.data || contacts || [];
@@ -61,7 +90,7 @@ export default function ContactsIndex({ contacts, filters }) {
             <p className="text-xs text-slate-500">Manage customers, vendors, and WhatsApp integration</p>
           </div>
           <button
-            onClick={() => setIsDrawerOpen(true)}
+            onClick={handleOpenCreateDrawer}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-md shadow-xs transition"
           >
             <Plus className="h-4 w-4" />
@@ -121,9 +150,13 @@ export default function ContactsIndex({ contacts, filters }) {
                 </tr>
               ) : (
                 contactList.map((contact) => (
-                  <tr key={contact.id} className="hover:bg-slate-50/70 transition">
+                  <tr
+                    key={contact.id}
+                    onClick={() => handleOpenEditDrawer(contact)}
+                    className="hover:bg-blue-50/50 cursor-pointer transition"
+                  >
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-900">{contact.name}</div>
+                      <div className="font-semibold text-blue-600 hover:underline">{contact.name}</div>
                       {contact.company_name && (
                         <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
                           <Building2 className="h-3 w-3" />
@@ -172,9 +205,9 @@ export default function ContactsIndex({ contacts, filters }) {
                         {formatBDT(contact.current_balance)}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
                       <a
-                        href={`https://wa.me/${contact.whatsapp_number.replace(/\D/g, "")}`}
+                        href={`https://wa.me/${(contact.whatsapp_number || "").replace(/\D/g, "")}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded hover:bg-emerald-100 transition"
@@ -196,8 +229,12 @@ export default function ContactsIndex({ contacts, filters }) {
             <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col justify-between">
               <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Create New Contact</h2>
-                  <p className="text-xs text-slate-500">Add Customer or Vendor to CRM</p>
+                  <h2 className="text-base font-bold text-slate-900">
+                    {editingContact ? `Edit Contact: ${editingContact.name}` : "Create New Contact"}
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    {editingContact ? "Update customer or vendor details" : "Add Customer or Vendor to CRM"}
+                  </p>
                 </div>
                 <button
                   onClick={() => setIsDrawerOpen(false)}

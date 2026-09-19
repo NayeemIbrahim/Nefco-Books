@@ -22,6 +22,7 @@ class User extends Authenticatable
         'phone',
         'currency_symbol',
         'currency_code',
+        'default_uom',
         'whatsapp_phone_number_id',
         'whatsapp_access_token',
     ];

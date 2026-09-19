@@ -25,12 +25,15 @@ Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
 // 2. Contacts (CRM)
 Route::resource('contacts', ContactController::class);
+Route::post('contacts/{contact}', [ContactController::class, 'update'])->name('contacts.update');
 
 // 3. Items & Inventory
 Route::resource('items', ItemController::class);
+Route::post('items/{item}', [ItemController::class, 'update'])->name('items.update');
 
 // 4. Bookings & Orders
 Route::resource('bookings', BookingController::class);
+Route::post('bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
 Route::post('bookings/{booking}/convert-to-invoice', [BookingController::class, 'convertToInvoice'])->name('bookings.convert');
 Route::post('bookings/{booking}/convert', [BookingController::class, 'convertToInvoice']);
 

@@ -4,7 +4,7 @@ import { formatBDT } from "@/lib/utils";
 import { ArrowUpRight, ArrowDownLeft, Building2, TrendingUp, Plus } from "lucide-react";
 import { Head, Link } from "@inertiajs/react";
 
-export default function Dashboard({ metrics, recentInvoices }) {
+export default function Dashboard({ metrics, recentInvoices, recentBookings }) {
   const receivablesBDT = metrics?.receivables ?? 145000.0;
   const payablesBDT = metrics?.payables ?? 38500.0;
   const bankBalanceBDT = metrics?.bankBalance ?? 520000.0;
@@ -155,6 +155,78 @@ export default function Dashboard({ metrics, recentInvoices }) {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Recent Product Bookings & Orders */}
+        <div className="bg-white rounded-lg border border-slate-200 shadow-xs p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-sm font-bold text-slate-800">Recent Product Bookings & Orders</h2>
+              <p className="text-xs text-slate-400">Customer product reservations and scheduled orders</p>
+            </div>
+            <Link
+              href="/bookings"
+              className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
+            >
+              View All Bookings →
+            </Link>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left text-slate-600">
+              <thead className="bg-slate-50 text-slate-500 uppercase font-semibold text-[10px]">
+                <tr>
+                  <th className="py-2.5 px-3">Booking #</th>
+                  <th className="py-2.5 px-3">Customer</th>
+                  <th className="py-2.5 px-3">Booking Date</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3 text-right">Amount (BDT)</th>
+                  <th className="py-2.5 px-3 text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {(recentBookings || []).length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-4 text-center text-slate-400">
+                      No recent bookings. <Link href="/bookings" className="text-blue-600 font-bold underline">Create booking</Link>
+                    </td>
+                  </tr>
+                ) : (
+                  recentBookings.map((bkg) => (
+                    <tr key={bkg.id} className="hover:bg-slate-50/60 transition">
+                      <td className="py-2.5 px-3 font-mono font-bold text-blue-600">{bkg.booking_number}</td>
+                      <td className="py-2.5 px-3 font-semibold text-slate-900">{bkg.contact?.name || "Customer"}</td>
+                      <td className="py-2.5 px-3 text-slate-500">
+                        {bkg.booking_date ? new Date(bkg.booking_date).toLocaleDateString("en-GB") : "N/A"}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                            bkg.status === "COMPLETED"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : bkg.status === "CONFIRMED"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {bkg.status}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-right font-bold text-slate-900">{formatBDT(bkg.total_amount)}</td>
+                      <td className="py-2.5 px-3 text-center">
+                        <Link
+                          href="/bookings"
+                          className="px-2.5 py-1 text-[10px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition"
+                        >
+                          Manage
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 

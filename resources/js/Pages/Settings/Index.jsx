@@ -33,6 +33,7 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
   const [phone, setPhone] = useState(company?.phone || "+8801711223344");
   const [currencySymbol, setCurrencySymbol] = useState(company?.currency_symbol || "৳");
   const [currencyCode, setCurrencyCode] = useState(company?.currency_code || "BDT");
+  const [defaultUom, setDefaultUom] = useState(company?.default_uom || "Pcs");
   const [whatsappPhoneId, setWhatsappPhoneId] = useState(company?.whatsapp_phone_number_id || "");
   const [whatsappToken, setWhatsappToken] = useState(company?.whatsapp_access_token || "");
 
@@ -73,6 +74,7 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
         phone: phone,
         currency_symbol: currencySymbol,
         currency_code: currencyCode,
+        default_uom: defaultUom,
         whatsapp_phone_number_id: whatsappPhoneId,
         whatsapp_access_token: whatsappToken,
       },
@@ -462,7 +464,7 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Currency Symbol *</label>
                     <input
@@ -481,6 +483,17 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
                       value={currencyCode}
                       onChange={(e) => setCurrencyCode(e.target.value)}
                       className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md font-bold text-slate-900"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Default Unit of Measure (UOM)</label>
+                    <input
+                      type="text"
+                      required
+                      value={defaultUom}
+                      onChange={(e) => setDefaultUom(e.target.value)}
+                      placeholder="e.g. Pcs, Kg, Unit"
+                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md font-semibold text-slate-900"
                     />
                   </div>
                 </div>

@@ -58,6 +58,7 @@ class SettingsController extends Controller
                 'phone'                  => $user->phone ?? '+8801711223344',
                 'currency_symbol'        => $user->currency_symbol ?? '৳',
                 'currency_code'          => $user->currency_code ?? 'BDT',
+                'default_uom'            => $user->default_uom ?? 'Pcs',
                 'whatsapp_phone_number_id'=> $user->whatsapp_phone_number_id ?? '',
                 'whatsapp_access_token'  => $user->whatsapp_access_token ?? '',
             ],
@@ -104,6 +105,7 @@ class SettingsController extends Controller
             'phone'                  => 'nullable|string|max:50',
             'currency_symbol'        => 'required|string|max:10',
             'currency_code'          => 'required|string|max:10',
+            'default_uom'            => 'nullable|string|max:20',
             'whatsapp_phone_number_id'=> 'nullable|string',
             'whatsapp_access_token'  => 'nullable|string',
         ]);

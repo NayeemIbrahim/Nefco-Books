@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Account;
+use App\Models\Booking;
 use App\Models\Invoice;
 use App\Models\Bill;
 use Inertia\Inertia;
@@ -18,6 +19,7 @@ class DashboardController extends Controller
         $netCashFlow = $receivables - $payables;
 
         $recentInvoices = Invoice::with('contact')->latest()->take(5)->get();
+        $recentBookings = Booking::with(['contact', 'lineItems.item'])->latest()->take(5)->get();
 
         return Inertia::render('Dashboard', [
             'metrics' => [
@@ -25,8 +27,10 @@ class DashboardController extends Controller
                 'payables'    => (float)$payables,
                 'bankBalance' => (float)$bankBalance,
                 'netCashFlow' => (float)$netCashFlow,
+                'totalBookings' => Booking::count(),
             ],
             'recentInvoices' => $recentInvoices,
+            'recentBookings' => $recentBookings,
         ]);
     }
 }

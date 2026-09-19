@@ -1,24 +1,68 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { formatBDT } from "@/lib/utils";
-import { Plus, Search, CalendarCheck, FileText, Trash2, X, Phone, Calendar } from "lucide-react";
+import { Plus, Search, CalendarCheck, FileText, Trash2, X, Phone, Calendar, Edit, Package } from "lucide-react";
 import { Head, router } from "@inertiajs/react";
 
 export default function BookingsIndex({ bookings, contacts, items, filters }) {
   const [search, setSearch] = useState(filters?.search || "");
   const [statusFilter, setStatusFilter] = useState(filters?.status || "ALL");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [editingBookingId, setEditingBookingId] = useState(null);
 
   const contactList = contacts || [];
+  const itemList = items || [];
 
   // Form State
   const [formContactName, setFormContactName] = useState("");
   const [formWhatsapp, setFormWhatsapp] = useState("");
   const [formServiceDate, setFormServiceDate] = useState(new Date().toISOString().split("T")[0]);
+  const [formStatus, setFormStatus] = useState("CONFIRMED");
   const [formNotes, setFormNotes] = useState("");
   const [formLineItems, setFormLineItems] = useState([
-    { description: "", quantity: 1, unit_price: 0, amount: 0 },
+    { item_id: null, description: "", quantity: 1, unit_price: 0, amount: 0 },
   ]);
+
+  const resetForm = () => {
+    setEditingBookingId(null);
+    setFormContactName("");
+    setFormWhatsapp("");
+    setFormServiceDate(new Date().toISOString().split("T")[0]);
+    setFormStatus("CONFIRMED");
+    setFormNotes("");
+    setFormLineItems([{ item_id: null, description: "", quantity: 1, unit_price: 0, amount: 0 }]);
+  };
+
+  const handleOpenCreateDrawer = () => {
+    resetForm();
+    setIsDrawerOpen(true);
+  };
+
+  const handleOpenEditDrawer = (bkg) => {
+    setEditingBookingId(bkg.id);
+    setFormContactName(bkg.contact?.name || "");
+    setFormWhatsapp(bkg.contact?.whatsapp_number || bkg.contact?.phone || "");
+    setFormServiceDate(bkg.booking_date ? bkg.booking_date.split("T")[0] : new Date().toISOString().split("T")[0]);
+    setFormStatus(bkg.status || "CONFIRMED");
+    setFormNotes(bkg.notes || "");
+
+    const lines = bkg.line_items || bkg.lineItems || [];
+    if (lines.length > 0) {
+      setFormLineItems(
+        lines.map((l) => ({
+          item_id: l.item_id || null,
+          description: l.description,
+          quantity: l.quantity,
+          unit_price: l.unit_price,
+          amount: l.amount,
+        }))
+      );
+    } else {
+      setFormLineItems([{ item_id: null, description: "Booking Service / Product", quantity: 1, unit_price: bkg.total_amount, amount: bkg.total_amount }]);
+    }
+
+    setIsDrawerOpen(true);
+  };
 
   const handleSelectContact = (name) => {
     setFormContactName(name);
@@ -28,10 +72,34 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
     }
   };
 
+  const handleProductSelect = (index, value) => {
+    const matched = itemList.find(
+      (it) => it.name.toLowerCase() === value.toLowerCase() || it.sku?.toLowerCase() === value.toLowerCase()
+    );
+    const updated = [...formLineItems];
+    if (matched) {
+      const qty = parseFloat(updated[index].quantity) || 1;
+      const price = parseFloat(matched.sales_price) || 0;
+      updated[index] = {
+        ...updated[index],
+        item_id: matched.id,
+        description: matched.name,
+        unit_price: price,
+        amount: qty * price,
+      };
+    } else {
+      updated[index] = {
+        ...updated[index],
+        description: value,
+      };
+    }
+    setFormLineItems(updated);
+  };
+
   const handleAddLineItem = () => {
     setFormLineItems([
       ...formLineItems,
-      { description: "", quantity: 1, unit_price: 0, amount: 0 },
+      { item_id: null, description: "", quantity: 1, unit_price: 0, amount: 0 },
     ]);
   };
 
@@ -54,26 +122,31 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    router.post(
-      "/bookings",
-      {
-        contact_name: formContactName,
-        whatsapp_number: formWhatsapp,
-        booking_date: formServiceDate,
-        total_amount: totalCalculatedBDT,
-        notes: formNotes,
-        line_items: formLineItems,
-      },
-      {
+    const payload = {
+      contact_name: formContactName,
+      whatsapp_number: formWhatsapp,
+      booking_date: formServiceDate,
+      status: formStatus,
+      total_amount: totalCalculatedBDT,
+      notes: formNotes,
+      line_items: formLineItems,
+    };
+
+    if (editingBookingId) {
+      router.post(`/bookings/${editingBookingId}`, payload, {
         onSuccess: () => {
           setIsDrawerOpen(false);
-          setFormContactName("");
-          setFormWhatsapp("");
-          setFormNotes("");
-          setFormLineItems([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
+          resetForm();
         },
-      }
-    );
+      });
+    } else {
+      router.post("/bookings", payload, {
+        onSuccess: () => {
+          setIsDrawerOpen(false);
+          resetForm();
+        },
+      });
+    }
   };
 
   const bookingList = bookings?.data || bookings || [];
@@ -89,10 +162,10 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
               <CalendarCheck className="h-5 w-5 text-blue-600" />
               <span>Orders & Bookings</span>
             </h1>
-            <p className="text-xs text-slate-500">Record customer service requests, manage bookings, and convert to invoices</p>
+            <p className="text-xs text-slate-500">Record customer service requests, manage product bookings, and convert to invoices</p>
           </div>
           <button
-            onClick={() => setIsDrawerOpen(true)}
+            onClick={handleOpenCreateDrawer}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-md shadow-xs transition"
           >
             <Plus className="h-4 w-4" />
@@ -122,14 +195,18 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                 </tr>
               ) : (
                 bookingList.map((bkg) => (
-                  <tr key={bkg.id} className="hover:bg-slate-50/70 transition">
+                  <tr
+                    key={bkg.id}
+                    onClick={() => handleOpenEditDrawer(bkg)}
+                    className="hover:bg-slate-50/70 cursor-pointer transition"
+                  >
                     <td className="py-3 px-4 font-mono font-bold text-blue-600">
                       {bkg.booking_number}
                     </td>
                     <td className="py-3 px-4">
                       <div className="font-semibold text-slate-900">{bkg.contact?.name}</div>
                       <div className="text-[11px] text-slate-400 font-mono">
-                        {bkg.contact?.whatsapp_number}
+                        {bkg.contact?.whatsapp_number || bkg.contact?.phone}
                       </div>
                     </td>
                     <td className="py-3 px-4 text-slate-600">
@@ -151,14 +228,25 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                     <td className="py-3 px-4 text-right font-bold text-slate-900">
                       {formatBDT(bkg.total_amount)}
                     </td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => router.post(`/bookings/${bkg.id}/convert`)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-bold bg-blue-600 text-white rounded-md hover:bg-blue-700 transition shadow-xs"
-                      >
-                        <FileText className="h-3 w-3" />
-                        <span>1-Click Convert to Invoice</span>
-                      </button>
+                    <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => handleOpenEditDrawer(bkg)}
+                          className="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded"
+                          title="Edit Booking"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </button>
+                        {bkg.status !== "COMPLETED" && (
+                          <button
+                            onClick={() => router.post(`/bookings/${bkg.id}/convert`)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-blue-600 text-white rounded hover:bg-blue-700 transition shadow-xs"
+                          >
+                            <FileText className="h-3 w-3" />
+                            <span>Invoice</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -173,8 +261,10 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
             <div className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col justify-between">
               <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Create Order / Booking</h2>
-                  <p className="text-xs text-slate-500">Record customer service request</p>
+                  <h2 className="text-base font-bold text-slate-900">
+                    {editingBookingId ? "Edit Order / Booking" : "Create Order / Booking"}
+                  </h2>
+                  <p className="text-xs text-slate-500">Record customer service request & product reservations</p>
                 </div>
                 <button
                   onClick={() => setIsDrawerOpen(false)}
@@ -216,20 +306,38 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                   </div>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Service / Delivery Date</label>
-                  <input
-                    type="date"
-                    value={formServiceDate}
-                    onChange={(e) => setFormServiceDate(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Booking / Delivery Date</label>
+                    <input
+                      type="date"
+                      value={formServiceDate}
+                      onChange={(e) => setFormServiceDate(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Status</label>
+                    <select
+                      value={formStatus}
+                      onChange={(e) => setFormStatus(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
+                    >
+                      <option value="CONFIRMED">CONFIRMED</option>
+                      <option value="PENDING">PENDING</option>
+                      <option value="COMPLETED">COMPLETED</option>
+                      <option value="CANCELLED">CANCELLED</option>
+                    </select>
+                  </div>
                 </div>
 
-                {/* Line items */}
+                {/* Line items with product auto-fill */}
                 <div className="border border-slate-200 rounded-lg p-3 space-y-3 bg-slate-50/50">
                   <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                    <h3 className="text-xs font-bold text-slate-800">Booking Services / Line Items</h3>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                      <Package className="h-4 w-4 text-blue-600" />
+                      <span>Booking Products / Services (Auto-loaded)</span>
+                    </div>
                     <button
                       type="button"
                       onClick={handleAddLineItem}
@@ -239,15 +347,25 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                     </button>
                   </div>
 
+                  {/* Product Datalist */}
+                  <datalist id="catalog-products-list">
+                    {itemList.map((it) => (
+                      <option key={it.id} value={it.name}>
+                        {it.sku ? `[${it.sku}] ` : ""}{formatBDT(it.sales_price)} / {it.unit}
+                      </option>
+                    ))}
+                  </datalist>
+
                   {formLineItems.map((item, idx) => (
                     <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-md border border-slate-200">
                       <div className="col-span-6">
                         <input
                           type="text"
                           required
-                          placeholder="Service / Goods Description"
+                          list="catalog-products-list"
+                          placeholder="Type or select catalog product..."
                           value={item.description}
-                          onChange={(e) => handleLineItemChange(idx, "description", e.target.value)}
+                          onChange={(e) => handleProductSelect(idx, e.target.value)}
                           className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded"
                         />
                       </div>
@@ -282,7 +400,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                   ))}
 
                   <div className="flex justify-between items-center pt-2 font-bold text-xs text-slate-800">
-                    <span>Estimated Total (BDT):</span>
+                    <span>Order Total (BDT):</span>
                     <span className="text-blue-600">{formatBDT(totalCalculatedBDT)}</span>
                   </div>
                 </div>
@@ -310,7 +428,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                     type="submit"
                     className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold shadow-xs"
                   >
-                    Save Booking
+                    {editingBookingId ? "Save Booking Changes" : "Save Booking"}
                   </button>
                 </div>
               </form>

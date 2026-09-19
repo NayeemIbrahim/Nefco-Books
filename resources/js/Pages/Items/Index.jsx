@@ -4,22 +4,50 @@ import { formatBDT } from "@/lib/utils";
 import { Plus, Search, Package, X } from "lucide-react";
 import { Head, router } from "@inertiajs/react";
 
-export default function ItemsIndex({ items, filters }) {
+export default function ItemsIndex({ items, filters, defaultUom = "Pcs" }) {
   const [search, setSearch] = useState(filters?.search || "");
   const [typeFilter, setTypeFilter] = useState(filters?.type || "ALL");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
 
   // Form State
   const [formData, setFormData] = useState({
     name: "",
-    type: "SERVICE",
-    sku: "",
+    type: "GOODS",
     description: "",
     sales_price: 0,
     purchase_price: 0,
-    unit: "Pcs",
+    unit: defaultUom || "Pcs",
     stock_quantity: 0,
   });
+
+  const handleOpenCreateDrawer = () => {
+    setEditingItem(null);
+    setFormData({
+      name: "",
+      type: "GOODS",
+      description: "",
+      sales_price: 0,
+      purchase_price: 0,
+      unit: defaultUom || "Pcs",
+      stock_quantity: 0,
+    });
+    setIsDrawerOpen(true);
+  };
+
+  const handleOpenEditDrawer = (item) => {
+    setEditingItem(item);
+    setFormData({
+      name: item.name || "",
+      type: item.type || "GOODS",
+      description: item.description || "",
+      sales_price: parseFloat(item.sales_price) || 0,
+      purchase_price: parseFloat(item.purchase_price) || 0,
+      unit: item.unit || defaultUom || "Pcs",
+      stock_quantity: parseFloat(item.stock_quantity) || 0,
+    });
+    setIsDrawerOpen(true);
+  };
 
   const handleFilter = (t) => {
     setTypeFilter(t);
@@ -33,21 +61,20 @@ export default function ItemsIndex({ items, filters }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    router.post("/items", formData, {
-      onSuccess: () => {
-        setIsDrawerOpen(false);
-        setFormData({
-          name: "",
-          type: "SERVICE",
-          sku: "",
-          description: "",
-          sales_price: 0,
-          purchase_price: 0,
-          unit: "Pcs",
-          stock_quantity: 0,
-        });
-      },
-    });
+    if (editingItem) {
+      router.post(`/items/${editingItem.id}`, formData, {
+        onSuccess: () => {
+          setIsDrawerOpen(false);
+          setEditingItem(null);
+        },
+      });
+    } else {
+      router.post("/items", formData, {
+        onSuccess: () => {
+          setIsDrawerOpen(false);
+        },
+      });
+    }
   };
 
   const itemList = items?.data || items || [];
@@ -63,7 +90,7 @@ export default function ItemsIndex({ items, filters }) {
             <p className="text-xs text-slate-500">Manage products, services, and BDT pricing</p>
           </div>
           <button
-            onClick={() => setIsDrawerOpen(true)}
+            onClick={handleOpenCreateDrawer}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-md shadow-xs transition"
           >
             <Plus className="h-4 w-4" />
@@ -123,9 +150,13 @@ export default function ItemsIndex({ items, filters }) {
                 </tr>
               ) : (
                 itemList.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50/70 transition">
+                  <tr
+                    key={item.id}
+                    onClick={() => handleOpenEditDrawer(item)}
+                    className="hover:bg-blue-50/50 cursor-pointer transition"
+                  >
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-900">{item.name}</div>
+                      <div className="font-semibold text-blue-600 hover:underline">{item.name}</div>
                       {item.sku && (
                         <div className="text-[11px] text-slate-400 font-mono mt-0.5">
                           SKU: {item.sku}
@@ -170,8 +201,12 @@ export default function ItemsIndex({ items, filters }) {
             <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col justify-between">
               <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Create Catalog Item</h2>
-                  <p className="text-xs text-slate-500">Add product or service with BDT pricing</p>
+                  <h2 className="text-base font-bold text-slate-900">
+                    {editingItem ? `Edit Item: ${editingItem.name}` : "Create Catalog Item"}
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    {editingItem ? "Update item details and pricing" : "SKU will automatically generate (e.g. tom-001)"}
+                  </p>
                 </div>
                 <button
                   onClick={() => setIsDrawerOpen(false)}
@@ -189,7 +224,7 @@ export default function ItemsIndex({ items, filters }) {
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g. Web Application Development"
+                    placeholder="e.g. Tomato or Web Development"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
@@ -202,22 +237,29 @@ export default function ItemsIndex({ items, filters }) {
                       onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md bg-white focus:ring-2 focus:ring-blue-500/20"
                     >
-                      <option value="SERVICE">SERVICE</option>
-                      <option value="GOODS">GOODS</option>
+                      <option value="GOODS">GOODS (Physical)</option>
+                      <option value="SERVICE">SERVICE (Billing)</option>
                     </select>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">SKU / Code</label>
+                    <label className="text-xs font-semibold text-slate-700">Unit of Measure (UOM)</label>
                     <input
                       type="text"
-                      value={formData.sku}
-                      onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                      placeholder="SRV-001"
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
+                      value={formData.unit}
+                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                      placeholder="e.g. Pcs, Kg, Box"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-semibold"
                     />
                   </div>
                 </div>
+
+                {editingItem && editingItem.sku && (
+                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-md text-xs flex items-center justify-between">
+                    <span className="text-slate-500 font-medium">System SKU Code:</span>
+                    <span className="font-mono font-bold text-blue-700">{editingItem.sku}</span>
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Description</label>
@@ -255,30 +297,17 @@ export default function ItemsIndex({ items, filters }) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {formData.type === "GOODS" && (
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Unit of Measure</label>
+                    <label className="text-xs font-semibold text-slate-700">Stock Quantity</label>
                     <input
-                      type="text"
-                      value={formData.unit}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                      placeholder="Pcs, Hours, Project"
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
+                      type="number"
+                      value={formData.stock_quantity}
+                      onChange={(e) => setFormData({ ...formData, stock_quantity: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-semibold font-mono"
                     />
                   </div>
-
-                  {formData.type === "GOODS" && (
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-slate-700">Initial Stock</label>
-                      <input
-                        type="number"
-                        value={formData.stock_quantity}
-                        onChange={(e) => setFormData({ ...formData, stock_quantity: parseFloat(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-semibold font-mono"
-                      />
-                    </div>
-                  )}
-                </div>
+                )}
 
                 <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-2">
                   <button
