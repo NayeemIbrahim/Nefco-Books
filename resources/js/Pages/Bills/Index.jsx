@@ -4,15 +4,13 @@ import { formatBDT } from "@/lib/utils";
 import {
   Plus,
   Search,
-  CreditCard,
-  FileText,
+  Receipt,
   CheckCircle2,
   Printer,
   Trash2,
   X,
-  Receipt,
-  Sparkles,
-  Building2,
+  Edit,
+  Phone,
   Calendar,
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
@@ -20,29 +18,85 @@ import { Head, router, usePage } from "@inertiajs/react";
 export default function BillsIndex({ bills, vendors, items }) {
   const { flash } = usePage().props;
   const billList = bills?.data || bills || [];
+  const vendorList = vendors || [];
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [editingBillId, setEditingBillId] = useState(null);
   const [selectedBill, setSelectedBill] = useState(null);
   const [notification, setNotification] = useState(flash?.success || null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // New Bill Form state
-  const [vendorName, setVendorName] = useState(vendors?.[0]?.name || "Karim Stationers & Supplies");
+  // Form state
+  const [vendorName, setVendorName] = useState("");
+  const [whatsappNumber, setWhatsappNumber] = useState("");
   const [billDate, setBillDate] = useState(new Date().toISOString().split("T")[0]);
   const [dueDate, setDueDate] = useState(
     new Date(Date.now() + 86400000 * 14).toISOString().split("T")[0]
   );
-  const [notes, setNotes] = useState("Office supplies and printing vendor expense");
-  const [taxAmount, setTaxAmount] = useState(0);
+  const [status, setStatus] = useState("RECEIVED");
+  const [notes, setNotes] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
   const [lineItems, setLineItems] = useState([
-    { description: "Office Paper & Printer Ink Supplies", quantity: 5, unit_price: 1700, amount: 8500 },
+    { description: "", quantity: 1, unit_price: 0, amount: 0 },
   ]);
+
+  const resetForm = () => {
+    setEditingBillId(null);
+    setVendorName("");
+    setWhatsappNumber("");
+    setBillDate(new Date().toISOString().split("T")[0]);
+    setDueDate(new Date(Date.now() + 86400000 * 14).toISOString().split("T")[0]);
+    setStatus("RECEIVED");
+    setNotes("");
+    setDiscountAmount(0);
+    setLineItems([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
+  };
+
+  const handleOpenCreateDrawer = () => {
+    resetForm();
+    setIsDrawerOpen(true);
+  };
+
+  const handleOpenEditDrawer = (bill) => {
+    setEditingBillId(bill.id);
+    setVendorName(bill.contact?.name || "");
+    setWhatsappNumber(bill.contact?.whatsapp_number || bill.contact?.phone || "");
+    setBillDate(bill.bill_date ? bill.bill_date.split("T")[0] : new Date().toISOString().split("T")[0]);
+    setDueDate(bill.due_date ? bill.due_date.split("T")[0] : "");
+    setStatus(bill.status || "RECEIVED");
+    setNotes(bill.notes || "");
+    setDiscountAmount(bill.discount_amount || 0);
+
+    const items = bill.line_items || bill.lineItems || [];
+    if (items.length > 0) {
+      setLineItems(
+        items.map((it) => ({
+          description: it.description,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          amount: it.amount,
+        }))
+      );
+    } else {
+      setLineItems([{ description: "Expense item", quantity: 1, unit_price: bill.total_amount || 0, amount: bill.total_amount || 0 }]);
+    }
+
+    setSelectedBill(null);
+    setIsDrawerOpen(true);
+  };
+
+  const handleSelectVendor = (name) => {
+    setVendorName(name);
+    const matched = vendorList.find((v) => v.name.toLowerCase() === name.toLowerCase());
+    if (matched && (matched.whatsapp_number || matched.phone)) {
+      setWhatsappNumber(matched.whatsapp_number || matched.phone);
+    }
+  };
 
   const handleAddLineItem = () => {
     setLineItems([
       ...lineItems,
-      { description: "Vendor Product / Service", quantity: 1, unit_price: 0, amount: 0 },
+      { description: "", quantity: 1, unit_price: 0, amount: 0 },
     ]);
   };
 
@@ -62,30 +116,40 @@ export default function BillsIndex({ bills, vendors, items }) {
   };
 
   const subtotalBDT = lineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-  const totalBDT = subtotalBDT + (parseFloat(taxAmount) || 0) - (parseFloat(discountAmount) || 0);
+  const totalBDT = Math.max(0, subtotalBDT - (parseFloat(discountAmount) || 0));
 
   const handleSubmitBill = (e) => {
     e.preventDefault();
-    router.post(
-      "/bills",
-      {
-        contact_name: vendorName,
-        bill_date: billDate,
-        due_date: dueDate,
-        subtotal: subtotalBDT,
-        tax_amount: parseFloat(taxAmount) || 0,
-        discount_amount: parseFloat(discountAmount) || 0,
-        total_amount: totalBDT,
-        notes: notes,
-        line_items: lineItems,
-      },
-      {
+    const payload = {
+      contact_name: vendorName,
+      whatsapp_number: whatsappNumber,
+      bill_date: billDate,
+      due_date: dueDate,
+      status: status,
+      subtotal: subtotalBDT,
+      discount_amount: parseFloat(discountAmount) || 0,
+      total_amount: totalBDT,
+      notes: notes,
+      line_items: lineItems,
+    };
+
+    if (editingBillId) {
+      router.post(`/bills/${editingBillId}`, payload, {
         onSuccess: () => {
           setIsDrawerOpen(false);
-          setNotification("✅ Vendor Bill created & posted to Accounts Payable (2000) and Expenses (6000)!");
+          resetForm();
+          setNotification("✅ Vendor Bill updated successfully!");
         },
-      }
-    );
+      });
+    } else {
+      router.post("/bills", payload, {
+        onSuccess: () => {
+          setIsDrawerOpen(false);
+          resetForm();
+          setNotification("✅ Vendor Bill recorded and posted to general ledger!");
+        },
+      });
+    }
   };
 
   const handleMarkAsPaid = (billId) => {
@@ -126,9 +190,9 @@ export default function BillsIndex({ bills, vendors, items }) {
           <div>
             <h1 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <Receipt className="h-5 w-5 text-amber-600" />
-              <span>Bills & Vendor Expenses</span>
+              <span>Bills & Purchases</span>
             </h1>
-            <p className="text-xs text-slate-500">Record purchases, vendor bills & accounts payable in Bangladeshi Taka (৳)</p>
+            <p className="text-xs text-slate-500">Record and manage vendor bills & expenses in Bangladeshi Taka (৳)</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -142,7 +206,7 @@ export default function BillsIndex({ bills, vendors, items }) {
               />
             </div>
             <button
-              onClick={() => setIsDrawerOpen(true)}
+              onClick={handleOpenCreateDrawer}
               className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-4 py-2 rounded-md shadow-xs transition"
             >
               <Plus className="h-4 w-4" />
@@ -168,37 +232,15 @@ export default function BillsIndex({ bills, vendors, items }) {
                   <th className="py-2.5 px-4">Due Date</th>
                   <th className="py-2.5 px-4">Status</th>
                   <th className="py-2.5 px-4 text-right">Amount (BDT)</th>
+                  <th className="py-2.5 px-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredBills.length === 0 ? (
-                  <tr
-                    onClick={() =>
-                      setSelectedBill({
-                        bill_number: "BIL-2026-0001",
-                        contact: { name: "Karim Stationers & Supplies" },
-                        bill_date: "2026-08-01",
-                        due_date: "2026-08-15",
-                        status: "RECEIVED",
-                        total_amount: 8500,
-                        notes: "Sample office stationary purchase",
-                        lineItems: [
-                          { description: "A4 Paper Reams & Toner Cartridge", quantity: 5, unit_price: 1700, amount: 8500 },
-                        ],
-                      })
-                    }
-                    className="hover:bg-amber-50/40 cursor-pointer transition"
-                  >
-                    <td className="py-3 px-4 font-mono font-bold text-amber-600">BIL-2026-0001</td>
-                    <td className="py-3 px-4 font-semibold text-slate-900">Karim Stationers & Supplies</td>
-                    <td className="py-3 px-4 text-slate-500">01/08/2026</td>
-                    <td className="py-3 px-4 text-slate-500">15/08/2026</td>
-                    <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded">
-                        RECEIVED
-                      </span>
+                  <tr>
+                    <td colSpan="7" className="py-8 text-center text-slate-400">
+                      No bills recorded yet. Click <strong>+ New Bill</strong> to add a vendor bill.
                     </td>
-                    <td className="py-3 px-4 text-right font-bold text-slate-900">{formatBDT(8500)}</td>
                   </tr>
                 ) : (
                   filteredBills.map((b) => (
@@ -208,7 +250,7 @@ export default function BillsIndex({ bills, vendors, items }) {
                       className="hover:bg-amber-50/40 cursor-pointer transition"
                     >
                       <td className="py-3 px-4 font-mono font-bold text-amber-600">{b.bill_number}</td>
-                      <td className="py-3 px-4 font-semibold text-slate-900">{b.contact?.name || "Unknown Vendor"}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-900">{b.contact?.name || "Vendor"}</td>
                       <td className="py-3 px-4 text-slate-500">
                         {b.bill_date ? new Date(b.bill_date).toLocaleDateString("en-GB") : "N/A"}
                       </td>
@@ -227,6 +269,15 @@ export default function BillsIndex({ bills, vendors, items }) {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-slate-900">{formatBDT(b.total_amount)}</td>
+                      <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => handleOpenEditDrawer(b)}
+                          className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-slate-100 rounded transition"
+                          title="Edit Bill"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -236,7 +287,7 @@ export default function BillsIndex({ bills, vendors, items }) {
         </div>
       </div>
 
-      {/* Slide-out Drawer: New Vendor Bill */}
+      {/* Slide-out Drawer: New / Edit Vendor Bill */}
       {isDrawerOpen && (
         <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/40 backdrop-blur-xs flex justify-end">
           <div className="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
@@ -244,7 +295,9 @@ export default function BillsIndex({ bills, vendors, items }) {
             <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Receipt className="h-5 w-5 text-amber-400" />
-                <h2 className="font-bold text-sm">New Vendor Bill (Purchases)</h2>
+                <h2 className="font-bold text-sm">
+                  {editingBillId ? "Edit Vendor Bill" : "New Vendor Bill (Purchases)"}
+                </h2>
               </div>
               <button
                 onClick={() => setIsDrawerOpen(false)}
@@ -262,12 +315,30 @@ export default function BillsIndex({ bills, vendors, items }) {
                   <input
                     type="text"
                     required
+                    list="vendors-list"
                     value={vendorName}
-                    onChange={(e) => setVendorName(e.target.value)}
-                    placeholder="Vendor / Supplier Name"
+                    onChange={(e) => handleSelectVendor(e.target.value)}
+                    placeholder="Select or type vendor name..."
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
+                  />
+                  <datalist id="vendors-list">
+                    {vendorList.map((v) => (
+                      <option key={v.id} value={v.name} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Mobile / WhatsApp Number</label>
+                  <input
+                    type="text"
+                    value={whatsappNumber}
+                    onChange={(e) => setWhatsappNumber(e.target.value)}
+                    placeholder="+88017..."
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
                   />
                 </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Bill Date *</label>
                   <input
@@ -278,6 +349,7 @@ export default function BillsIndex({ bills, vendors, items }) {
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
                   />
                 </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Due Date</label>
                   <input
@@ -287,8 +359,22 @@ export default function BillsIndex({ bills, vendors, items }) {
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
                   />
                 </div>
+
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Payment Term Notes</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
+                  <select
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500"
+                  >
+                    <option value="RECEIVED">RECEIVED</option>
+                    <option value="PAID">PAID</option>
+                    <option value="OVERDUE">OVERDUE</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">Payment Term / Notes</label>
                   <input
                     type="text"
                     value={notes}
@@ -302,7 +388,7 @@ export default function BillsIndex({ bills, vendors, items }) {
               {/* Line Items Table */}
               <div className="border border-slate-200 rounded-lg p-3 space-y-3 bg-slate-50/50">
                 <div className="flex items-center justify-between border-b border-slate-200 pb-2">
-                  <h3 className="text-xs font-bold text-slate-800">Purchased Items & Expense Items</h3>
+                  <h3 className="text-xs font-bold text-slate-800">Purchased Items & Expenses</h3>
                   <button
                     type="button"
                     onClick={handleAddLineItem}
@@ -319,6 +405,7 @@ export default function BillsIndex({ bills, vendors, items }) {
                       <input
                         type="text"
                         placeholder="Item Description"
+                        required
                         value={item.description}
                         onChange={(e) => handleLineItemChange(index, "description", e.target.value)}
                         className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md"
@@ -338,7 +425,7 @@ export default function BillsIndex({ bills, vendors, items }) {
                       <input
                         type="number"
                         min="0"
-                        placeholder="Cost"
+                        placeholder="Price"
                         value={item.unit_price}
                         onChange={(e) => handleLineItemChange(index, "unit_price", e.target.value)}
                         className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md text-right"
@@ -367,15 +454,6 @@ export default function BillsIndex({ bills, vendors, items }) {
                   <span className="font-semibold">{formatBDT(subtotalBDT)}</span>
                 </div>
                 <div className="flex justify-between items-center text-slate-600">
-                  <span>Tax Amount (BDT)</span>
-                  <input
-                    type="number"
-                    value={taxAmount}
-                    onChange={(e) => setTaxAmount(e.target.value)}
-                    className="w-24 text-xs px-2 py-1 border border-slate-200 rounded-md text-right"
-                  />
-                </div>
-                <div className="flex justify-between items-center text-slate-600">
                   <span>Discount (BDT)</span>
                   <input
                     type="number"
@@ -402,7 +480,7 @@ export default function BillsIndex({ bills, vendors, items }) {
                   type="submit"
                   className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-bold shadow-xs transition"
                 >
-                  Confirm & Post Bill
+                  {editingBillId ? "Save Bill Changes" : "Confirm & Post Bill"}
                 </button>
               </div>
             </form>
@@ -428,7 +506,7 @@ export default function BillsIndex({ bills, vendors, items }) {
               <div className="flex justify-between border-b border-slate-100 pb-3">
                 <div>
                   <h3 className="font-bold text-sm text-slate-900">{selectedBill.contact?.name}</h3>
-                  <p className="text-slate-500">Vendor / Supplier</p>
+                  <p className="text-slate-500">{selectedBill.contact?.whatsapp_number || selectedBill.contact?.phone || "Vendor"}</p>
                 </div>
                 <div className="text-right">
                   <span
@@ -482,13 +560,22 @@ export default function BillsIndex({ bills, vendors, items }) {
               )}
 
               <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                <button
-                  onClick={() => window.print()}
-                  className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-semibold px-3 py-1.5 border border-slate-200 rounded-md"
-                >
-                  <Printer className="h-3.5 w-3.5" />
-                  <span>Print Voucher</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 font-semibold px-3 py-1.5 border border-slate-200 rounded-md"
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    <span>Print</span>
+                  </button>
+                  <button
+                    onClick={() => handleOpenEditDrawer(selectedBill)}
+                    className="flex items-center gap-1.5 text-xs text-amber-700 hover:text-amber-900 font-semibold px-3 py-1.5 border border-amber-200 rounded-md bg-amber-50"
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                    <span>Edit Bill</span>
+                  </button>
+                </div>
 
                 {selectedBill.id && selectedBill.status !== "PAID" && (
                   <button

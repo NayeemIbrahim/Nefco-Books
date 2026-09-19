@@ -65,13 +65,6 @@ export function Sidebar() {
           );
         })}
       </div>
-
-      <div className="p-4 border-t border-slate-800 bg-slate-950/50">
-        <div className="flex items-center justify-between text-[11px] text-slate-400">
-          <span>Currency Base</span>
-          <span className="bg-amber-950 text-amber-300 px-2 py-0.5 rounded font-mono font-bold">BDT (৳)</span>
-        </div>
-      </div>
     </div>
   );
 }

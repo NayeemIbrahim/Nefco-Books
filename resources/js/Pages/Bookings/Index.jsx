@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { formatBDT } from "@/lib/utils";
-import { Plus, Search, CalendarCheck, FileText, Trash2, X } from "lucide-react";
+import { Plus, Search, CalendarCheck, FileText, Trash2, X, Phone, Calendar } from "lucide-react";
 import { Head, router } from "@inertiajs/react";
 
 export default function BookingsIndex({ bookings, contacts, items, filters }) {
@@ -9,19 +9,29 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
   const [statusFilter, setStatusFilter] = useState(filters?.status || "ALL");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
+  const contactList = contacts || [];
+
   // Form State
-  const [formContactName, setFormContactName] = useState("Rahim Chowdhury");
-  const [formWhatsapp, setFormWhatsapp] = useState("+8801711223344");
+  const [formContactName, setFormContactName] = useState("");
+  const [formWhatsapp, setFormWhatsapp] = useState("");
   const [formServiceDate, setFormServiceDate] = useState(new Date().toISOString().split("T")[0]);
   const [formNotes, setFormNotes] = useState("");
   const [formLineItems, setFormLineItems] = useState([
-    { description: "Service Booking", quantity: 1, unit_price: 25000, amount: 25000 },
+    { description: "", quantity: 1, unit_price: 0, amount: 0 },
   ]);
+
+  const handleSelectContact = (name) => {
+    setFormContactName(name);
+    const matched = contactList.find((c) => c.name.toLowerCase() === name.toLowerCase());
+    if (matched && (matched.whatsapp_number || matched.phone)) {
+      setFormWhatsapp(matched.whatsapp_number || matched.phone);
+    }
+  };
 
   const handleAddLineItem = () => {
     setFormLineItems([
       ...formLineItems,
-      { description: "Service Booking", quantity: 1, unit_price: 0, amount: 0 },
+      { description: "", quantity: 1, unit_price: 0, amount: 0 },
     ]);
   };
 
@@ -40,7 +50,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
     setFormLineItems(updated);
   };
 
-  const totalCalculatedBDT = formLineItems.reduce((sum, item) => sum + item.amount, 0);
+  const totalCalculatedBDT = formLineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -57,6 +67,10 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
       {
         onSuccess: () => {
           setIsDrawerOpen(false);
+          setFormContactName("");
+          setFormWhatsapp("");
+          setFormNotes("");
+          setFormLineItems([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
         },
       }
     );
@@ -69,9 +83,12 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
       <Head title="Bookings & Orders - Nefco Books" />
 
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Orders & Bookings</h1>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <CalendarCheck className="h-5 w-5 text-blue-600" />
+              <span>Orders & Bookings</span>
+            </h1>
             <p className="text-xs text-slate-500">Record customer service requests, manage bookings, and convert to invoices</p>
           </div>
           <button
@@ -100,7 +117,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
               {bookingList.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400">
-                    No bookings found. Click "New Booking" to create one.
+                    No bookings found. Click <strong>+ New Booking</strong> to create one.
                   </td>
                 </tr>
               ) : (
@@ -174,10 +191,17 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                     <input
                       type="text"
                       required
+                      list="customer-contacts-list"
                       value={formContactName}
-                      onChange={(e) => setFormContactName(e.target.value)}
+                      onChange={(e) => handleSelectContact(e.target.value)}
+                      placeholder="Select or type customer..."
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                     />
+                    <datalist id="customer-contacts-list">
+                      {contactList.map((c) => (
+                        <option key={c.id} value={c.name} />
+                      ))}
+                    </datalist>
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700">WhatsApp Number *</label>
@@ -186,6 +210,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                       required
                       value={formWhatsapp}
                       onChange={(e) => setFormWhatsapp(e.target.value)}
+                      placeholder="+88017..."
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
                     />
                   </div>
@@ -201,86 +226,89 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                   />
                 </div>
 
-                {/* Line Items Builder */}
-                <div className="space-y-3 pt-2 border-t border-slate-200">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">Line Items (BDT)</label>
+                {/* Line items */}
+                <div className="border border-slate-200 rounded-lg p-3 space-y-3 bg-slate-50/50">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <h3 className="text-xs font-bold text-slate-800">Booking Services / Line Items</h3>
                     <button
                       type="button"
                       onClick={handleAddLineItem}
-                      className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      className="text-xs text-blue-600 font-bold hover:underline"
                     >
-                      <Plus className="h-3.5 w-3.5" /> Add Line Item
+                      + Add Item
                     </button>
                   </div>
 
-                  <div className="space-y-2">
-                    {formLineItems.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2 bg-slate-50 p-2 rounded-md border border-slate-200">
+                  {formLineItems.map((item, idx) => (
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-md border border-slate-200">
+                      <div className="col-span-6">
                         <input
                           type="text"
-                          placeholder="Description..."
+                          required
+                          placeholder="Service / Goods Description"
                           value={item.description}
-                          onChange={(e) => handleLineItemChange(index, "description", e.target.value)}
-                          className="flex-1 px-2 py-1 text-xs border border-slate-300 rounded bg-white"
+                          onChange={(e) => handleLineItemChange(idx, "description", e.target.value)}
+                          className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded"
                         />
-                        <input
-                          type="number"
-                          placeholder="Qty"
-                          value={item.quantity}
-                          onChange={(e) => handleLineItemChange(index, "quantity", e.target.value)}
-                          className="w-16 px-2 py-1 text-xs border border-slate-300 rounded bg-white font-semibold text-center"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Rate (BDT)"
-                          value={item.unit_price}
-                          onChange={(e) => handleLineItemChange(index, "unit_price", e.target.value)}
-                          className="w-24 px-2 py-1 text-xs border border-slate-300 rounded bg-white font-bold text-right"
-                        />
-                        <div className="w-24 text-right font-bold text-xs text-slate-800">
-                          {formatBDT(item.amount)}
-                        </div>
-                        {formLineItems.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveLineItem(index)}
-                            className="p-1 text-slate-400 hover:text-red-600 rounded"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
                       </div>
-                    ))}
-                  </div>
+                      <div className="col-span-2">
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={(e) => handleLineItemChange(idx, "quantity", e.target.value)}
+                          className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded text-center"
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <input
+                          type="number"
+                          min="0"
+                          value={item.unit_price}
+                          onChange={(e) => handleLineItemChange(idx, "unit_price", e.target.value)}
+                          className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded text-right"
+                        />
+                      </div>
+                      <div className="col-span-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLineItem(idx)}
+                          className="text-slate-400 hover:text-red-500"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
 
-                  <div className="flex justify-end pt-2 text-xs font-bold text-slate-900 border-t border-slate-100">
-                    Total Order Amount: {formatBDT(totalCalculatedBDT)}
+                  <div className="flex justify-between items-center pt-2 font-bold text-xs text-slate-800">
+                    <span>Estimated Total (BDT):</span>
+                    <span className="text-blue-600">{formatBDT(totalCalculatedBDT)}</span>
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Order Notes</label>
+                  <label className="text-xs font-semibold text-slate-700">Special Notes</label>
                   <textarea
                     rows={2}
                     value={formNotes}
                     onChange={(e) => setFormNotes(e.target.value)}
-                    placeholder="Special instructions or service terms..."
+                    placeholder="Customer requests or delivery notes..."
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                   />
                 </div>
 
-                <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-2">
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                   <button
                     type="button"
                     onClick={() => setIsDrawerOpen(false)}
-                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition"
+                    className="px-4 py-2 border border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:bg-slate-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-md transition shadow-xs"
+                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold shadow-xs"
                   >
                     Save Booking
                   </button>

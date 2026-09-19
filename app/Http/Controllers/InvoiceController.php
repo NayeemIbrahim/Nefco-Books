@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\StoreInvoiceRequest;
 use App\Jobs\SendWhatsAppInvoiceJob;
 use App\Models\Booking;
 use App\Models\Contact;
 use App\Models\Invoice;
 use App\Models\Item;
 use App\Services\AccountingService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -38,7 +38,7 @@ class InvoiceController extends Controller
         }
 
         $invoices = $query->latest('issue_date')->paginate(15)->withQueryString();
-        $contacts = Contact::whereIn('type', ['CUSTOMER', 'BOTH'])->get(['id', 'name', 'whatsapp_number']);
+        $contacts = Contact::whereIn('type', ['CUSTOMER', 'BOTH'])->get(['id', 'name', 'phone', 'whatsapp_number']);
         $items    = Item::get(['id', 'name', 'sku', 'sales_price', 'unit']);
 
         return Inertia::render('Invoices/Index', [
@@ -49,11 +49,42 @@ class InvoiceController extends Controller
         ]);
     }
 
-    public function store(StoreInvoiceRequest $request)
+    public function store(Request $request): RedirectResponse
     {
-        $validated = $request->validated();
+        $validated = $request->validate([
+            'contact_id'      => 'nullable|exists:contacts,id',
+            'contact_name'    => 'nullable|string|max:255',
+            'whatsapp_number' => 'nullable|string|max:50',
+            'booking_id'      => 'nullable|exists:bookings,id',
+            'issue_date'      => 'nullable|date',
+            'due_date'        => 'required|date',
+            'notes'           => 'nullable|string|max:1000',
+            'terms'           => 'nullable|string|max:1000',
+            'discount_amount' => 'nullable|numeric|min:0',
+            'line_items'      => 'required|array|min:1',
+            'line_items.*.item_id'     => 'nullable|exists:items,id',
+            'line_items.*.description' => 'required|string|max:255',
+            'line_items.*.quantity'    => 'required|numeric|min:0.01',
+            'line_items.*.unit_price'  => 'required|numeric|min:0',
+        ]);
 
-        $invoice = DB::transaction(function () use ($validated) {
+        if (! empty($validated['contact_id'])) {
+            $contact = Contact::findOrFail($validated['contact_id']);
+            if (! empty($validated['whatsapp_number'])) {
+                $contact->update(['whatsapp_number' => $validated['whatsapp_number']]);
+            }
+        } else {
+            $contact = Contact::firstOrCreate(
+                ['name' => $validated['contact_name'] ?? 'General Customer'],
+                [
+                    'type'            => 'CUSTOMER',
+                    'currency'        => 'BDT',
+                    'whatsapp_number' => $validated['whatsapp_number'] ?? null,
+                ]
+            );
+        }
+
+        $invoice = DB::transaction(function () use ($validated, $contact) {
             $subtotal = 0.00;
             $lineItemsData = [];
 
@@ -72,21 +103,20 @@ class InvoiceController extends Controller
                 ];
             }
 
-            $taxAmount = (float)($validated['tax_amount'] ?? 0);
             $discountAmount = (float)($validated['discount_amount'] ?? 0);
-            $totalAmount = round($subtotal + $taxAmount - $discountAmount, 2);
+            $totalAmount = max(0, round($subtotal - $discountAmount, 2));
 
             $invNumber = 'INV-' . date('Y') . '-' . str_pad((string)(Invoice::count() + 1), 4, '0', STR_PAD_LEFT);
 
             $invoice = Invoice::create([
                 'invoice_number'  => $invNumber,
-                'contact_id'      => $validated['contact_id'],
+                'contact_id'      => $contact->id,
                 'booking_id'      => $validated['booking_id'] ?? null,
                 'issue_date'      => $validated['issue_date'] ?? now(),
                 'due_date'        => $validated['due_date'],
                 'status'          => 'SENT',
                 'subtotal'        => $subtotal,
-                'tax_amount'      => $taxAmount,
+                'tax_amount'      => 0.00,
                 'discount_amount' => $discountAmount,
                 'total_amount'    => $totalAmount,
                 'paid_amount'     => 0.00,
@@ -99,20 +129,83 @@ class InvoiceController extends Controller
             // Double-entry posting
             $this->accountingService->postInvoice($invoice);
 
-            if (!empty($validated['booking_id'])) {
+            if (! empty($validated['booking_id'])) {
                 Booking::where('id', $validated['booking_id'])->update(['status' => 'COMPLETED']);
             }
 
             return $invoice;
         });
 
-        // WhatsApp notification queue
         SendWhatsAppInvoiceJob::dispatch($invoice);
 
-        return redirect()->route('invoices.index')->with('success', "Invoice #{$invoice->invoice_number} generated!");
+        return back()->with('success', "Invoice #{$invoice->invoice_number} generated!");
     }
 
-    public function sendWhatsApp(Invoice $invoice)
+    public function update(Request $request, Invoice $invoice): RedirectResponse
+    {
+        $validated = $request->validate([
+            'contact_name'    => 'nullable|string|max:255',
+            'whatsapp_number' => 'nullable|string|max:50',
+            'issue_date'      => 'required|date',
+            'due_date'        => 'required|date',
+            'status'          => 'required|in:DRAFT,SENT,PAID,OVERDUE,VOID',
+            'notes'           => 'nullable|string|max:1000',
+            'terms'           => 'nullable|string|max:1000',
+            'discount_amount' => 'nullable|numeric|min:0',
+            'line_items'      => 'required|array|min:1',
+            'line_items.*.description' => 'required|string|max:255',
+            'line_items.*.quantity'    => 'required|numeric|min:0.01',
+            'line_items.*.unit_price'  => 'required|numeric|min:0',
+        ]);
+
+        DB::transaction(function () use ($validated, $invoice) {
+            if (! empty($validated['contact_name'])) {
+                $invoice->contact->update([
+                    'name'            => $validated['contact_name'],
+                    'whatsapp_number' => $validated['whatsapp_number'] ?? $invoice->contact->whatsapp_number,
+                ]);
+            }
+
+            $subtotal = 0.00;
+            $lineItemsData = [];
+
+            foreach ($validated['line_items'] as $line) {
+                $qty = (float)$line['quantity'];
+                $unitPrice = (float)$line['unit_price'];
+                $lineTotal = round($qty * $unitPrice, 2);
+                $subtotal += $lineTotal;
+
+                $lineItemsData[] = [
+                    'description' => $line['description'],
+                    'quantity'    => $qty,
+                    'unit_price'  => $unitPrice,
+                    'amount'      => $lineTotal,
+                ];
+            }
+
+            $discountAmount = (float)($validated['discount_amount'] ?? 0);
+            $totalAmount = max(0, round($subtotal - $discountAmount, 2));
+
+            $invoice->update([
+                'issue_date'      => $validated['issue_date'],
+                'due_date'        => $validated['due_date'],
+                'status'          => $validated['status'],
+                'subtotal'        => $subtotal,
+                'tax_amount'      => 0.00,
+                'discount_amount' => $discountAmount,
+                'total_amount'    => $totalAmount,
+                'notes'           => $validated['notes'] ?? null,
+                'terms'           => $validated['terms'] ?? $invoice->terms,
+            ]);
+
+            $invoice->lineItems()->delete();
+            $invoice->lineItems()->createMany($lineItemsData);
+        });
+
+        return back()->with('success', "Invoice #{$invoice->invoice_number} updated successfully!");
+    }
+
+    public function sendWhatsApp(Invoice $invoice): RedirectResponse
     {
         SendWhatsAppInvoiceJob::dispatch($invoice);
 

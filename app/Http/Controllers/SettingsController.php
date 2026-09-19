@@ -2,25 +2,54 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Account;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-
 use Inertia\Inertia;
 use Inertia\Response;
 
 class SettingsController extends Controller
 {
+    private function resolveUser(): User
+    {
+        /** @var User|null $user */
+        $user = Auth::user();
+
+        if (! $user) {
+            $user = User::where('role', 'admin')->first() ?? User::first();
+        }
+
+        if (! $user) {
+            $user = User::create([
+                'name'            => 'Admin User',
+                'email'           => 'admin@nefcobooks.com',
+                'password'        => Hash::make('admin'),
+                'role'            => 'admin',
+                'status'          => 'APPROVED',
+                'company_name'    => 'Nefco Trading & IT Ltd.',
+                'company_address' => 'Dhaka, Bangladesh',
+                'bin_number'      => '123456789-0101',
+                'phone'           => '+8801711223344',
+                'currency_symbol' => '৳',
+                'currency_code'   => 'BDT',
+            ]);
+        }
+
+        return $user;
+    }
+
     public function index(): Response
     {
-        $user = auth()->user();
+        $user = $this->resolveUser();
 
         return Inertia::render('Settings/Index', [
             'profile' => [
-                'name'  => $user->name ?? 'Admin User',
-                'email' => $user->email ?? 'admin@nefcobooks.com',
-                'role'  => $user->role ?? 'admin',
+                'name'  => $user->name,
+                'email' => $user->email,
+                'role'  => $user->role,
             ],
             'company' => [
                 'company_name'           => $user->company_name ?? 'Nefco Trading & IT Ltd.',
@@ -32,19 +61,19 @@ class SettingsController extends Controller
                 'whatsapp_phone_number_id'=> $user->whatsapp_phone_number_id ?? '',
                 'whatsapp_access_token'  => $user->whatsapp_access_token ?? '',
             ],
-            'users' => User::latest()->get(),
+            'users'    => User::latest()->get(),
+            'accounts' => Account::orderBy('code')->get(),
         ]);
     }
 
     public function updateProfile(Request $request): RedirectResponse
     {
-        /** @var User $user */
-        $user = auth()->user();
+        $user = $this->resolveUser();
 
         $validated = $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|max:255|unique:users,email,' . $user->id,
-            'password' => 'nullable|string|min:8|confirmed',
+            'password' => 'nullable|string|min:4',
         ]);
 
         $data = [
@@ -58,14 +87,16 @@ class SettingsController extends Controller
 
         $user->update($data);
 
-        return back()->with('success', 'Profile updated successfully!');
+        // If not logged in, auto log in as this user
+        if (! Auth::check()) {
+            Auth::login($user);
+        }
+
+        return back()->with('success', 'Profile and login information updated successfully!');
     }
 
     public function updateCompany(Request $request): RedirectResponse
     {
-        /** @var User $user */
-        $user = auth()->user();
-
         $validated = $request->validate([
             'company_name'           => 'required|string|max:255',
             'company_address'        => 'nullable|string',
@@ -77,10 +108,43 @@ class SettingsController extends Controller
             'whatsapp_access_token'  => 'nullable|string',
         ]);
 
-        // Update company fields on user / org setting
         User::query()->update($validated);
 
-        return back()->with('success', 'Organization and currency settings saved!');
+        return back()->with('success', 'Organization and business settings saved!');
+    }
+
+    public function storeAccount(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'code'        => 'required|string|max:20|unique:accounts,code',
+            'name'        => 'required|string|max:255',
+            'type'        => 'required|in:ASSET,LIABILITY,EQUITY,REVENUE,EXPENSE',
+            'description' => 'nullable|string',
+        ]);
+
+        Account::create([
+            'code'        => $validated['code'],
+            'name'        => $validated['name'],
+            'type'        => $validated['type'],
+            'description' => $validated['description'] ?? null,
+            'balance'     => 0.00,
+            'is_system'   => false,
+        ]);
+
+        return back()->with('success', "Account {$validated['code']} - {$validated['name']} created successfully!");
+    }
+
+    public function updateAccount(Account $account, Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name'        => 'required|string|max:255',
+            'type'        => 'required|in:ASSET,LIABILITY,EQUITY,REVENUE,EXPENSE',
+            'description' => 'nullable|string',
+        ]);
+
+        $account->update($validated);
+
+        return back()->with('success', "Account {$account->code} updated successfully!");
     }
 
     public function approveUser(User $user): RedirectResponse

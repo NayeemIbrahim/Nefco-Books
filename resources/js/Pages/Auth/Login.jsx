@@ -4,9 +4,9 @@ import { BookOpen, Lock, Mail, ShieldCheck, ArrowRight } from "lucide-react";
 
 export default function Login({ status }) {
   const { data, setData, post, processing, errors } = useForm({
-    email: "",
-    password: "",
-    remember: false,
+    email: "admin@nefcobooks.com",
+    password: "admin",
+    remember: true,
   });
 
   const handleSubmit = (e) => {
@@ -39,6 +39,21 @@ export default function Login({ status }) {
               {errors.email}
             </div>
           )}
+
+          <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs rounded-lg flex items-center justify-between">
+            <div>
+              <span className="font-bold">Default Admin:</span> admin@nefcobooks.com / admin
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setData((prev) => ({ ...prev, email: "admin@nefcobooks.com", password: "admin" }));
+              }}
+              className="text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 px-2 py-1 rounded"
+            >
+              Fill
+            </button>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>

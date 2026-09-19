@@ -11,31 +11,87 @@ import {
   Trash2,
   X,
   Send,
-  Sparkles,
+  Edit,
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
-export default function InvoicesIndex({ invoices, filters }) {
+export default function InvoicesIndex({ invoices, contacts, items, filters }) {
   const { flash } = usePage().props;
   const [search, setSearch] = useState(filters?.search || "");
   const [statusFilter, setStatusFilter] = useState(filters?.status || "ALL");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [editingInvoiceId, setEditingInvoiceId] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [notification, setNotification] = useState(flash?.success || null);
 
+  const contactList = contacts || [];
+
   // Form State
-  const [formContactName, setFormContactName] = useState("Rahim Chowdhury");
-  const [formWhatsapp, setFormWhatsapp] = useState("+8801711223344");
+  const [formContactName, setFormContactName] = useState("");
+  const [formWhatsapp, setFormWhatsapp] = useState("");
   const [formIssueDate, setFormIssueDate] = useState(new Date().toISOString().split("T")[0]);
   const [formDueDate, setFormDueDate] = useState(
     new Date(Date.now() + 86400000 * 14).toISOString().split("T")[0]
   );
+  const [formStatus, setFormStatus] = useState("SENT");
   const [formNotes, setFormNotes] = useState("Thank you for your business!");
-  const [formTax, setFormTax] = useState(0);
   const [formDiscount, setFormDiscount] = useState(0);
   const [formLineItems, setFormLineItems] = useState([
-    { description: "Web Application Development", quantity: 1, unit_price: 75000, amount: 75000 },
+    { description: "", quantity: 1, unit_price: 0, amount: 0 },
   ]);
+
+  const resetForm = () => {
+    setEditingInvoiceId(null);
+    setFormContactName("");
+    setFormWhatsapp("");
+    setFormIssueDate(new Date().toISOString().split("T")[0]);
+    setFormDueDate(new Date(Date.now() + 86400000 * 14).toISOString().split("T")[0]);
+    setFormStatus("SENT");
+    setFormNotes("Thank you for your business!");
+    setFormDiscount(0);
+    setFormLineItems([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
+  };
+
+  const handleOpenCreateDrawer = () => {
+    resetForm();
+    setIsDrawerOpen(true);
+  };
+
+  const handleOpenEditDrawer = (inv) => {
+    setEditingInvoiceId(inv.id);
+    setFormContactName(inv.contact?.name || "");
+    setFormWhatsapp(inv.contact?.whatsapp_number || inv.contact?.phone || "");
+    setFormIssueDate(inv.issue_date ? inv.issue_date.split("T")[0] : new Date().toISOString().split("T")[0]);
+    setFormDueDate(inv.due_date ? inv.due_date.split("T")[0] : "");
+    setFormStatus(inv.status || "SENT");
+    setFormNotes(inv.notes || "");
+    setFormDiscount(inv.discount_amount || 0);
+
+    const lines = inv.line_items || inv.lineItems || [];
+    if (lines.length > 0) {
+      setFormLineItems(
+        lines.map((l) => ({
+          description: l.description,
+          quantity: l.quantity,
+          unit_price: l.unit_price,
+          amount: l.amount,
+        }))
+      );
+    } else {
+      setFormLineItems([{ description: "Custom Service / Goods", quantity: 1, unit_price: inv.total_amount || 0, amount: inv.total_amount || 0 }]);
+    }
+
+    setSelectedInvoice(null);
+    setIsDrawerOpen(true);
+  };
+
+  const handleSelectContact = (name) => {
+    setFormContactName(name);
+    const matched = contactList.find((c) => c.name.toLowerCase() === name.toLowerCase());
+    if (matched && (matched.whatsapp_number || matched.phone)) {
+      setFormWhatsapp(matched.whatsapp_number || matched.phone);
+    }
+  };
 
   const handleFilter = (st) => {
     setStatusFilter(st);
@@ -50,7 +106,7 @@ export default function InvoicesIndex({ invoices, filters }) {
   const handleAddLineItem = () => {
     setFormLineItems([
       ...formLineItems,
-      { description: "Custom Service / Goods", quantity: 1, unit_price: 0, amount: 0 },
+      { description: "", quantity: 1, unit_price: 0, amount: 0 },
     ]);
   };
 
@@ -69,76 +125,76 @@ export default function InvoicesIndex({ invoices, filters }) {
     setFormLineItems(updated);
   };
 
-  const subtotalBDT = formLineItems.reduce((sum, item) => sum + item.amount, 0);
-  const totalBDT = subtotalBDT + (parseFloat(formTax) || 0) - (parseFloat(formDiscount) || 0);
+  const subtotalBDT = formLineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+  const totalBDT = Math.max(0, subtotalBDT - (parseFloat(formDiscount) || 0));
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    router.post(
-      "/invoices",
-      {
-        contact_name: formContactName,
-        whatsapp_number: formWhatsapp,
-        issue_date: formIssueDate,
-        due_date: formDueDate,
-        subtotal: subtotalBDT,
-        tax_amount: parseFloat(formTax) || 0,
-        discount_amount: parseFloat(formDiscount) || 0,
-        total_amount: totalBDT,
-        notes: formNotes,
-        line_items: formLineItems,
-      },
-      {
+    const payload = {
+      contact_name: formContactName,
+      whatsapp_number: formWhatsapp,
+      issue_date: formIssueDate,
+      due_date: formDueDate,
+      status: formStatus,
+      subtotal: subtotalBDT,
+      discount_amount: parseFloat(formDiscount) || 0,
+      total_amount: totalBDT,
+      notes: formNotes,
+      line_items: formLineItems,
+    };
+
+    if (editingInvoiceId) {
+      router.post(`/invoices/${editingInvoiceId}`, payload, {
         onSuccess: () => {
           setIsDrawerOpen(false);
-          setNotification("✅ Invoice issued! WhatsApp notification queued and posted to double-entry ledger.");
+          resetForm();
+          setNotification("✅ Invoice updated successfully!");
         },
-      }
-    );
+      });
+    } else {
+      router.post("/invoices", payload, {
+        onSuccess: () => {
+          setIsDrawerOpen(false);
+          resetForm();
+          setNotification("✅ Invoice issued & posted to general ledger!");
+        },
+      });
+    }
   };
 
   const handleSendWhatsApp = (invoiceId) => {
-    router.post(
-      `/invoices/${invoiceId}/send-whatsapp`,
-      {},
-      {
-        onSuccess: () => {
-          setNotification("💬 WhatsApp notification dispatched to customer!");
-        },
-      }
-    );
+    router.post(`/sales/invoices/${invoiceId}/send-whatsapp`, {}, {
+      onSuccess: () => setNotification("✅ WhatsApp alert sent successfully!"),
+    });
   };
 
   const invoiceList = invoices?.data || invoices || [];
 
   return (
     <AuthenticatedLayout>
-      <Head title="Invoices & Sales Ledger - Nefco Books" />
+      <Head title="Invoices & Sales - Nefco Books" />
 
       <div className="space-y-6">
-        {/* Top Banner Alert if notification active */}
         {notification && (
-          <div className="flex items-center justify-between p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-semibold shadow-xs">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-emerald-600" />
-              <span>{notification}</span>
-            </div>
-            <button onClick={() => setNotification(null)} className="text-emerald-600 hover:text-emerald-800">
+          <div className="flex items-center justify-between p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold rounded-lg shadow-xs">
+            <span>{notification}</span>
+            <button onClick={() => setNotification(null)} className="text-emerald-600 hover:text-emerald-900">
               <X className="h-4 w-4" />
             </button>
           </div>
         )}
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        {/* Top bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Invoices & Sales Ledger</h1>
-            <p className="text-xs text-slate-500">
-              Issue BDT invoices, post journal entries to ledger, and trigger Meta WhatsApp alerts
-            </p>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <FileText className="h-5 w-5 text-blue-600" />
+              <span>Invoices & Sales</span>
+            </h1>
+            <p className="text-xs text-slate-500">Generate, edit and manage customer sales invoices in Bangladeshi Taka (৳)</p>
           </div>
           <button
-            onClick={() => setIsDrawerOpen(true)}
+            onClick={handleOpenCreateDrawer}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-md shadow-xs transition"
           >
             <Plus className="h-4 w-4" />
@@ -146,34 +202,36 @@ export default function InvoicesIndex({ invoices, filters }) {
           </button>
         </div>
 
-        {/* Search & Filter */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
-          <form onSubmit={handleSearch} className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by invoice # or customer..."
-              className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-            />
-          </form>
-
-          <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
-            {["ALL", "DRAFT", "SENT", "PAID", "OVERDUE"].map((st) => (
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-xs">
+          <div className="flex items-center gap-2">
+            {["ALL", "SENT", "PAID", "OVERDUE"].map((st) => (
               <button
                 key={st}
                 onClick={() => handleFilter(st)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition ${
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition ${
                   statusFilter === st
-                    ? "bg-slate-900 text-white font-semibold"
+                    ? "bg-blue-600 text-white"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
-                {st === "ALL" ? "All Invoices" : st}
+                {st}
               </button>
             ))}
           </div>
+
+          <form onSubmit={handleSearch} className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="h-3.5 w-3.5 absolute left-3 top-2.5 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search invoice # or customer..."
+                className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-md w-60 focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          </form>
         </div>
 
         {/* Invoices Table */}
@@ -183,18 +241,18 @@ export default function InvoicesIndex({ invoices, filters }) {
               <tr>
                 <th className="py-3 px-4">Invoice #</th>
                 <th className="py-3 px-4">Customer</th>
-                <th className="py-3 px-4">Issue / Due Date</th>
+                <th className="py-3 px-4">Dates</th>
                 <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Total Amount (BDT)</th>
-                <th className="py-3 px-4 text-center">WhatsApp Alert</th>
-                <th className="py-3 px-4 text-center">View</th>
+                <th className="py-3 px-4 text-right">Amount (BDT)</th>
+                <th className="py-3 px-4 text-center">WhatsApp</th>
+                <th className="py-3 px-4 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {invoiceList.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No invoices found. Click "New Invoice" to create one.
+                    No invoices found. Click <strong>+ New Invoice</strong> to create one.
                   </td>
                 </tr>
               ) : (
@@ -206,7 +264,7 @@ export default function InvoicesIndex({ invoices, filters }) {
                     <td className="py-3 px-4">
                       <div className="font-semibold text-slate-900">{inv.contact?.name}</div>
                       <div className="text-[11px] text-slate-400 font-mono">
-                        {inv.contact?.whatsapp_number}
+                        {inv.contact?.whatsapp_number || inv.contact?.phone}
                       </div>
                     </td>
                     <td className="py-3 px-4 text-slate-600">
@@ -247,12 +305,19 @@ export default function InvoicesIndex({ invoices, filters }) {
                         {inv.whatsapp_sent ? "Sent ✓" : "Send Alert"}
                       </button>
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-3 px-4 text-center space-x-1.5">
                       <button
                         onClick={() => setSelectedInvoice(inv)}
                         className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded hover:bg-slate-200 transition"
                       >
-                        View Invoice
+                        View
+                      </button>
+                      <button
+                        onClick={() => handleOpenEditDrawer(inv)}
+                        className="px-2.5 py-1 text-[11px] font-semibold bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition inline-flex items-center gap-1"
+                      >
+                        <Edit className="h-3 w-3" />
+                        <span>Edit</span>
                       </button>
                     </td>
                   </tr>
@@ -262,14 +327,16 @@ export default function InvoicesIndex({ invoices, filters }) {
           </table>
         </div>
 
-        {/* New Invoice Form Drawer (Zoho Style) */}
+        {/* Invoice Form Drawer */}
         {isDrawerOpen && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex justify-end">
-            <div className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col justify-between">
+            <div className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
               <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Create New Invoice</h2>
-                  <p className="text-xs text-slate-500">Post to double-entry ledger & send WhatsApp</p>
+                  <h2 className="text-base font-bold text-slate-900">
+                    {editingInvoiceId ? "Edit Invoice" : "Create New Invoice"}
+                  </h2>
+                  <p className="text-xs text-slate-500">Sales revenue & accounts receivable (BDT ৳)</p>
                 </div>
                 <button
                   onClick={() => setIsDrawerOpen(false)}
@@ -286,54 +353,74 @@ export default function InvoicesIndex({ invoices, filters }) {
                     <input
                       type="text"
                       required
+                      list="invoice-customer-list"
                       value={formContactName}
-                      onChange={(e) => setFormContactName(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      onChange={(e) => handleSelectContact(e.target.value)}
+                      placeholder="Select or type customer..."
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                     />
+                    <datalist id="invoice-customer-list">
+                      {contactList.map((c) => (
+                        <option key={c.id} value={c.name} />
+                      ))}
+                    </datalist>
                   </div>
-
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">WhatsApp Number *</label>
+                    <label className="text-xs font-semibold text-slate-700">WhatsApp Number</label>
                     <input
                       type="text"
-                      required
                       value={formWhatsapp}
                       onChange={(e) => setFormWhatsapp(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono"
+                      placeholder="+88017..."
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Issue Date</label>
+                    <label className="text-xs font-semibold text-slate-700">Issue Date *</label>
                     <input
                       type="date"
+                      required
                       value={formIssueDate}
                       onChange={(e) => setFormIssueDate(e.target.value)}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                     />
                   </div>
-
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Due Date</label>
+                    <label className="text-xs font-semibold text-slate-700">Due Date *</label>
                     <input
                       type="date"
+                      required
                       value={formDueDate}
                       onChange={(e) => setFormDueDate(e.target.value)}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                     />
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Status</label>
+                    <select
+                      value={formStatus}
+                      onChange={(e) => setFormStatus(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
+                    >
+                      <option value="SENT">SENT</option>
+                      <option value="PAID">PAID</option>
+                      <option value="OVERDUE">OVERDUE</option>
+                      <option value="DRAFT">DRAFT</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Line Items */}
-                <div className="space-y-2 pt-2 border-t border-slate-100">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-800">Items / Services</label>
+                <div className="border border-slate-200 rounded-lg p-3 space-y-3 bg-slate-50/50">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                    <h3 className="text-xs font-bold text-slate-800">Items / Billable Services</h3>
                     <button
                       type="button"
                       onClick={handleAddLineItem}
-                      className="text-xs text-blue-600 font-semibold hover:underline"
+                      className="text-xs text-blue-600 font-bold hover:underline"
                     >
                       + Add Item
                     </button>
@@ -343,6 +430,7 @@ export default function InvoicesIndex({ invoices, filters }) {
                     <div key={idx} className="flex gap-2 items-center">
                       <input
                         type="text"
+                        required
                         placeholder="Description"
                         value={li.description}
                         onChange={(e) => handleLineItemChange(idx, "description", e.target.value)}
@@ -350,6 +438,7 @@ export default function InvoicesIndex({ invoices, filters }) {
                       />
                       <input
                         type="number"
+                        min="1"
                         placeholder="Qty"
                         value={li.quantity}
                         onChange={(e) => handleLineItemChange(idx, "quantity", e.target.value)}
@@ -357,6 +446,7 @@ export default function InvoicesIndex({ invoices, filters }) {
                       />
                       <input
                         type="number"
+                        min="0"
                         step="0.01"
                         placeholder="Price"
                         value={li.unit_price}
@@ -377,26 +467,15 @@ export default function InvoicesIndex({ invoices, filters }) {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-2">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Tax / VAT (BDT)</label>
-                    <input
-                      type="number"
-                      value={formTax}
-                      onChange={(e) => setFormTax(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Discount (BDT)</label>
-                    <input
-                      type="number"
-                      value={formDiscount}
-                      onChange={(e) => setFormDiscount(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Discount (BDT)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formDiscount}
+                    onChange={(e) => setFormDiscount(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
+                  />
                 </div>
 
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs font-bold text-slate-900">
@@ -417,7 +496,7 @@ export default function InvoicesIndex({ invoices, filters }) {
                     className="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-md transition shadow-xs flex items-center gap-1.5"
                   >
                     <Send className="h-3.5 w-3.5" />
-                    <span>Issue & Dispatch WhatsApp</span>
+                    <span>{editingInvoiceId ? "Save Invoice Changes" : "Issue & Dispatch Invoice"}</span>
                   </button>
                 </div>
               </form>
@@ -448,114 +527,107 @@ export default function InvoicesIndex({ invoices, filters }) {
                   <div>
                     <h2 className="text-xl font-bold text-slate-900 tracking-tight">INVOICE</h2>
                     <div className="text-xs font-bold text-blue-600 mt-1">Nefco Books</div>
-                    <div className="text-[11px] text-slate-400">Dhaka, Bangladesh</div>
+                    <div className="text-slate-500 mt-1">Dhaka, Bangladesh</div>
                   </div>
-                  <div className="text-right space-y-1">
-                    <div className="font-mono text-sm font-bold text-blue-600">
-                      {selectedInvoice.invoice_number}
+                  <div className="text-right">
+                    <div className="font-mono font-bold text-sm text-slate-900">{selectedInvoice.invoice_number}</div>
+                    <div className="text-slate-500 mt-1">
+                      Date: {new Date(selectedInvoice.issue_date).toLocaleDateString("en-GB")}
                     </div>
-                    <div className="text-[11px] text-slate-500">
-                      Issue Date: {new Date(selectedInvoice.issue_date).toLocaleDateString("en-GB")}
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      Due Date: {new Date(selectedInvoice.due_date).toLocaleDateString("en-GB")}
+                    <div className="text-slate-500">
+                      Due: {new Date(selectedInvoice.due_date).toLocaleDateString("en-GB")}
                     </div>
                   </div>
                 </div>
 
-                {/* Customer Info */}
-                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                {/* Customer Details */}
+                <div className="flex justify-between">
                   <div>
-                    <span className="font-bold text-[10px] uppercase text-slate-400">Billed To:</span>
-                    <div className="font-bold text-slate-900 text-sm mt-1">
-                      {selectedInvoice.contact?.name}
-                    </div>
-                    <div className="text-slate-500 text-xs">
-                      {selectedInvoice.contact?.address || "Dhaka, Bangladesh"}
-                    </div>
-                    <div className="text-emerald-700 font-mono text-[11px] mt-1 font-semibold">
-                      WhatsApp: {selectedInvoice.contact?.whatsapp_number}
-                    </div>
+                    <div className="font-bold text-slate-900 uppercase tracking-wider text-[10px]">Billed To</div>
+                    <div className="font-semibold text-slate-800 text-sm mt-1">{selectedInvoice.contact?.name}</div>
+                    <div className="text-slate-500 font-mono mt-0.5">{selectedInvoice.contact?.whatsapp_number}</div>
                   </div>
-
                   <div className="text-right">
-                    <span className="font-bold text-[10px] uppercase text-slate-400">Status & Ledger:</span>
-                    <div className="mt-1">
-                      <span className="px-3 py-1 font-bold text-xs bg-blue-100 text-blue-800 rounded-full">
-                        {selectedInvoice.status}
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-slate-400 mt-2">
-                      Ledger Entry: Debit 1100 AR / Credit 4000 Sales
-                    </div>
+                    <div className="font-bold text-slate-900 uppercase tracking-wider text-[10px]">Payment Status</div>
+                    <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">
+                      {selectedInvoice.status}
+                    </span>
                   </div>
                 </div>
 
                 {/* Items Table */}
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-100 font-bold uppercase text-[10px] text-slate-600">
+                <table className="w-full text-xs">
+                  <thead className="border-b border-slate-200 bg-slate-50 text-[10px] uppercase font-bold text-slate-500">
                     <tr>
-                      <th className="p-2 border border-slate-200">Description</th>
-                      <th className="p-2 border border-slate-200 text-center">Qty</th>
-                      <th className="p-2 border border-slate-200 text-right">Unit Price (BDT)</th>
-                      <th className="p-2 border border-slate-200 text-right">Amount (BDT)</th>
+                      <th className="py-2 px-3 text-left">Description</th>
+                      <th className="py-2 px-3 text-center">Qty</th>
+                      <th className="py-2 px-3 text-right">Price</th>
+                      <th className="py-2 px-3 text-right">Amount</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {selectedInvoice.line_items?.map((li, idx) => (
+                  <tbody className="divide-y divide-slate-100">
+                    {(selectedInvoice.line_items || selectedInvoice.lineItems || []).map((li, idx) => (
                       <tr key={idx}>
-                        <td className="p-2 border border-slate-200 font-medium text-slate-800">
-                          {li.description || li.item?.name}
-                        </td>
-                        <td className="p-2 border border-slate-200 text-center font-mono">{li.quantity}</td>
-                        <td className="p-2 border border-slate-200 text-right">{formatBDT(li.unit_price)}</td>
-                        <td className="p-2 border border-slate-200 text-right font-bold text-slate-900">
-                          {formatBDT(li.amount)}
-                        </td>
+                        <td className="py-2 px-3 font-medium text-slate-800">{li.description}</td>
+                        <td className="py-2 px-3 text-center font-mono">{li.quantity}</td>
+                        <td className="py-2 px-3 text-right font-mono">{formatBDT(li.unit_price)}</td>
+                        <td className="py-2 px-3 text-right font-mono font-bold">{formatBDT(li.amount)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
 
-                {/* Total Calculation */}
-                <div className="flex justify-end">
-                  <div className="w-64 space-y-1.5 text-xs text-slate-600">
-                    <div className="flex justify-between">
-                      <span>Subtotal:</span>
-                      <span className="font-semibold text-slate-900">{formatBDT(selectedInvoice.subtotal)}</span>
+                {/* Total calculations */}
+                <div className="flex justify-end pt-4 border-t border-slate-200">
+                  <div className="w-60 space-y-2">
+                    <div className="flex justify-between text-slate-500">
+                      <span>Subtotal</span>
+                      <span className="font-mono font-bold text-slate-800">{formatBDT(selectedInvoice.subtotal)}</span>
                     </div>
-                    {selectedInvoice.tax_amount > 0 && (
-                      <div className="flex justify-between">
-                        <span>Tax / VAT:</span>
-                        <span className="font-semibold text-slate-900">{formatBDT(selectedInvoice.tax_amount)}</span>
+                    {parseFloat(selectedInvoice.discount_amount) > 0 && (
+                      <div className="flex justify-between text-slate-500">
+                        <span>Discount</span>
+                        <span className="font-mono text-red-600">-{formatBDT(selectedInvoice.discount_amount)}</span>
                       </div>
                     )}
-                    {selectedInvoice.discount_amount > 0 && (
-                      <div className="flex justify-between text-amber-700">
-                        <span>Discount:</span>
-                        <span className="font-semibold">-{formatBDT(selectedInvoice.discount_amount)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-sm font-bold text-slate-900 pt-2 border-t border-slate-300">
-                      <span>Total Amount (BDT):</span>
-                      <span className="text-blue-600">{formatBDT(selectedInvoice.total_amount)}</span>
+                    <div className="flex justify-between border-t border-slate-200 pt-2 font-bold text-slate-900 text-sm">
+                      <span>Total Amount</span>
+                      <span className="font-mono text-blue-600">{formatBDT(selectedInvoice.total_amount)}</span>
                     </div>
                   </div>
                 </div>
+
+                {selectedInvoice.notes && (
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-[11px] text-slate-500">
+                    <strong>Note:</strong> {selectedInvoice.notes}
+                  </div>
+                )}
               </div>
 
-              <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-                <button
-                  onClick={() => window.print()}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-1.5 border border-slate-300 rounded bg-white shadow-xs"
-                >
-                  <Printer className="h-4 w-4" /> Print / Download PDF
-                </button>
+                <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-md hover:bg-slate-100 transition shadow-xs"
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    <span>Print Invoice</span>
+                  </button>
+                  <button
+                    onClick={() => handleOpenEditDrawer(selectedInvoice)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded-md hover:bg-blue-100 transition shadow-xs"
+                  >
+                    <Edit className="h-3.5 w-3.5" />
+                    <span>Edit Invoice</span>
+                  </button>
+                </div>
+
                 <button
                   onClick={() => handleSendWhatsApp(selectedInvoice.id)}
-                  className="flex items-center gap-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded shadow-xs"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition shadow-xs"
                 >
-                  <MessageSquare className="h-4 w-4" /> Send via WhatsApp
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  <span>Send via WhatsApp</span>
                 </button>
               </div>
             </div>

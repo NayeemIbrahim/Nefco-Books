@@ -37,6 +37,7 @@ Route::post('bookings/{booking}/convert', [BookingController::class, 'convertToI
 // 5. Invoices & Sales
 Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
 Route::post('invoices', [InvoiceController::class, 'store'])->name('invoices.store');
+Route::post('invoices/{invoice}', [InvoiceController::class, 'update'])->name('invoices.update');
 Route::resource('sales/invoices', InvoiceController::class)->names('invoices.sales');
 Route::post('sales/invoices/{invoice}/send-whatsapp', [InvoiceController::class, 'sendWhatsApp'])->name('invoices.whatsapp');
 Route::post('invoices/{invoice}/send-whatsapp', [InvoiceController::class, 'sendWhatsApp']);
@@ -44,6 +45,7 @@ Route::post('invoices/{invoice}/send-whatsapp', [InvoiceController::class, 'send
 // 6. Bills & Purchases
 Route::get('bills', [BillController::class, 'index'])->name('bills.index');
 Route::post('bills', [BillController::class, 'store'])->name('bills.store');
+Route::post('bills/{bill}', [BillController::class, 'update'])->name('bills.update');
 Route::post('bills/{bill}/mark-paid', [BillController::class, 'markAsPaid'])->name('bills.mark-paid');
 Route::resource('purchases/bills', BillController::class)->names('bills.purchases');
 
@@ -61,10 +63,12 @@ Route::prefix('reports')->name('reports.')->group(function () {
     Route::get('/trial-balance', [ReportController::class, 'trialBalance'])->name('trial-balance');
 });
 
-// 9. Settings & Organization Management
+// 9. Settings, Accounts & Organization Management
 Route::get('settings', [SettingsController::class, 'index'])->name('settings.index');
 Route::post('settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.profile');
 Route::post('settings/company', [SettingsController::class, 'updateCompany'])->name('settings.company');
+Route::post('settings/accounts', [SettingsController::class, 'storeAccount'])->name('settings.accounts.store');
+Route::post('settings/accounts/{account}', [SettingsController::class, 'updateAccount'])->name('settings.accounts.update');
 Route::post('settings/users/{user}/approve', [SettingsController::class, 'approveUser'])->name('settings.users.approve');
 Route::post('settings/users/{user}/reject', [SettingsController::class, 'rejectUser'])->name('settings.users.reject');
 Route::post('settings/users/{user}/toggle-role', [SettingsController::class, 'toggleRole'])->name('settings.users.toggle-role');
