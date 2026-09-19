@@ -121,6 +121,7 @@ class SettingsController extends Controller
             'code'        => 'required|string|max:20|unique:accounts,code',
             'name'        => 'required|string|max:255',
             'type'        => 'required|in:ASSET,LIABILITY,EQUITY,REVENUE,EXPENSE',
+            'balance'     => 'nullable|numeric',
             'description' => 'nullable|string',
         ]);
 
@@ -129,7 +130,7 @@ class SettingsController extends Controller
             'name'        => $validated['name'],
             'type'        => $validated['type'],
             'description' => $validated['description'] ?? null,
-            'balance'     => 0.00,
+            'balance'     => (float)($validated['balance'] ?? 0.00),
             'is_system'   => false,
         ]);
 
@@ -141,12 +142,31 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
             'type'        => 'required|in:ASSET,LIABILITY,EQUITY,REVENUE,EXPENSE',
+            'balance'     => 'nullable|numeric',
             'description' => 'nullable|string',
         ]);
 
-        $account->update($validated);
+        $account->update([
+            'name'        => $validated['name'],
+            'type'        => $validated['type'],
+            'balance'     => isset($validated['balance']) ? (float)$validated['balance'] : $account->balance,
+            'description' => $validated['description'] ?? null,
+        ]);
 
         return back()->with('success', "Account {$account->code} updated successfully!");
+    }
+
+    public function updateBalance(Account $account, Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'balance' => 'required|numeric',
+        ]);
+
+        $account->update([
+            'balance' => (float)$validated['balance'],
+        ]);
+
+        return back()->with('success', "Account {$account->code} balance updated successfully!");
     }
 
     public function approveUser(User $user): RedirectResponse

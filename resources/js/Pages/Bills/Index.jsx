@@ -115,6 +115,26 @@ export default function BillsIndex({ bills, vendors, items }) {
     setLineItems(updated);
   };
 
+  const handleProductSelect = (index, val) => {
+    const matchedItem = (items || []).find(
+      (it) => it.name.toLowerCase() === val.toLowerCase() || (it.sku && it.sku.toLowerCase() === val.toLowerCase())
+    );
+    const updated = [...lineItems];
+    if (matchedItem) {
+      const qty = parseFloat(updated[index].quantity) || 1;
+      const rate = parseFloat(matchedItem.purchase_price || matchedItem.cost_price || matchedItem.sales_price) || 0;
+      updated[index] = {
+        ...updated[index],
+        description: matchedItem.name,
+        unit_price: rate,
+        amount: qty * rate,
+      };
+    } else {
+      updated[index] = { ...updated[index], description: val };
+    }
+    setLineItems(updated);
+  };
+
   const subtotalBDT = lineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
   const totalBDT = Math.max(0, subtotalBDT - (parseFloat(discountAmount) || 0));
 
@@ -269,13 +289,24 @@ export default function BillsIndex({ bills, vendors, items }) {
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-slate-900">{formatBDT(b.total_amount)}</td>
-                      <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      <td className="py-3 px-4 text-center space-x-1.5" onClick={(e) => e.stopPropagation()}>
+                        {b.status !== "PAID" && (
+                          <button
+                            onClick={() => handleMarkAsPaid(b.id)}
+                            className="px-2 py-1 text-[11px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded border border-emerald-200 transition inline-flex items-center gap-1"
+                            title="Record Payment / Mark Paid"
+                          >
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>Mark Paid</span>
+                          </button>
+                        )}
                         <button
                           onClick={() => handleOpenEditDrawer(b)}
-                          className="p-1.5 text-slate-500 hover:text-amber-600 hover:bg-slate-100 rounded transition"
+                          className="px-2 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded transition inline-flex items-center gap-1"
                           title="Edit Bill"
                         >
-                          <Edit className="h-3.5 w-3.5" />
+                          <Edit className="h-3 w-3" />
+                          <span>Edit</span>
                         </button>
                       </td>
                     </tr>
@@ -399,15 +430,34 @@ export default function BillsIndex({ bills, vendors, items }) {
                   </button>
                 </div>
 
+                {/* Catalog items datalist */}
+                <datalist id="bill-catalog-items">
+                  {(items || []).map((it) => (
+                    <option key={it.id} value={it.name}>
+                      {it.sku ? `[${it.sku}] ` : ""}{formatBDT(it.purchase_price || it.cost_price || it.sales_price)} / {it.unit}
+                    </option>
+                  ))}
+                </datalist>
+
+                {/* Table Header for Input Boxes */}
+                <div className="grid grid-cols-12 gap-2 text-[10px] uppercase font-bold text-slate-500 px-2 py-1 bg-slate-100 rounded">
+                  <div className="col-span-5">Item Details</div>
+                  <div className="col-span-2 text-center">Quantity</div>
+                  <div className="col-span-2 text-right">Rate</div>
+                  <div className="col-span-2 text-right">Amount</div>
+                  <div className="col-span-1 text-center"></div>
+                </div>
+
                 {lineItems.map((item, index) => (
                   <div key={index} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-md border border-slate-200">
                     <div className="col-span-5">
                       <input
                         type="text"
-                        placeholder="Item Description"
+                        placeholder="Type or select purchased item..."
                         required
+                        list="bill-catalog-items"
                         value={item.description}
-                        onChange={(e) => handleLineItemChange(index, "description", e.target.value)}
+                        onChange={(e) => handleProductSelect(index, e.target.value)}
                         className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md"
                       />
                     </div>
@@ -418,20 +468,21 @@ export default function BillsIndex({ bills, vendors, items }) {
                         placeholder="Qty"
                         value={item.quantity}
                         onChange={(e) => handleLineItemChange(index, "quantity", e.target.value)}
-                        className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md text-center"
+                        className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md text-center font-mono"
                       />
                     </div>
                     <div className="col-span-2">
                       <input
                         type="number"
                         min="0"
-                        placeholder="Price"
+                        step="0.01"
+                        placeholder="Rate"
                         value={item.unit_price}
                         onChange={(e) => handleLineItemChange(index, "unit_price", e.target.value)}
-                        className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md text-right"
+                        className="w-full text-xs px-2 py-1.5 border border-slate-200 rounded-md text-right font-mono"
                       />
                     </div>
-                    <div className="col-span-2 font-bold text-xs text-right text-slate-900 pr-1">
+                    <div className="col-span-2 font-bold text-xs text-right text-slate-900 pr-1 font-mono">
                       {formatBDT(item.amount)}
                     </div>
                     <div className="col-span-1 text-center">

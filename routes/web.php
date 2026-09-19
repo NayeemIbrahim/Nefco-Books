@@ -41,6 +41,7 @@ Route::post('bookings/{booking}/convert', [BookingController::class, 'convertToI
 Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
 Route::post('invoices', [InvoiceController::class, 'store'])->name('invoices.store');
 Route::post('invoices/{invoice}', [InvoiceController::class, 'update'])->name('invoices.update');
+Route::post('invoices/{invoice}/mark-paid', [InvoiceController::class, 'markAsPaid'])->name('invoices.mark-paid');
 Route::resource('sales/invoices', InvoiceController::class)->names('invoices.sales');
 Route::post('sales/invoices/{invoice}/send-whatsapp', [InvoiceController::class, 'sendWhatsApp'])->name('invoices.whatsapp');
 Route::post('invoices/{invoice}/send-whatsapp', [InvoiceController::class, 'sendWhatsApp']);
@@ -72,6 +73,8 @@ Route::post('settings/profile', [SettingsController::class, 'updateProfile'])->n
 Route::post('settings/company', [SettingsController::class, 'updateCompany'])->name('settings.company');
 Route::post('settings/accounts', [SettingsController::class, 'storeAccount'])->name('settings.accounts.store');
 Route::post('settings/accounts/{account}', [SettingsController::class, 'updateAccount'])->name('settings.accounts.update');
+Route::post('settings/accounts/{account}/balance', [SettingsController::class, 'updateBalance'])->name('settings.accounts.balance');
+Route::post('accounts/{account}/balance', [SettingsController::class, 'updateBalance']);
 Route::post('settings/users/{user}/approve', [SettingsController::class, 'approveUser'])->name('settings.users.approve');
 Route::post('settings/users/{user}/reject', [SettingsController::class, 'rejectUser'])->name('settings.users.reject');
 Route::post('settings/users/{user}/toggle-role', [SettingsController::class, 'toggleRole'])->name('settings.users.toggle-role');

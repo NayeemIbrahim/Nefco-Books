@@ -44,6 +44,7 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
   const [accountName, setAccountName] = useState("");
   const [accountType, setAccountType] = useState("ASSET");
   const [accountDescription, setAccountDescription] = useState("");
+  const [accountBalance, setAccountBalance] = useState("0");
 
   const handleUpdateProfile = (e) => {
     e.preventDefault();
@@ -90,6 +91,7 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
     setAccountName("");
     setAccountType("ASSET");
     setAccountDescription("");
+    setAccountBalance("0");
     setIsAccountModalOpen(true);
   };
 
@@ -99,6 +101,7 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
     setAccountName(acc.name);
     setAccountType(acc.type);
     setAccountDescription(acc.description || "");
+    setAccountBalance(acc.balance !== undefined && acc.balance !== null ? acc.balance : "0");
     setIsAccountModalOpen(true);
   };
 
@@ -111,6 +114,7 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
           name: accountName,
           type: accountType,
           description: accountDescription,
+          balance: parseFloat(accountBalance) || 0,
         },
         {
           onSuccess: () => {
@@ -127,6 +131,7 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
           name: accountName,
           type: accountType,
           description: accountDescription,
+          balance: parseFloat(accountBalance) || 0,
         },
         {
           onSuccess: () => {
@@ -649,6 +654,24 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
                   <option value="REVENUE">REVENUE (Sales, Services)</option>
                   <option value="EXPENSE">EXPENSE (Cost of Goods, Operating Expenses)</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Account Amount / Balance (BDT ৳) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  value={accountBalance}
+                  onChange={(e) => setAccountBalance(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md font-mono"
+                />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Editable account amount (no dummy or pre-defined amounts).
+                </p>
               </div>
 
               <div>

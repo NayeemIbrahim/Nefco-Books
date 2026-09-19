@@ -258,4 +258,18 @@ class InvoiceController extends Controller
 
         return back()->with('success', "WhatsApp notification dispatched to {$invoice->contact->name}.");
     }
+
+    public function markAsPaid(Invoice $invoice): RedirectResponse
+    {
+        if ($invoice->status === 'PAID') {
+            return back()->with('info', "Invoice #{$invoice->invoice_number} is already marked as PAID.");
+        }
+
+        $invoice->update([
+            'status'      => 'PAID',
+            'paid_amount' => $invoice->total_amount,
+        ]);
+
+        return back()->with('success', "Invoice #{$invoice->invoice_number} marked as PAID.");
+    }
 }

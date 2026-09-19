@@ -143,6 +143,32 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
     setFormLineItems(updated);
   };
 
+  const handleProductSelect = (idx, val) => {
+    const matchedItem = (items || []).find(
+      (it) => it.name.toLowerCase() === val.toLowerCase() || (it.sku && it.sku.toLowerCase() === val.toLowerCase())
+    );
+    const updated = [...formLineItems];
+    if (matchedItem) {
+      const qty = parseFloat(updated[idx].quantity) || 1;
+      const rate = parseFloat(matchedItem.sales_price) || 0;
+      updated[idx] = {
+        ...updated[idx],
+        description: matchedItem.name,
+        unit_price: rate,
+        amount: qty * rate,
+      };
+    } else {
+      updated[idx] = { ...updated[idx], description: val };
+    }
+    setFormLineItems(updated);
+  };
+
+  const handleMarkAsPaid = (invoiceId) => {
+    router.post(`/invoices/${invoiceId}/mark-paid`, {}, {
+      onSuccess: () => setNotification("✅ Invoice marked as PAID!"),
+    });
+  };
+
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length + formAttachments.length > 10) {
@@ -363,6 +389,16 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
                       </button>
                     </td>
                     <td className="py-3 px-4 text-center space-x-1.5">
+                      {inv.status !== "PAID" && (
+                        <button
+                          onClick={() => handleMarkAsPaid(inv.id)}
+                          className="px-2 py-1 text-[11px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded border border-emerald-200 transition inline-flex items-center gap-1"
+                          title="Record Payment / Mark Paid"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                          <span>Mark Paid</span>
+                        </button>
+                      )}
                       <button
                         onClick={() => setSelectedInvoice(inv)}
                         className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded hover:bg-slate-200 transition"
@@ -506,43 +542,70 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
                     </button>
                   </div>
 
+                  {/* Product Datalist */}
+                  <datalist id="invoice-catalog-items">
+                    {(items || []).map((it) => (
+                      <option key={it.id} value={it.name}>
+                        {it.sku ? `[${it.sku}] ` : ""}{formatBDT(it.sales_price)} / {it.unit}
+                      </option>
+                    ))}
+                  </datalist>
+
+                  {/* Table Header for Input Boxes */}
+                  <div className="grid grid-cols-12 gap-2 text-[10px] uppercase font-bold text-slate-500 px-2 py-1 bg-slate-100 rounded">
+                    <div className="col-span-5">Item Details</div>
+                    <div className="col-span-2 text-center">Quantity</div>
+                    <div className="col-span-2 text-right">Rate</div>
+                    <div className="col-span-2 text-right">Amount</div>
+                    <div className="col-span-1 text-center"></div>
+                  </div>
+
                   {formLineItems.map((li, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
-                      <input
-                        type="text"
-                        required
-                        placeholder="Description"
-                        value={li.description}
-                        onChange={(e) => handleLineItemChange(idx, "description", e.target.value)}
-                        className="flex-1 px-2.5 py-1.5 text-xs border border-slate-300 rounded-md"
-                      />
-                      <input
-                        type="number"
-                        min="1"
-                        placeholder="Qty"
-                        value={li.quantity}
-                        onChange={(e) => handleLineItemChange(idx, "quantity", e.target.value)}
-                        className="w-16 px-2 py-1.5 text-xs border border-slate-300 rounded-md text-center font-mono"
-                      />
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="Price"
-                        value={li.unit_price}
-                        onChange={(e) => handleLineItemChange(idx, "unit_price", e.target.value)}
-                        className="w-24 px-2 py-1.5 text-xs border border-slate-300 rounded-md text-right font-mono"
-                      />
-                      <span className="text-xs font-mono font-bold w-20 text-right">
+                    <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-md border border-slate-200">
+                      <div className="col-span-5">
+                        <input
+                          type="text"
+                          required
+                          list="invoice-catalog-items"
+                          placeholder="Type or select item..."
+                          value={li.description}
+                          onChange={(e) => handleProductSelect(idx, e.target.value)}
+                          className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-md"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <input
+                          type="number"
+                          min="1"
+                          placeholder="Qty"
+                          value={li.quantity}
+                          onChange={(e) => handleLineItemChange(idx, "quantity", e.target.value)}
+                          className="w-full text-xs px-2 py-1.5 border border-slate-300 rounded-md text-center font-mono"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Rate"
+                          value={li.unit_price}
+                          onChange={(e) => handleLineItemChange(idx, "unit_price", e.target.value)}
+                          className="w-full text-xs px-2 py-1.5 border border-slate-300 rounded-md text-right font-mono"
+                        />
+                      </div>
+                      <div className="col-span-2 text-xs font-mono font-bold text-right text-slate-900 pr-1">
                         {formatBDT(li.amount)}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveLineItem(idx)}
-                        className="p-1 text-slate-400 hover:text-red-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      </div>
+                      <div className="col-span-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLineItem(idx)}
+                          className="p-1 text-slate-400 hover:text-red-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -1,20 +1,55 @@
-import React from "react";
+import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { formatBDT } from "@/lib/utils";
-import { ArrowUpRight, ArrowDownLeft, Building2, TrendingUp, Plus } from "lucide-react";
-import { Head, Link } from "@inertiajs/react";
+import { ArrowUpRight, ArrowDownLeft, Building2, TrendingUp, Plus, Edit, X, Check } from "lucide-react";
+import { Head, Link, router } from "@inertiajs/react";
 
-export default function Dashboard({ metrics, recentInvoices, recentBookings }) {
-  const receivablesBDT = metrics?.receivables ?? 145000.0;
-  const payablesBDT = metrics?.payables ?? 38500.0;
-  const bankBalanceBDT = metrics?.bankBalance ?? 520000.0;
-  const netCashFlowBDT = metrics?.netCashFlow ?? 106500.0;
+export default function Dashboard({ metrics, cashAndBankAccounts, recentInvoices, recentBookings }) {
+  const receivablesBDT = metrics?.receivables ?? 0.0;
+  const payablesBDT = metrics?.payables ?? 0.0;
+  const bankBalanceBDT = metrics?.bankBalance ?? 0.0;
+  const netCashFlowBDT = metrics?.netCashFlow ?? 0.0;
+
+  // Edit Account Balance State
+  const [editingAccount, setEditingAccount] = useState(null);
+  const [newBalance, setNewBalance] = useState("");
+  const [balanceNotification, setBalanceNotification] = useState(null);
+
+  const handleOpenEditBalance = (acc) => {
+    setEditingAccount(acc);
+    setNewBalance(acc.balance || 0);
+  };
+
+  const handleSaveBalance = (e) => {
+    e.preventDefault();
+    if (!editingAccount) return;
+
+    router.post(`/accounts/${editingAccount.id}/balance`, {
+      balance: parseFloat(newBalance) || 0,
+    }, {
+      onSuccess: () => {
+        setEditingAccount(null);
+        setBalanceNotification(`✅ Account ${editingAccount.code} balance updated!`);
+      },
+    });
+  };
+
+  const accountList = cashAndBankAccounts || [];
 
   return (
     <AuthenticatedLayout>
       <Head title="Business Overview - Nefco Books" />
 
       <div className="space-y-6">
+        {balanceNotification && (
+          <div className="flex items-center justify-between p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold rounded-lg shadow-xs">
+            <span>{balanceNotification}</span>
+            <button onClick={() => setBalanceNotification(null)} className="text-emerald-600 hover:text-emerald-900">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         {/* Top Header Title */}
         <div className="flex items-center justify-between">
           <div>
@@ -66,7 +101,9 @@ export default function Dashboard({ metrics, recentInvoices, recentBookings }) {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900">{formatBDT(bankBalanceBDT)}</div>
-              <div className="text-[11px] text-emerald-600 font-medium mt-1">Across 3 Accounts</div>
+              <div className="text-[11px] text-emerald-600 font-medium mt-1">
+                Across {accountList.length} Account{accountList.length !== 1 ? "s" : ""}
+              </div>
             </div>
           </div>
 
@@ -80,7 +117,7 @@ export default function Dashboard({ metrics, recentInvoices, recentBookings }) {
             </div>
             <div>
               <div className="text-2xl font-bold text-slate-900">{formatBDT(netCashFlowBDT)}</div>
-              <div className="text-[11px] text-purple-600 font-medium mt-1">This Month</div>
+              <div className="text-[11px] text-purple-600 font-medium mt-1">Receivables minus Payables</div>
             </div>
           </div>
         </div>
@@ -89,39 +126,58 @@ export default function Dashboard({ metrics, recentInvoices, recentBookings }) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 shadow-xs p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h2 className="text-sm font-bold text-slate-800">Cash & Bank Accounts (BDT)</h2>
-              <span className="text-xs text-slate-400 font-medium">Chart of Accounts 1000 Series</span>
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Cash & Bank Accounts (BDT)</h2>
+                <span className="text-[11px] text-slate-400 font-medium">Click "Edit" on any account to update its real balance</span>
+              </div>
+              <Link
+                href="/settings"
+                className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
+              >
+                Chart of Accounts →
+              </Link>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left text-slate-600">
                 <thead className="bg-slate-50 text-slate-500 uppercase font-semibold text-[10px]">
                   <tr>
-                    <th className="py-2.5 px-3">Account Code</th>
+                    <th className="py-2.5 px-3">Code</th>
                     <th className="py-2.5 px-3">Account Name</th>
                     <th className="py-2.5 px-3">Type</th>
                     <th className="py-2.5 px-3 text-right">Balance</th>
+                    <th className="py-2.5 px-3 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  <tr className="hover:bg-slate-50/50">
-                    <td className="py-2.5 px-3 font-mono font-semibold text-blue-600">1000</td>
-                    <td className="py-2.5 px-3 font-medium text-slate-800">Petty Cash</td>
-                    <td className="py-2.5 px-3 text-slate-500">Cash and Bank</td>
-                    <td className="py-2.5 px-3 text-right font-bold text-slate-900">{formatBDT(20000)}</td>
-                  </tr>
-                  <tr className="hover:bg-slate-50/50">
-                    <td className="py-2.5 px-3 font-mono font-semibold text-blue-600">1010</td>
-                    <td className="py-2.5 px-3 font-medium text-slate-800">Main Bank Account (Standard Chartered BDT)</td>
-                    <td className="py-2.5 px-3 text-slate-500">Cash and Bank</td>
-                    <td className="py-2.5 px-3 text-right font-bold text-slate-900">{formatBDT(450000)}</td>
-                  </tr>
-                  <tr className="hover:bg-slate-50/50">
-                    <td className="py-2.5 px-3 font-mono font-semibold text-blue-600">1020</td>
-                    <td className="py-2.5 px-3 font-medium text-slate-800">bKash / Nagad Merchant Account</td>
-                    <td className="py-2.5 px-3 text-slate-500">Cash and Bank</td>
-                    <td className="py-2.5 px-3 text-right font-bold text-slate-900">{formatBDT(50000)}</td>
-                  </tr>
+                  {accountList.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-4 text-center text-slate-400">
+                        No cash or bank accounts found.
+                      </td>
+                    </tr>
+                  ) : (
+                    accountList.map((acc) => (
+                      <tr key={acc.id} className="hover:bg-slate-50/70 transition">
+                        <td className="py-2.5 px-3 font-mono font-semibold text-blue-600">{acc.code}</td>
+                        <td className="py-2.5 px-3 font-medium text-slate-800">{acc.name}</td>
+                        <td className="py-2.5 px-3 text-slate-500">Cash and Bank</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
+                          {formatBDT(acc.balance || 0)}
+                        </td>
+                        <td className="py-2.5 px-3 text-center">
+                          <button
+                            onClick={() => handleOpenEditBalance(acc)}
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-semibold transition"
+                            title="Edit Account Balance"
+                          >
+                            <Edit className="h-3 w-3 text-slate-500" />
+                            <span>Edit Amount</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -258,6 +314,66 @@ export default function Dashboard({ metrics, recentInvoices, recentBookings }) {
             </Link>
           </div>
         </div>
+
+        {/* Edit Account Balance Modal */}
+        {editingAccount && (
+          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg max-w-sm w-full overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+              <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-sm">Edit Account Balance</h3>
+                  <p className="text-[11px] text-slate-300">
+                    {editingAccount.code} - {editingAccount.name}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setEditingAccount(null)}
+                  className="text-slate-400 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveBalance} className="p-5 space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">
+                    Current Amount / Balance (BDT ৳) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    autoFocus
+                    value={newBalance}
+                    onChange={(e) => setNewBalance(e.target.value)}
+                    placeholder="Enter real balance e.g. 50000"
+                    className="w-full text-sm font-mono font-bold px-3 py-2 border border-slate-300 rounded-md text-slate-900 focus:ring-1 focus:ring-blue-600 focus:outline-hidden"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    No predefined or dummy amount. Enter your actual opening/running balance.
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setEditingAccount(null)}
+                    className="px-3.5 py-1.5 border border-slate-300 rounded-md text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold shadow-xs flex items-center gap-1.5"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                    <span>Save Balance</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </AuthenticatedLayout>
   );
