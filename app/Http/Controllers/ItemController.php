@@ -37,9 +37,24 @@ class ItemController extends Controller
         return "{$prefix}-{$nextNum}";
     }
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
-        $items = Item::with(['category', 'salesAccount'])->latest()->paginate(25);
+        $query = Item::with(['category', 'salesAccount']);
+
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('sku', 'like', "%{$search}%");
+            });
+        }
+
+        if ($type = $request->input('type')) {
+            if ($type !== 'ALL') {
+                $query->where('type', $type);
+            }
+        }
+
+        $items = $query->latest()->paginate(25)->withQueryString();
         $categories = Category::all();
         $salesAccounts = Account::where('type', 'REVENUE')->get();
         $defaultUom = User::whereNotNull('default_uom')->value('default_uom') ?? 'Pcs';
@@ -49,6 +64,7 @@ class ItemController extends Controller
             'categories'    => $categories,
             'salesAccounts' => $salesAccounts,
             'defaultUom'    => $defaultUom,
+            'filters'       => $request->only(['search', 'type']),
         ]);
     }
 

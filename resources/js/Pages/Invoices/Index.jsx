@@ -12,6 +12,7 @@ import {
   X,
   Send,
   Edit,
+  Paperclip,
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
@@ -29,6 +30,8 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
   // Form State
   const [formContactName, setFormContactName] = useState("");
   const [formWhatsapp, setFormWhatsapp] = useState("");
+  const [formInvoiceNumber, setFormInvoiceNumber] = useState("");
+  const [formOrderNumber, setFormOrderNumber] = useState("");
   const [formIssueDate, setFormIssueDate] = useState(new Date().toISOString().split("T")[0]);
   const [formDueDate, setFormDueDate] = useState(
     new Date(Date.now() + 86400000 * 14).toISOString().split("T")[0]
@@ -36,6 +39,8 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
   const [formStatus, setFormStatus] = useState("SENT");
   const [formNotes, setFormNotes] = useState("Thank you for your business!");
   const [formDiscount, setFormDiscount] = useState(0);
+  const [formAttachments, setFormAttachments] = useState([]);
+  const [existingAttachments, setExistingAttachments] = useState([]);
   const [formLineItems, setFormLineItems] = useState([
     { description: "", quantity: 1, unit_price: 0, amount: 0 },
   ]);
@@ -44,11 +49,15 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
     setEditingInvoiceId(null);
     setFormContactName("");
     setFormWhatsapp("");
+    setFormInvoiceNumber("");
+    setFormOrderNumber("");
     setFormIssueDate(new Date().toISOString().split("T")[0]);
     setFormDueDate(new Date(Date.now() + 86400000 * 14).toISOString().split("T")[0]);
     setFormStatus("SENT");
     setFormNotes("Thank you for your business!");
     setFormDiscount(0);
+    setFormAttachments([]);
+    setExistingAttachments([]);
     setFormLineItems([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
   };
 
@@ -61,11 +70,15 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
     setEditingInvoiceId(inv.id);
     setFormContactName(inv.contact?.name || "");
     setFormWhatsapp(inv.contact?.whatsapp_number || inv.contact?.phone || "");
+    setFormInvoiceNumber(inv.invoice_number || "");
+    setFormOrderNumber(inv.order_number || "");
     setFormIssueDate(inv.issue_date ? inv.issue_date.split("T")[0] : new Date().toISOString().split("T")[0]);
     setFormDueDate(inv.due_date ? inv.due_date.split("T")[0] : "");
     setFormStatus(inv.status || "SENT");
     setFormNotes(inv.notes || "");
     setFormDiscount(inv.discount_amount || 0);
+    setExistingAttachments(inv.attachments || []);
+    setFormAttachments([]);
 
     const lines = inv.line_items || inv.lineItems || [];
     if (lines.length > 0) {
@@ -95,12 +108,17 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
 
   const handleFilter = (st) => {
     setStatusFilter(st);
-    router.get("/invoices", { search, status: st }, { preserveState: true });
+    router.get("/invoices", { search, status: st }, { preserveState: true, replace: true });
+  };
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    router.get("/invoices", { search: val, status: statusFilter }, { preserveState: true, replace: true });
   };
 
   const handleSearch = (e) => {
     e.preventDefault();
-    router.get("/invoices", { search, status: statusFilter }, { preserveState: true });
+    router.get("/invoices", { search, status: statusFilter }, { preserveState: true, replace: true });
   };
 
   const handleAddLineItem = () => {
@@ -125,26 +143,56 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
     setFormLineItems(updated);
   };
 
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length + formAttachments.length > 10) {
+      alert("Maximum 10 files allowed");
+      return;
+    }
+    for (const f of files) {
+      if (f.size > 10 * 1024 * 1024) {
+        alert(`File ${f.name} exceeds maximum 10MB limit.`);
+        return;
+      }
+    }
+    setFormAttachments((prev) => [...prev, ...files].slice(0, 10));
+  };
+
+  const handleRemoveFile = (idx) => {
+    setFormAttachments(formAttachments.filter((_, i) => i !== idx));
+  };
+
   const subtotalBDT = formLineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
   const totalBDT = Math.max(0, subtotalBDT - (parseFloat(formDiscount) || 0));
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const payload = {
-      contact_name: formContactName,
-      whatsapp_number: formWhatsapp,
-      issue_date: formIssueDate,
-      due_date: formDueDate,
-      status: formStatus,
-      subtotal: subtotalBDT,
-      discount_amount: parseFloat(formDiscount) || 0,
-      total_amount: totalBDT,
-      notes: formNotes,
-      line_items: formLineItems,
-    };
+    const formData = new FormData();
+    formData.append("contact_name", formContactName);
+    formData.append("whatsapp_number", formWhatsapp);
+    if (formInvoiceNumber) formData.append("invoice_number", formInvoiceNumber);
+    if (formOrderNumber) formData.append("order_number", formOrderNumber);
+    formData.append("issue_date", formIssueDate);
+    formData.append("due_date", formDueDate);
+    formData.append("status", formStatus);
+    formData.append("subtotal", subtotalBDT);
+    formData.append("discount_amount", parseFloat(formDiscount) || 0);
+    formData.append("total_amount", totalBDT);
+    if (formNotes) formData.append("notes", formNotes);
+
+    formLineItems.forEach((li, idx) => {
+      formData.append(`line_items[${idx}][description]`, li.description);
+      formData.append(`line_items[${idx}][quantity]`, li.quantity);
+      formData.append(`line_items[${idx}][unit_price]`, li.unit_price);
+      formData.append(`line_items[${idx}][amount]`, li.amount);
+    });
+
+    formAttachments.forEach((f) => {
+      formData.append("attachments[]", f);
+    });
 
     if (editingInvoiceId) {
-      router.post(`/invoices/${editingInvoiceId}`, payload, {
+      router.post(`/invoices/${editingInvoiceId}`, formData, {
         onSuccess: () => {
           setIsDrawerOpen(false);
           resetForm();
@@ -152,7 +200,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
         },
       });
     } else {
-      router.post("/invoices", payload, {
+      router.post("/invoices", formData, {
         onSuccess: () => {
           setIsDrawerOpen(false);
           resetForm();
@@ -226,9 +274,9 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
               <input
                 type="text"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search invoice # or customer..."
-                className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-md w-60 focus:ring-1 focus:ring-blue-500"
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Search invoice #, order # or customer..."
+                className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-md w-64 focus:ring-1 focus:ring-blue-500"
               />
             </div>
           </form>
@@ -259,7 +307,16 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
                 invoiceList.map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-50/70 transition">
                     <td className="py-3 px-4 font-mono font-bold text-blue-600">
-                      {inv.invoice_number}
+                      <div>{inv.invoice_number}</div>
+                      {inv.order_number && (
+                        <div className="text-[10px] text-slate-400 font-normal">Ord: {inv.order_number}</div>
+                      )}
+                      {inv.attachments && inv.attachments.length > 0 && (
+                        <div className="text-[10px] text-emerald-600 font-normal flex items-center gap-0.5 mt-0.5">
+                          <Paperclip className="h-3 w-3" />
+                          <span>{inv.attachments.length} file(s)</span>
+                        </div>
+                      )}
                     </td>
                     <td className="py-3 px-4">
                       <div className="font-semibold text-slate-900">{inv.contact?.name}</div>
@@ -347,6 +404,29 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
               </div>
 
               <form onSubmit={handleSubmit} className="p-6 space-y-4 flex-1 overflow-y-auto">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Invoice Number</label>
+                    <input
+                      type="text"
+                      value={formInvoiceNumber}
+                      onChange={(e) => setFormInvoiceNumber(e.target.value)}
+                      placeholder="e.g. INV-2026-0001 (Auto if empty)"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Order Number</label>
+                    <input
+                      type="text"
+                      value={formOrderNumber}
+                      onChange={(e) => setFormOrderNumber(e.target.value)}
+                      placeholder="e.g. ORD-2026-0001 (Optional)"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
+                    />
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700">Customer Name *</label>
@@ -478,6 +558,80 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
                   />
                 </div>
 
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Special Notes</label>
+                  <textarea
+                    rows={2}
+                    value={formNotes}
+                    onChange={(e) => setFormNotes(e.target.value)}
+                    placeholder="Customer notes or bank payment details..."
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
+                  />
+                </div>
+
+                {/* Attach File(s) */}
+                <div className="border border-dashed border-slate-300 rounded-lg p-3.5 bg-slate-50/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold text-slate-800">Attach File(s)</label>
+                      <p className="text-[11px] text-slate-500">Attach invoice slips, delivery notes, or bills (Max 10 files, 10 MB each)</p>
+                    </div>
+                    <label className="cursor-pointer px-3 py-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded text-xs font-semibold shadow-xs">
+                      Choose Files
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                    </label>
+                  </div>
+
+                  {formAttachments.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      <div className="text-[11px] font-bold text-slate-600">Selected Files to Upload ({formAttachments.length}/10):</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {formAttachments.map((f, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 text-blue-800 rounded text-[11px]"
+                          >
+                            <span className="truncate max-w-[140px] font-mono">{f.name}</span>
+                            <span className="text-[10px] text-slate-400">({(f.size / (1024 * 1024)).toFixed(1)}MB)</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFile(idx)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {existingAttachments.length > 0 && (
+                    <div className="space-y-1.5 pt-1 border-t border-slate-200">
+                      <div className="text-[11px] font-bold text-slate-600">Existing Attachments:</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {existingAttachments.map((att, idx) => (
+                          <a
+                            key={idx}
+                            href={att.path}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 hover:underline rounded text-[11px]"
+                          >
+                            <span>📎</span>
+                            <span className="truncate max-w-[140px] font-mono">{att.name}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs font-bold text-slate-900">
                   <span>Total Invoice Payable</span>
                   <span className="text-base text-blue-700">{formatBDT(totalBDT)}</span>
@@ -537,6 +691,11 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
                     <div className="text-slate-500">
                       Due: {new Date(selectedInvoice.due_date).toLocaleDateString("en-GB")}
                     </div>
+                    {selectedInvoice.order_number && (
+                      <div className="text-slate-500 font-mono text-[11px] mt-0.5">
+                        Order #: <strong className="text-slate-700">{selectedInvoice.order_number}</strong>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -600,6 +759,29 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
                 {selectedInvoice.notes && (
                   <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-[11px] text-slate-500">
                     <strong>Note:</strong> {selectedInvoice.notes}
+                  </div>
+                )}
+
+                {selectedInvoice.attachments && selectedInvoice.attachments.length > 0 && (
+                  <div className="border-t border-slate-200 pt-3">
+                    <div className="font-bold text-[11px] text-slate-700 mb-1.5 flex items-center gap-1">
+                      <Paperclip className="h-3.5 w-3.5 text-blue-600" />
+                      <span>Attached Documents ({selectedInvoice.attachments.length}):</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedInvoice.attachments.map((att, idx) => (
+                        <a
+                          key={idx}
+                          href={att.path}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 border border-slate-300 rounded text-[11px] text-blue-700 hover:bg-slate-200 font-mono transition"
+                        >
+                          <span>📎</span>
+                          <span>{att.name}</span>
+                        </a>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

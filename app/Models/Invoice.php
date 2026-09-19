@@ -10,9 +10,9 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Invoice extends Model
 {
     protected $fillable = [
-        'invoice_number', 'booking_id', 'contact_id', 'issue_date', 'due_date',
+        'invoice_number', 'order_number', 'booking_id', 'contact_id', 'issue_date', 'due_date',
         'status', 'subtotal', 'tax_amount', 'discount_amount', 'total_amount',
-        'paid_amount', 'notes', 'terms'
+        'paid_amount', 'notes', 'terms', 'attachments'
     ];
 
     protected $casts = [
@@ -23,6 +23,7 @@ class Invoice extends Model
         'discount_amount' => 'decimal:2',
         'total_amount'    => 'decimal:2',
         'paid_amount'     => 'decimal:2',
+        'attachments'     => 'array',
     ];
 
     public function contact(): BelongsTo

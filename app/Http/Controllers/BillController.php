@@ -18,12 +18,29 @@ class BillController extends Controller
     {
     }
 
-    public function index(): Response
+    public function index(Request $request): Response
     {
+        $query = Bill::with(['contact', 'lineItems']);
+
+        if ($search = $request->input('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('bill_number', 'like', "%{$search}%")
+                  ->orWhere('notes', 'like', "%{$search}%")
+                  ->orWhereHas('contact', fn($c) => $c->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($status = $request->input('status')) {
+            if ($status !== 'ALL') {
+                $query->where('status', $status);
+            }
+        }
+
         return Inertia::render('Bills/Index', [
-            'bills'   => Bill::with(['contact', 'lineItems'])->latest()->paginate(25),
+            'bills'   => $query->latest()->paginate(25)->withQueryString(),
             'vendors' => Contact::whereIn('type', ['VENDOR', 'BOTH'])->get(['id', 'name', 'phone', 'whatsapp_number']),
             'items'   => Item::all(),
+            'filters' => $request->only(['search', 'status']),
         ]);
     }
 

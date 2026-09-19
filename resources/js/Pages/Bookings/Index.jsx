@@ -16,9 +16,13 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
   // Form State
   const [formContactName, setFormContactName] = useState("");
   const [formWhatsapp, setFormWhatsapp] = useState("");
+  const [formOrderNumber, setFormOrderNumber] = useState("");
+  const [formInvoiceNumber, setFormInvoiceNumber] = useState("");
   const [formServiceDate, setFormServiceDate] = useState(new Date().toISOString().split("T")[0]);
   const [formStatus, setFormStatus] = useState("CONFIRMED");
   const [formNotes, setFormNotes] = useState("");
+  const [formAttachments, setFormAttachments] = useState([]);
+  const [existingAttachments, setExistingAttachments] = useState([]);
   const [formLineItems, setFormLineItems] = useState([
     { item_id: null, description: "", quantity: 1, unit_price: 0, amount: 0 },
   ]);
@@ -27,9 +31,13 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
     setEditingBookingId(null);
     setFormContactName("");
     setFormWhatsapp("");
+    setFormOrderNumber("");
+    setFormInvoiceNumber("");
     setFormServiceDate(new Date().toISOString().split("T")[0]);
     setFormStatus("CONFIRMED");
     setFormNotes("");
+    setFormAttachments([]);
+    setExistingAttachments([]);
     setFormLineItems([{ item_id: null, description: "", quantity: 1, unit_price: 0, amount: 0 }]);
   };
 
@@ -42,9 +50,13 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
     setEditingBookingId(bkg.id);
     setFormContactName(bkg.contact?.name || "");
     setFormWhatsapp(bkg.contact?.whatsapp_number || bkg.contact?.phone || "");
+    setFormOrderNumber(bkg.order_number || "");
+    setFormInvoiceNumber(bkg.invoice_number || "");
     setFormServiceDate(bkg.booking_date ? bkg.booking_date.split("T")[0] : new Date().toISOString().split("T")[0]);
     setFormStatus(bkg.status || "CONFIRMED");
     setFormNotes(bkg.notes || "");
+    setExistingAttachments(bkg.attachments || []);
+    setFormAttachments([]);
 
     const lines = bkg.line_items || bkg.lineItems || [];
     if (lines.length > 0) {
@@ -62,6 +74,21 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
     }
 
     setIsDrawerOpen(true);
+  };
+
+  const handleFilter = (st) => {
+    setStatusFilter(st);
+    router.get("/bookings", { search, status: st }, { preserveState: true, replace: true });
+  };
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    router.get("/bookings", { search: val, status: statusFilter }, { preserveState: true, replace: true });
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    router.get("/bookings", { search, status: statusFilter }, { preserveState: true, replace: true });
   };
 
   const handleSelectContact = (name) => {
@@ -118,29 +145,60 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
     setFormLineItems(updated);
   };
 
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length + formAttachments.length > 10) {
+      alert("Maximum 10 files allowed");
+      return;
+    }
+    for (const f of files) {
+      if (f.size > 10 * 1024 * 1024) {
+        alert(`File ${f.name} exceeds maximum 10MB limit.`);
+        return;
+      }
+    }
+    setFormAttachments((prev) => [...prev, ...files].slice(0, 10));
+  };
+
+  const handleRemoveFile = (idx) => {
+    setFormAttachments(formAttachments.filter((_, i) => i !== idx));
+  };
+
   const totalCalculatedBDT = formLineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const payload = {
-      contact_name: formContactName,
-      whatsapp_number: formWhatsapp,
-      booking_date: formServiceDate,
-      status: formStatus,
-      total_amount: totalCalculatedBDT,
-      notes: formNotes,
-      line_items: formLineItems,
-    };
+    const formData = new FormData();
+    formData.append("contact_name", formContactName);
+    formData.append("whatsapp_number", formWhatsapp);
+    if (formOrderNumber) formData.append("order_number", formOrderNumber);
+    if (formInvoiceNumber) formData.append("invoice_number", formInvoiceNumber);
+    formData.append("booking_date", formServiceDate);
+    formData.append("status", formStatus);
+    formData.append("total_amount", totalCalculatedBDT);
+    if (formNotes) formData.append("notes", formNotes);
+
+    formLineItems.forEach((li, idx) => {
+      if (li.item_id) formData.append(`line_items[${idx}][item_id]`, li.item_id);
+      formData.append(`line_items[${idx}][description]`, li.description);
+      formData.append(`line_items[${idx}][quantity]`, li.quantity);
+      formData.append(`line_items[${idx}][unit_price]`, li.unit_price);
+      formData.append(`line_items[${idx}][amount]`, li.amount);
+    });
+
+    formAttachments.forEach((f) => {
+      formData.append("attachments[]", f);
+    });
 
     if (editingBookingId) {
-      router.post(`/bookings/${editingBookingId}`, payload, {
+      router.post(`/bookings/${editingBookingId}`, formData, {
         onSuccess: () => {
           setIsDrawerOpen(false);
           resetForm();
         },
       });
     } else {
-      router.post("/bookings", payload, {
+      router.post("/bookings", formData, {
         onSuccess: () => {
           setIsDrawerOpen(false);
           resetForm();
@@ -173,12 +231,43 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
           </button>
         </div>
 
+        {/* Filter & Search Bar */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
+          <div className="flex items-center gap-2">
+            {["ALL", "CONFIRMED", "PENDING", "COMPLETED"].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => handleFilter(tab)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
+                  statusFilter === tab
+                    ? "bg-slate-900 text-white font-semibold"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {tab === "ALL" ? "All Bookings" : tab}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={handleSearch} className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by customer, booking #, order #..."
+              value={search}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+          </form>
+        </div>
+
         {/* Table */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
           <table className="w-full text-xs text-left text-slate-600">
             <thead className="bg-slate-50 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
               <tr>
-                <th className="py-3 px-4">Booking #</th>
+                <th className="py-3 px-4">Booking & Order #</th>
+                <th className="py-3 px-4">Invoice #</th>
                 <th className="py-3 px-4">Customer</th>
                 <th className="py-3 px-4">Booking Date</th>
                 <th className="py-3 px-4">Status</th>
@@ -189,7 +278,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
             <tbody className="divide-y divide-slate-100">
               {bookingList.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
+                  <td colSpan={7} className="py-8 text-center text-slate-400">
                     No bookings found. Click <strong>+ New Booking</strong> to create one.
                   </td>
                 </tr>
@@ -200,8 +289,20 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                     onClick={() => handleOpenEditDrawer(bkg)}
                     className="hover:bg-slate-50/70 cursor-pointer transition"
                   >
-                    <td className="py-3 px-4 font-mono font-bold text-blue-600">
-                      {bkg.booking_number}
+                    <td className="py-3 px-4">
+                      <div className="font-mono font-bold text-blue-600">{bkg.booking_number}</div>
+                      {bkg.order_number && (
+                        <div className="text-[11px] text-slate-400 font-mono">Ord: {bkg.order_number}</div>
+                      )}
+                    </td>
+                    <td className="py-3 px-4 font-mono text-slate-700">
+                      {bkg.invoice_number ? (
+                        <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          {bkg.invoice_number}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-[11px]">Pending</span>
+                      )}
                     </td>
                     <td className="py-3 px-4">
                       <div className="font-semibold text-slate-900">{bkg.contact?.name}</div>
@@ -308,6 +409,29 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Order Number</label>
+                    <input
+                      type="text"
+                      value={formOrderNumber}
+                      onChange={(e) => setFormOrderNumber(e.target.value)}
+                      placeholder="e.g. ORD-2026-0001 (Auto if empty)"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Invoice Number</label>
+                    <input
+                      type="text"
+                      value={formInvoiceNumber}
+                      onChange={(e) => setFormInvoiceNumber(e.target.value)}
+                      placeholder="e.g. INV-2026-0001 (Auto if empty)"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700">Booking / Delivery Date</label>
                     <input
                       type="date"
@@ -336,7 +460,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                   <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
                       <Package className="h-4 w-4 text-blue-600" />
-                      <span>Booking Products / Services (Auto-loaded)</span>
+                      <span>Booking Items</span>
                     </div>
                     <button
                       type="button"
@@ -355,6 +479,14 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                       </option>
                     ))}
                   </datalist>
+
+                  {/* Table Header for Line Items */}
+                  <div className="grid grid-cols-12 gap-2 text-[10px] uppercase font-bold text-slate-500 px-2 py-1 bg-slate-100 rounded">
+                    <div className="col-span-6">Item Details</div>
+                    <div className="col-span-2 text-center">Quantity</div>
+                    <div className="col-span-3 text-right">Rate</div>
+                    <div className="col-span-1 text-center">Amount</div>
+                  </div>
 
                   {formLineItems.map((item, idx) => (
                     <div key={idx} className="grid grid-cols-12 gap-2 items-center bg-white p-2 rounded-md border border-slate-200">
@@ -414,6 +546,69 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                     placeholder="Customer requests or delivery notes..."
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                   />
+                </div>
+
+                {/* Attach File(s) */}
+                <div className="border border-dashed border-slate-300 rounded-lg p-3.5 bg-slate-50/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold text-slate-800">Attach File(s)</label>
+                      <p className="text-[11px] text-slate-500">Attach invoice, slip, or quotation documents (Max 10 files, 10 MB each)</p>
+                    </div>
+                    <label className="cursor-pointer px-3 py-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded text-xs font-semibold shadow-xs">
+                      Choose Files
+                      <input
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={handleFileChange}
+                      />
+                    </label>
+                  </div>
+
+                  {formAttachments.length > 0 && (
+                    <div className="space-y-1.5 pt-1">
+                      <div className="text-[11px] font-bold text-slate-600">Selected Files to Upload ({formAttachments.length}/10):</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {formAttachments.map((f, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-200 text-blue-800 rounded text-[11px]"
+                          >
+                            <span className="truncate max-w-[140px] font-mono">{f.name}</span>
+                            <span className="text-[10px] text-slate-400">({(f.size / (1024 * 1024)).toFixed(1)}MB)</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFile(idx)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {existingAttachments.length > 0 && (
+                    <div className="space-y-1.5 pt-1 border-t border-slate-200">
+                      <div className="text-[11px] font-bold text-slate-600">Existing Attachments:</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {existingAttachments.map((att, idx) => (
+                          <a
+                            key={idx}
+                            href={att.path}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 border border-emerald-200 text-emerald-800 hover:underline rounded text-[11px]"
+                          >
+                            <span>📎</span>
+                            <span className="truncate max-w-[140px] font-mono">{att.name}</span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">

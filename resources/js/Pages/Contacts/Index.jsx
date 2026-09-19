@@ -18,7 +18,7 @@ export default function ContactsIndex({ contacts, filters }) {
     whatsapp_number: "+8801",
     email: "",
     address: "",
-    city: "Dhaka",
+    city: "",
   });
 
   const handleOpenCreateDrawer = () => {
@@ -30,7 +30,7 @@ export default function ContactsIndex({ contacts, filters }) {
       whatsapp_number: "+8801",
       email: "",
       address: "",
-      city: "Dhaka",
+      city: "",
     });
     setIsDrawerOpen(true);
   };
@@ -44,19 +44,24 @@ export default function ContactsIndex({ contacts, filters }) {
       whatsapp_number: contact.whatsapp_number || "+8801",
       email: contact.email || "",
       address: contact.address || "",
-      city: contact.city || "Dhaka",
+      city: contact.city || "",
     });
     setIsDrawerOpen(true);
   };
 
   const handleFilter = (type) => {
     setActiveTab(type);
-    router.get("/contacts", { search, type }, { preserveState: true });
+    router.get("/contacts", { search, type }, { preserveState: true, replace: true });
+  };
+
+  const handleSearchChange = (val) => {
+    setSearch(val);
+    router.get("/contacts", { search: val, type: activeTab }, { preserveState: true, replace: true });
   };
 
   const handleSearch = (e) => {
     e.preventDefault();
-    router.get("/contacts", { search, type: activeTab }, { preserveState: true });
+    router.get("/contacts", { search, type: activeTab }, { preserveState: true, replace: true });
   };
 
   const handleSubmit = (e) => {
@@ -122,7 +127,7 @@ export default function ContactsIndex({ contacts, filters }) {
               type="text"
               placeholder="Search by name, company, WhatsApp..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
           </form>
@@ -324,6 +329,7 @@ export default function ContactsIndex({ contacts, filters }) {
                       type="text"
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      placeholder="e.g. Dhaka, Chittagong..."
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
@@ -336,11 +342,6 @@ export default function ContactsIndex({ contacts, filters }) {
                       className="w-full px-3 py-2 text-xs border border-slate-200 bg-slate-100 text-slate-500 rounded-md"
                     />
                   </div>
-                </div>
-
-                <div className="p-4 border border-slate-200 rounded-lg bg-slate-50 text-[11px] text-slate-500 space-y-1">
-                  <div className="font-semibold text-slate-700">Currency Default: BDT (৳)</div>
-                  <div>All receivables and payables for this contact will be calculated in Bangladeshi Taka.</div>
                 </div>
 
                 <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-2">
