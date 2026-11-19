@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
-import { formatBDT } from "@/lib/utils";
+import { formatBDT, formatDate } from "@/lib/utils";
 import {
   Plus,
   Search,
@@ -272,10 +272,10 @@ export default function BillsIndex({ bills, vendors, items }) {
                       <td className="py-3 px-4 font-mono font-bold text-amber-600">{b.bill_number}</td>
                       <td className="py-3 px-4 font-semibold text-slate-900">{b.contact?.name || "Vendor"}</td>
                       <td className="py-3 px-4 text-slate-500">
-                        {b.bill_date ? new Date(b.bill_date).toLocaleDateString("en-GB") : "N/A"}
+                        {formatDate(b.bill_date)}
                       </td>
                       <td className="py-3 px-4 text-slate-500">
-                        {b.due_date ? new Date(b.due_date).toLocaleDateString("en-GB") : "N/A"}
+                        {formatDate(b.due_date)}
                       </td>
                       <td className="py-3 px-4">
                         <span
@@ -570,7 +570,7 @@ export default function BillsIndex({ bills, vendors, items }) {
                     {selectedBill.status}
                   </span>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Date: {selectedBill.bill_date ? new Date(selectedBill.bill_date).toLocaleDateString("en-GB") : "N/A"}
+                    Date: {formatDate(selectedBill.bill_date)}
                   </p>
                 </div>
               </div>

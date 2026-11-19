@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
-import { formatBDT } from "@/lib/utils";
+import { formatBDT, formatDate } from "@/lib/utils";
 import { Landmark, Plus, BookOpen, ShieldCheck, AlertCircle, X } from "lucide-react";
 import { Head, useForm } from "@inertiajs/react";
 
@@ -117,7 +117,7 @@ export default function BankingIndex({ accounts, allAccounts, recentJournals }) 
                       {j.entry_number}
                     </td>
                     <td className="py-3 px-4 text-slate-600">
-                      {new Date(j.date).toLocaleDateString("en-GB")}
+                      {formatDate(j.date)}
                     </td>
                     <td className="py-3 px-4 text-slate-800 font-medium">
                       <div>{j.description}</div>

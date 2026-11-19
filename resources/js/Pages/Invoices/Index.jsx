@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
-import { formatBDT } from "@/lib/utils";
+import { formatBDT, formatDate } from "@/lib/utils";
 import {
   Plus,
   Search,
@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
-export default function InvoicesIndex({ invoices, contacts, items, filters }) {
+export default function InvoicesIndex({ invoices, contacts, items, filters, next_invoice_number, next_order_number }) {
   const { flash } = usePage().props;
   const [search, setSearch] = useState(filters?.search || "");
   const [statusFilter, setStatusFilter] = useState(filters?.status || "ALL");
@@ -33,12 +33,12 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
   const [formInvoiceNumber, setFormInvoiceNumber] = useState("");
   const [formOrderNumber, setFormOrderNumber] = useState("");
   const [formIssueDate, setFormIssueDate] = useState(new Date().toISOString().split("T")[0]);
-  const [formDueDate, setFormDueDate] = useState(
-    new Date(Date.now() + 86400000 * 14).toISOString().split("T")[0]
-  );
+  const [formDueDate, setFormDueDate] = useState(new Date().toISOString().split("T")[0]);
   const [formStatus, setFormStatus] = useState("SENT");
   const [formNotes, setFormNotes] = useState("Thank you for your business!");
   const [formDiscount, setFormDiscount] = useState(0);
+  const [formShipping, setFormShipping] = useState(0);
+  const [formAdjustment, setFormAdjustment] = useState(0);
   const [formAttachments, setFormAttachments] = useState([]);
   const [existingAttachments, setExistingAttachments] = useState([]);
   const [formLineItems, setFormLineItems] = useState([
@@ -51,11 +51,14 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
     setFormWhatsapp("");
     setFormInvoiceNumber("");
     setFormOrderNumber("");
-    setFormIssueDate(new Date().toISOString().split("T")[0]);
-    setFormDueDate(new Date(Date.now() + 86400000 * 14).toISOString().split("T")[0]);
+    const today = new Date().toISOString().split("T")[0];
+    setFormIssueDate(today);
+    setFormDueDate(today);
     setFormStatus("SENT");
     setFormNotes("Thank you for your business!");
     setFormDiscount(0);
+    setFormShipping(0);
+    setFormAdjustment(0);
     setFormAttachments([]);
     setExistingAttachments([]);
     setFormLineItems([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
@@ -63,6 +66,10 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
 
   const handleOpenCreateDrawer = () => {
     resetForm();
+    const defaultInv = next_invoice_number || `INV-${new Date().getFullYear()}-0001`;
+    const defaultOrd = next_order_number || `ORD-${new Date().getFullYear()}-0001`;
+    setFormInvoiceNumber(defaultInv);
+    setFormOrderNumber(defaultOrd);
     setIsDrawerOpen(true);
   };
 
@@ -72,11 +79,14 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
     setFormWhatsapp(inv.contact?.whatsapp_number || inv.contact?.phone || "");
     setFormInvoiceNumber(inv.invoice_number || "");
     setFormOrderNumber(inv.order_number || "");
-    setFormIssueDate(inv.issue_date ? inv.issue_date.split("T")[0] : new Date().toISOString().split("T")[0]);
-    setFormDueDate(inv.due_date ? inv.due_date.split("T")[0] : "");
+    const invDate = inv.issue_date ? inv.issue_date.split("T")[0] : new Date().toISOString().split("T")[0];
+    setFormIssueDate(invDate);
+    setFormDueDate(inv.due_date ? inv.due_date.split("T")[0] : invDate);
     setFormStatus(inv.status || "SENT");
     setFormNotes(inv.notes || "");
     setFormDiscount(inv.discount_amount || 0);
+    setFormShipping(inv.shipping_charges || 0);
+    setFormAdjustment(inv.adjustment || 0);
     setExistingAttachments(inv.attachments || []);
     setFormAttachments([]);
 
@@ -96,6 +106,13 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
 
     setSelectedInvoice(null);
     setIsDrawerOpen(true);
+  };
+
+  const handleIssueDateChange = (newDate) => {
+    if (formDueDate === formIssueDate) {
+      setFormDueDate(newDate);
+    }
+    setFormIssueDate(newDate);
   };
 
   const handleSelectContact = (name) => {
@@ -189,7 +206,10 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
   };
 
   const subtotalBDT = formLineItems.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-  const totalBDT = Math.max(0, subtotalBDT - (parseFloat(formDiscount) || 0));
+  const discountBDT = parseFloat(formDiscount) || 0;
+  const shippingBDT = parseFloat(formShipping) || 0;
+  const adjustmentBDT = parseFloat(formAdjustment) || 0;
+  const totalBDT = Math.max(0, Math.round((subtotalBDT - discountBDT + shippingBDT + adjustmentBDT + Number.EPSILON) * 100) / 100);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -202,7 +222,9 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
     formData.append("due_date", formDueDate);
     formData.append("status", formStatus);
     formData.append("subtotal", subtotalBDT);
-    formData.append("discount_amount", parseFloat(formDiscount) || 0);
+    formData.append("discount_amount", discountBDT);
+    formData.append("shipping_charges", shippingBDT);
+    formData.append("adjustment", adjustmentBDT);
     formData.append("total_amount", totalBDT);
     if (formNotes) formData.append("notes", formNotes);
 
@@ -315,7 +337,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
               <tr>
                 <th className="py-3 px-4">Invoice #</th>
                 <th className="py-3 px-4">Customer</th>
-                <th className="py-3 px-4">Dates</th>
+                <th className="py-3 px-4">Invoice Date</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-right">Amount (BDT)</th>
                 <th className="py-3 px-4 text-center">WhatsApp</th>
@@ -351,9 +373,9 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
                       </div>
                     </td>
                     <td className="py-3 px-4 text-slate-600">
-                      <div>{new Date(inv.issue_date).toLocaleDateString("en-GB")}</div>
+                      <div>{formatDate(inv.issue_date)}</div>
                       <div className="text-[10px] text-slate-400">
-                        Due: {new Date(inv.due_date).toLocaleDateString("en-GB")}
+                        Due: {formatDate(inv.due_date)}
                       </div>
                     </td>
                     <td className="py-3 px-4">
@@ -447,7 +469,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
                       type="text"
                       value={formInvoiceNumber}
                       onChange={(e) => setFormInvoiceNumber(e.target.value)}
-                      placeholder="e.g. INV-2026-0001 (Auto if empty)"
+                      placeholder="e.g. INV-2026-0001 (Auto-generated / Editable)"
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
                     />
                   </div>
@@ -457,7 +479,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
                       type="text"
                       value={formOrderNumber}
                       onChange={(e) => setFormOrderNumber(e.target.value)}
-                      placeholder="e.g. ORD-2026-0001 (Optional)"
+                      placeholder="e.g. ORD-2026-0001 (Auto-generated / Editable)"
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
                     />
                   </div>
@@ -495,12 +517,12 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Issue Date *</label>
+                    <label className="text-xs font-semibold text-slate-700">Invoice Date *</label>
                     <input
                       type="date"
                       required
                       value={formIssueDate}
-                      onChange={(e) => setFormIssueDate(e.target.value)}
+                      onChange={(e) => handleIssueDateChange(e.target.value)}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                     />
                   </div>
@@ -610,15 +632,46 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
                   ))}
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Discount (BDT)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formDiscount}
-                    onChange={(e) => setFormDiscount(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Discount (BDT)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={formDiscount}
+                      onChange={(e) => setFormDiscount(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Shipping Charges (BDT)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={formShipping}
+                      onChange={(e) => setFormShipping(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Adjustment (BDT)</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={formAdjustment}
+                      onChange={(e) => setFormAdjustment(e.target.value)}
+                      placeholder="e.g. +10 or -10"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-md border border-slate-200">
+                  <span className="font-semibold text-slate-700">Adjustment note:</span> Add any other +ve or -ve charges that need to be applied to adjust the total amount of the transaction Eg. +10 or -10.
                 </div>
 
                 <div className="space-y-1">
@@ -695,9 +748,33 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
                   )}
                 </div>
 
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs font-bold text-slate-900">
-                  <span>Total Invoice Payable</span>
-                  <span className="text-base text-blue-700">{formatBDT(totalBDT)}</span>
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 text-xs text-slate-700">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span className="font-mono font-semibold">{formatBDT(subtotalBDT)}</span>
+                  </div>
+                  {discountBDT > 0 && (
+                    <div className="flex justify-between text-red-600">
+                      <span>Discount:</span>
+                      <span className="font-mono">-{formatBDT(discountBDT)}</span>
+                    </div>
+                  )}
+                  {shippingBDT > 0 && (
+                    <div className="flex justify-between text-slate-700">
+                      <span>Shipping Charges:</span>
+                      <span className="font-mono">+{formatBDT(shippingBDT)}</span>
+                    </div>
+                  )}
+                  {adjustmentBDT !== 0 && (
+                    <div className="flex justify-between text-slate-700">
+                      <span>Adjustment:</span>
+                      <span className="font-mono">{adjustmentBDT > 0 ? `+${formatBDT(adjustmentBDT)}` : `-${formatBDT(Math.abs(adjustmentBDT))}`}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between font-bold text-slate-900 border-t border-slate-200 pt-2 text-sm">
+                    <span>Total Invoice Payable</span>
+                    <span className="text-base text-blue-700">{formatBDT(totalBDT)}</span>
+                  </div>
                 </div>
 
                 <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-2">
@@ -749,10 +826,10 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
                   <div className="text-right">
                     <div className="font-mono font-bold text-sm text-slate-900">{selectedInvoice.invoice_number}</div>
                     <div className="text-slate-500 mt-1">
-                      Date: {new Date(selectedInvoice.issue_date).toLocaleDateString("en-GB")}
+                      Invoice Date: {formatDate(selectedInvoice.issue_date)}
                     </div>
                     <div className="text-slate-500">
-                      Due: {new Date(selectedInvoice.due_date).toLocaleDateString("en-GB")}
+                      Due Date: {formatDate(selectedInvoice.due_date)}
                     </div>
                     {selectedInvoice.order_number && (
                       <div className="text-slate-500 font-mono text-[11px] mt-0.5">
@@ -801,7 +878,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
 
                 {/* Total calculations */}
                 <div className="flex justify-end pt-4 border-t border-slate-200">
-                  <div className="w-60 space-y-2">
+                  <div className="w-64 space-y-2">
                     <div className="flex justify-between text-slate-500">
                       <span>Subtotal</span>
                       <span className="font-mono font-bold text-slate-800">{formatBDT(selectedInvoice.subtotal)}</span>
@@ -810,6 +887,22 @@ export default function InvoicesIndex({ invoices, contacts, items, filters }) {
                       <div className="flex justify-between text-slate-500">
                         <span>Discount</span>
                         <span className="font-mono text-red-600">-{formatBDT(selectedInvoice.discount_amount)}</span>
+                      </div>
+                    )}
+                    {parseFloat(selectedInvoice.shipping_charges) > 0 && (
+                      <div className="flex justify-between text-slate-500">
+                        <span>Shipping Charges</span>
+                        <span className="font-mono text-slate-800">+{formatBDT(selectedInvoice.shipping_charges)}</span>
+                      </div>
+                    )}
+                    {parseFloat(selectedInvoice.adjustment) !== 0 && !isNaN(parseFloat(selectedInvoice.adjustment)) && (
+                      <div className="flex justify-between text-slate-500">
+                        <span>Adjustment</span>
+                        <span className="font-mono text-slate-800">
+                          {parseFloat(selectedInvoice.adjustment) > 0
+                            ? `+${formatBDT(selectedInvoice.adjustment)}`
+                            : `-${formatBDT(Math.abs(parseFloat(selectedInvoice.adjustment)))}`}
+                        </span>
                       </div>
                     )}
                     <div className="flex justify-between border-t border-slate-200 pt-2 font-bold text-slate-900 text-sm">

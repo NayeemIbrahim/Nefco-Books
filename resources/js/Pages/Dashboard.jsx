@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
-import { formatBDT } from "@/lib/utils";
+import { formatBDT, formatDate } from "@/lib/utils";
 import { ArrowUpRight, ArrowDownLeft, Building2, TrendingUp, Plus, Edit, X, Check } from "lucide-react";
 import { Head, Link, router } from "@inertiajs/react";
 
@@ -254,7 +254,7 @@ export default function Dashboard({ metrics, cashAndBankAccounts, recentInvoices
                       <td className="py-2.5 px-3 font-mono font-bold text-blue-600">{bkg.booking_number}</td>
                       <td className="py-2.5 px-3 font-semibold text-slate-900">{bkg.contact?.name || "Customer"}</td>
                       <td className="py-2.5 px-3 text-slate-500">
-                        {bkg.booking_date ? new Date(bkg.booking_date).toLocaleDateString("en-GB") : "N/A"}
+                        {formatDate(bkg.booking_date)}
                       </td>
                       <td className="py-2.5 px-3">
                         <span

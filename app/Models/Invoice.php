@@ -11,19 +11,21 @@ class Invoice extends Model
 {
     protected $fillable = [
         'invoice_number', 'order_number', 'booking_id', 'contact_id', 'issue_date', 'due_date',
-        'status', 'subtotal', 'tax_amount', 'discount_amount', 'total_amount',
+        'status', 'subtotal', 'tax_amount', 'discount_amount', 'shipping_charges', 'adjustment', 'total_amount',
         'paid_amount', 'notes', 'terms', 'attachments'
     ];
 
     protected $casts = [
-        'issue_date'      => 'datetime',
-        'due_date'        => 'datetime',
-        'subtotal'        => 'decimal:2',
-        'tax_amount'      => 'decimal:2',
-        'discount_amount' => 'decimal:2',
-        'total_amount'    => 'decimal:2',
-        'paid_amount'     => 'decimal:2',
-        'attachments'     => 'array',
+        'issue_date'       => 'datetime',
+        'due_date'         => 'datetime',
+        'subtotal'         => 'decimal:2',
+        'tax_amount'       => 'decimal:2',
+        'discount_amount'  => 'decimal:2',
+        'shipping_charges' => 'decimal:2',
+        'adjustment'       => 'decimal:2',
+        'total_amount'     => 'decimal:2',
+        'paid_amount'      => 'decimal:2',
+        'attachments'      => 'array',
     ];
 
     public function contact(): BelongsTo

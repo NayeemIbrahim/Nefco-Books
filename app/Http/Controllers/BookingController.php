@@ -211,20 +211,22 @@ class BookingController extends Controller
 
         DB::transaction(function () use ($booking, $invNumber, $accountingService) {
             $invoice = Invoice::create([
-                'invoice_number'  => $invNumber,
-                'order_number'    => $booking->order_number,
-                'contact_id'      => $booking->contact_id,
-                'booking_id'      => $booking->id,
-                'issue_date'      => now(),
-                'due_date'        => now()->addDays(14),
-                'status'          => 'SENT',
-                'subtotal'        => $booking->total_amount,
-                'tax_amount'      => 0,
-                'discount_amount' => 0,
-                'total_amount'    => $booking->total_amount,
-                'notes'           => $booking->notes,
-                'terms'           => 'Payment due within 14 days.',
-                'attachments'     => $booking->attachments,
+                'invoice_number'   => $invNumber,
+                'order_number'     => $booking->order_number,
+                'contact_id'       => $booking->contact_id,
+                'booking_id'       => $booking->id,
+                'issue_date'       => now(),
+                'due_date'         => now(),
+                'status'           => 'SENT',
+                'subtotal'         => $booking->total_amount,
+                'tax_amount'       => 0,
+                'discount_amount'  => 0,
+                'shipping_charges' => 0.00,
+                'adjustment'       => 0.00,
+                'total_amount'     => $booking->total_amount,
+                'notes'            => $booking->notes,
+                'terms'            => 'Payment due within 14 days.',
+                'attachments'      => $booking->attachments,
             ]);
 
             foreach ($booking->lineItems as $item) {

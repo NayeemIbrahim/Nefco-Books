@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
-import { formatBDT } from "@/lib/utils";
+import { formatBDT, formatDate } from "@/lib/utils";
 import { Plus, Search, CalendarCheck, FileText, Trash2, X, Phone, Calendar, Edit, Package } from "lucide-react";
 import { Head, router } from "@inertiajs/react";
 
@@ -311,7 +311,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                       </div>
                     </td>
                     <td className="py-3 px-4 text-slate-600">
-                      {new Date(bkg.booking_date).toLocaleDateString("en-GB")}
+                      {formatDate(bkg.booking_date)}
                     </td>
                     <td className="py-3 px-4">
                       <span
