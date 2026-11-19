@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\SendWhatsAppInvoiceJob;
+use App\Models\Account;
 use App\Models\Booking;
 use App\Models\Contact;
 use App\Models\Invoice;
 use App\Models\Item;
+use App\Models\Payment;
 use App\Services\AccountingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,12 +29,44 @@ class InvoiceController extends Controller
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('invoice_number', 'like', "%{$search}%")
+                  ->orWhere('order_number', 'like', "%{$search}%")
                   ->orWhereHas('contact', fn($c) => $c->where('name', 'like', "%{$search}%"));
             });
         }
 
         if ($status = $request->input('status')) {
-            if ($status !== 'ALL') {
+            $normStatus = strtoupper(str_replace(' ', '_', $status));
+            if ($normStatus === 'UNPAID') {
+                $query->where('status', '!=', 'PAID')
+                      ->where('status', '!=', 'VOID')
+                      ->where(function ($q) {
+                          $q->whereColumn('paid_amount', '<', 'total_amount')
+                            ->orWhereNull('paid_amount');
+                      });
+            } elseif ($normStatus === 'PARTIALLY_PAID') {
+                $query->where(function ($q) {
+                    $q->where('status', 'PARTIALLY_PAID')
+                      ->orWhere(function ($sub) {
+                          $sub->where('paid_amount', '>', 0)
+                              ->whereColumn('paid_amount', '<', 'total_amount');
+                      });
+                });
+            } elseif ($normStatus === 'PAID') {
+                $query->where(function ($q) {
+                    $q->where('status', 'PAID')
+                      ->orWhereColumn('paid_amount', '>=', 'total_amount');
+                });
+            } elseif ($normStatus === 'OVERDUE') {
+                $query->where(function ($q) {
+                    $q->where('status', 'OVERDUE')
+                      ->orWhere(function ($sub) {
+                          $sub->whereDate('due_date', '<', now()->toDateString())
+                              ->whereColumn('paid_amount', '<', 'total_amount');
+                      });
+                });
+            } elseif ($normStatus === 'DRAFT') {
+                $query->where('status', 'DRAFT');
+            } elseif ($normStatus !== 'ALL') {
                 $query->where('status', $status);
             }
         }
@@ -40,6 +74,7 @@ class InvoiceController extends Controller
         $invoices = $query->latest('issue_date')->paginate(15)->withQueryString();
         $contacts = Contact::active()->whereIn('type', ['CUSTOMER', 'BOTH'])->get(['id', 'name', 'phone', 'whatsapp_number']);
         $items    = Item::get(['id', 'name', 'sku', 'sales_price', 'unit']);
+        $depositAccounts = Account::whereIn('code', ['1000', '1010', '1020'])->get(['id', 'name', 'code']);
 
         $nextSeq = (int)Invoice::max('id') + 1;
         $nextInvoiceNumber = 'INV-' . date('Y') . '-' . str_pad((string)$nextSeq, 4, '0', STR_PAD_LEFT);
@@ -49,6 +84,7 @@ class InvoiceController extends Controller
             'invoices'            => $invoices,
             'contacts'            => $contacts,
             'items'               => $items,
+            'deposit_accounts'    => $depositAccounts,
             'next_invoice_number' => $nextInvoiceNumber,
             'next_order_number'   => $nextOrderNumber,
             'filters'             => $request->only(['search', 'status']),
@@ -58,21 +94,26 @@ class InvoiceController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'invoice_number'   => 'nullable|string|max:100',
-            'order_number'     => 'nullable|string|max:100',
-            'contact_id'       => 'nullable|exists:contacts,id',
-            'contact_name'     => 'nullable|string|max:255',
-            'whatsapp_number'  => 'nullable|string|max:50',
-            'booking_id'       => 'nullable|exists:bookings,id',
-            'issue_date'       => 'nullable|date',
-            'due_date'         => 'nullable|date',
-            'notes'            => 'nullable|string|max:1000',
-            'terms'            => 'nullable|string|max:1000',
-            'discount_amount'  => 'nullable|numeric|min:0',
-            'shipping_charges' => 'nullable|numeric|min:0',
-            'adjustment'       => 'nullable|numeric',
-            'attachments.*'    => 'nullable|file|max:10240',
-            'line_items'       => 'required|array|min:1',
+            'invoice_number'         => 'nullable|string|max:100',
+            'order_number'           => 'nullable|string|max:100',
+            'contact_id'             => 'nullable|exists:contacts,id',
+            'contact_name'           => 'nullable|string|max:255',
+            'whatsapp_number'        => 'nullable|string|max:50',
+            'booking_id'             => 'nullable|exists:bookings,id',
+            'issue_date'             => 'nullable|date',
+            'due_date'               => 'nullable|date',
+            'status'                 => 'nullable|string|in:DRAFT,SENT,PAID,PARTIALLY_PAID',
+            'notes'                  => 'nullable|string|max:1000',
+            'terms'                  => 'nullable|string|max:1000',
+            'discount_amount'        => 'nullable|numeric|min:0',
+            'shipping_charges'       => 'nullable|numeric|min:0',
+            'adjustment'             => 'nullable|numeric',
+            'deposit_amount'         => 'nullable|numeric|min:0',
+            'deposit_account_id'     => 'nullable|exists:accounts,id',
+            'deposit_payment_method' => 'nullable|string|in:CASH,BANK_TRANSFER,CHEQUE,MOBILE_BANKING',
+            'deposit_reference'      => 'nullable|string|max:100',
+            'attachments.*'          => 'nullable|file|max:10240',
+            'line_items'             => 'required|array|min:1',
             'line_items.*.item_id'     => 'nullable|exists:items,id',
             'line_items.*.description' => 'required|string|max:255',
             'line_items.*.quantity'    => 'required|numeric|min:0.01',
@@ -132,6 +173,9 @@ class InvoiceController extends Controller
             $adjustment      = (float)($validated['adjustment'] ?? 0);
             $totalAmount     = max(0, round($subtotal - $discountAmount + $shippingCharges + $adjustment, 2));
 
+            $depositAmount = (float)($validated['deposit_amount'] ?? 0);
+            $depositAmount = min($totalAmount, max(0, $depositAmount));
+
             $nextSeq = (int)Invoice::max('id') + 1;
             $invNumber = ! empty($validated['invoice_number'])
                 ? $validated['invoice_number']
@@ -144,6 +188,17 @@ class InvoiceController extends Controller
             $issueDate = ! empty($validated['issue_date']) ? $validated['issue_date'] : now();
             $dueDate   = ! empty($validated['due_date']) ? $validated['due_date'] : $issueDate;
 
+            $reqStatus = $validated['status'] ?? 'SENT';
+            if ($reqStatus === 'DRAFT') {
+                $finalStatus = 'DRAFT';
+            } elseif ($depositAmount >= $totalAmount && $totalAmount > 0) {
+                $finalStatus = 'PAID';
+            } elseif ($depositAmount > 0) {
+                $finalStatus = 'PARTIALLY_PAID';
+            } else {
+                $finalStatus = 'SENT';
+            }
+
             $invoice = Invoice::create([
                 'invoice_number'   => $invNumber,
                 'order_number'     => $orderNumber,
@@ -151,14 +206,14 @@ class InvoiceController extends Controller
                 'booking_id'       => $validated['booking_id'] ?? null,
                 'issue_date'       => $issueDate,
                 'due_date'         => $dueDate,
-                'status'           => 'SENT',
+                'status'           => $finalStatus,
                 'subtotal'         => $subtotal,
                 'tax_amount'       => 0.00,
                 'discount_amount'  => $discountAmount,
                 'shipping_charges' => $shippingCharges,
                 'adjustment'       => $adjustment,
                 'total_amount'     => $totalAmount,
-                'paid_amount'      => 0.00,
+                'paid_amount'      => $depositAmount,
                 'notes'            => $validated['notes'] ?? null,
                 'terms'            => $validated['terms'] ?? 'Payment due within 14 days.',
                 'attachments'      => $savedAttachments,
@@ -166,8 +221,35 @@ class InvoiceController extends Controller
 
             $invoice->lineItems()->createMany($lineItemsData);
 
-            // Double-entry posting
-            $this->accountingService->postInvoice($invoice);
+            // Double-entry posting for active invoices
+            if ($finalStatus !== 'DRAFT') {
+                $this->accountingService->postInvoice($invoice);
+
+                // If deposit was paid upfront, create Payment and post customer payment
+                if ($depositAmount > 0) {
+                    $depositAccountId = $validated['deposit_account_id']
+                        ?? Account::where('code', '1000')->value('id')
+                        ?? 1;
+
+                    $nextPaySeq = (int)Payment::where('type', 'CUSTOMER_PAYMENT')->max('id') + 1;
+                    $payNumber = 'PAY-' . date('Y') . '-' . str_pad((string)$nextPaySeq, 4, '0', STR_PAD_LEFT);
+
+                    $payment = Payment::create([
+                        'payment_number'   => $payNumber,
+                        'type'             => 'CUSTOMER_PAYMENT',
+                        'contact_id'       => $contact->id,
+                        'invoice_id'       => $invoice->id,
+                        'account_id'       => $depositAccountId,
+                        'payment_date'     => $issueDate,
+                        'amount'           => $depositAmount,
+                        'payment_method'   => $validated['deposit_payment_method'] ?? 'CASH',
+                        'reference_number' => $validated['deposit_reference'] ?? null,
+                        'notes'            => "Initial deposit received on invoice #{$invNumber}",
+                    ]);
+
+                    $this->accountingService->postCustomerPayment($payment);
+                }
+            }
 
             if (! empty($validated['booking_id'])) {
                 Booking::where('id', $validated['booking_id'])->update([
@@ -179,9 +261,15 @@ class InvoiceController extends Controller
             return $invoice;
         });
 
-        SendWhatsAppInvoiceJob::dispatch($invoice);
+        if ($invoice->status !== 'DRAFT') {
+            SendWhatsAppInvoiceJob::dispatch($invoice);
+        }
 
-        return back()->with('success', "Invoice #{$invoice->invoice_number} generated!");
+        $msg = $invoice->status === 'DRAFT'
+            ? "Draft Invoice #{$invoice->invoice_number} saved (available under Orders & Bookings)!"
+            : "Invoice #{$invoice->invoice_number} generated & posted to ledger!";
+
+        return back()->with('success', $msg);
     }
 
     public function update(Request $request, Invoice $invoice): RedirectResponse
@@ -293,5 +381,21 @@ class InvoiceController extends Controller
         ]);
 
         return back()->with('success', "Invoice #{$invoice->invoice_number} marked as PAID.");
+    }
+
+    public function issueDraft(Invoice $invoice): RedirectResponse
+    {
+        if ($invoice->status === 'DRAFT') {
+            DB::transaction(function () use ($invoice) {
+                $invoice->update(['status' => 'SENT']);
+                $this->accountingService->postInvoice($invoice);
+            });
+
+            SendWhatsAppInvoiceJob::dispatch($invoice);
+
+            return back()->with('success', "Draft Invoice #{$invoice->invoice_number} has been issued and posted to General Ledger!");
+        }
+
+        return back()->with('error', "Invoice is already issued.");
     }
 }

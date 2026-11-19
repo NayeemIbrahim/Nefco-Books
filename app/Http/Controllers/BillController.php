@@ -31,13 +31,42 @@ class BillController extends Controller
         }
 
         if ($status = $request->input('status')) {
-            if ($status !== 'ALL') {
+            $normStatus = strtoupper(str_replace(' ', '_', $status));
+            if ($normStatus === 'UNPAID') {
+                $query->where('status', '!=', 'PAID')
+                      ->where('status', '!=', 'VOID')
+                      ->where(function ($q) {
+                          $q->whereColumn('paid_amount', '<', 'total_amount')
+                            ->orWhereNull('paid_amount');
+                      });
+            } elseif ($normStatus === 'PARTIALLY_PAID') {
+                $query->where(function ($q) {
+                    $q->where('status', 'PARTIALLY_PAID')
+                      ->orWhere(function ($sub) {
+                          $sub->where('paid_amount', '>', 0)
+                              ->whereColumn('paid_amount', '<', 'total_amount');
+                      });
+                });
+            } elseif ($normStatus === 'PAID') {
+                $query->where(function ($q) {
+                    $q->where('status', 'PAID')
+                      ->orWhereColumn('paid_amount', '>=', 'total_amount');
+                });
+            } elseif ($normStatus === 'OVERDUE') {
+                $query->where(function ($q) {
+                    $q->where('status', 'OVERDUE')
+                      ->orWhere(function ($sub) {
+                          $sub->whereDate('due_date', '<', now()->toDateString())
+                              ->whereColumn('paid_amount', '<', 'total_amount');
+                      });
+                });
+            } elseif ($normStatus !== 'ALL') {
                 $query->where('status', $status);
             }
         }
 
         return Inertia::render('Bills/Index', [
-            'bills'   => $query->latest()->paginate(25)->withQueryString(),
+            'bills'   => $query->latest()->paginate(15)->withQueryString(),
             'vendors' => Contact::active()->whereIn('type', ['VENDOR', 'BOTH'])->get(['id', 'name', 'phone', 'whatsapp_number']),
             'items'   => Item::all(),
             'filters' => $request->only(['search', 'status']),

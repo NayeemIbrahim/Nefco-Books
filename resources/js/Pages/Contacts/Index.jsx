@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import Pagination from "@/Components/Pagination";
 import { formatBDT } from "@/lib/utils";
 import { Plus, Search, MessageSquare, Building2, Phone, Mail, X, Trash2, RotateCcw, AlertCircle, Check } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
@@ -316,6 +317,9 @@ export default function ContactsIndex({ contacts, filters }) {
               )}
             </tbody>
           </table>
+
+          {/* 15-Row Pagination */}
+          <Pagination meta={contacts} />
         </div>
 
         {/* Slide-out Form Drawer (Zoho style) */}

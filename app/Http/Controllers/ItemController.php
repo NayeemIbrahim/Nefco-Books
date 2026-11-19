@@ -56,9 +56,9 @@ class ItemController extends Controller
         }
 
         try {
-            $items = $query->latest()->paginate(25)->withQueryString();
+            $items = $query->latest()->paginate(15)->withQueryString();
         } catch (\Throwable $e) {
-            $items = Item::paginate(25);
+            $items = Item::paginate(15);
         }
 
         try {

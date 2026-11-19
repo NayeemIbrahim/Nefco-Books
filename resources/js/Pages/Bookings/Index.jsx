@@ -1,11 +1,27 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import DateField from "@/Components/DateField";
+import Pagination from "@/Components/Pagination";
 import { formatBDT, formatDate } from "@/lib/utils";
-import { Plus, Search, CalendarCheck, FileText, Trash2, X, Phone, Calendar, Edit, Package } from "lucide-react";
+import {
+  Plus,
+  Search,
+  CalendarCheck,
+  FileText,
+  Trash2,
+  X,
+  Phone,
+  Calendar,
+  Edit,
+  Package,
+  CheckCircle2,
+  Send,
+  Clock,
+} from "lucide-react";
 import { Head, router } from "@inertiajs/react";
 
-export default function BookingsIndex({ bookings, contacts, items, filters }) {
+export default function BookingsIndex({ bookings, contacts, items, filters, draft_invoices }) {
+  const [activeTab, setActiveTab] = useState("BOOKINGS"); // 'BOOKINGS' | 'DRAFTS'
   const [search, setSearch] = useState(filters?.search || "");
   const [statusFilter, setStatusFilter] = useState(filters?.status || "ALL");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -13,6 +29,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
 
   const contactList = contacts || [];
   const itemList = items || [];
+  const draftList = draft_invoices || [];
 
   // Form State
   const [formContactName, setFormContactName] = useState("");
@@ -232,6 +249,127 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
           </button>
         </div>
 
+        {/* Main Tab Switcher */}
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <button
+            onClick={() => setActiveTab("BOOKINGS")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition flex items-center gap-2 ${
+              activeTab === "BOOKINGS"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <CalendarCheck className="h-4 w-4" />
+            <span>Customer Bookings ({bookings?.total ?? bookingList.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("DRAFTS")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition flex items-center gap-2 ${
+              activeTab === "DRAFTS"
+                ? "bg-blue-600 text-white shadow-xs"
+                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            <span>Draft Invoices & Orders ({draftList.length})</span>
+            {draftList.length > 0 && (
+              <span className="px-1.5 py-0.2 bg-amber-400 text-slate-900 rounded-full text-[10px] font-black">
+                {draftList.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {activeTab === "DRAFTS" ? (
+          /* Draft Invoices Table */
+          <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-blue-600" />
+                  <span>Draft Invoices & Customer Orders</span>
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Draft invoices are stored here before final issuance. Click "Issue & Post" to post directly to General Ledger.
+                </p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left text-slate-600">
+                <thead className="bg-slate-100/70 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
+                  <tr>
+                    <th className="py-3 px-4">Invoice # & Order #</th>
+                    <th className="py-3 px-4">Customer</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Items</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Total Amount (BDT)</th>
+                    <th className="py-3 px-4 text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {draftList.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-10 text-center text-slate-400">
+                        No draft invoices pending. Create an invoice with status "DRAFT" in Sales to stage it here.
+                      </td>
+                    </tr>
+                  ) : (
+                    draftList.map((draft) => (
+                      <tr key={draft.id} className="hover:bg-blue-50/40 transition">
+                        <td className="py-3 px-4">
+                          <div className="font-mono font-bold text-blue-600">{draft.invoice_number}</div>
+                          {draft.order_number && (
+                            <div className="text-[10px] text-slate-400 font-mono">Ord: {draft.order_number}</div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-slate-900">{draft.contact?.name || "Customer"}</div>
+                          <div className="text-[11px] text-slate-400 font-mono">
+                            {draft.contact?.whatsapp_number || draft.contact?.phone}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-slate-600">
+                          <div>{formatDate(draft.issue_date)}</div>
+                          <div className="text-[10px] text-slate-400">Due: {formatDate(draft.due_date)}</div>
+                        </td>
+                        <td className="py-3 px-4 text-slate-500 max-w-xs truncate">
+                          {(draft.line_items || draft.lineItems || []).map((li) => li.description).join(", ") || "-"}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-700 border border-slate-300">
+                            DRAFT
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-slate-900">
+                          {formatBDT(draft.total_amount)}
+                        </td>
+                        <td className="py-3 px-4 text-center space-x-1.5">
+                          <button
+                            onClick={() => router.post(`/invoices/${draft.id}/issue`)}
+                            className="inline-flex items-center gap-1 px-3 py-1 text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded transition shadow-xs"
+                            title="Issue invoice and post to General Ledger"
+                          >
+                            <Send className="h-3 w-3" />
+                            <span>Issue & Post</span>
+                          </button>
+                          <button
+                            onClick={() => router.get(`/invoices?search=${draft.invoice_number}`)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition"
+                          >
+                            <span>Open</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Filter & Search Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
           <div className="flex items-center gap-2">
@@ -355,7 +493,12 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
               )}
             </tbody>
           </table>
+
+          {/* 15-Row Pagination */}
+          <Pagination meta={bookings} />
         </div>
+        </>
+        )}
 
         {/* Drawer Form */}
         {isDrawerOpen && (

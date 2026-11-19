@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import DateField from "@/Components/DateField";
+import Pagination from "@/Components/Pagination";
 import { formatBDT, formatDate } from "@/lib/utils";
 import {
   Plus,
@@ -14,10 +15,12 @@ import {
   Send,
   Edit,
   Paperclip,
+  CreditCard,
+  Wallet,
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
-export default function InvoicesIndex({ invoices, contacts, items, filters, next_invoice_number, next_order_number }) {
+export default function InvoicesIndex({ invoices, contacts, items, filters, next_invoice_number, next_order_number, deposit_accounts }) {
   const { flash } = usePage().props;
   const [search, setSearch] = useState(filters?.search || "");
   const [statusFilter, setStatusFilter] = useState(filters?.status || "ALL");
@@ -27,6 +30,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
   const [notification, setNotification] = useState(flash?.success || null);
 
   const contactList = contacts || [];
+  const accountsList = deposit_accounts || [];
 
   // Form State
   const [formContactName, setFormContactName] = useState("");
@@ -46,6 +50,13 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
     { description: "", quantity: 1, unit_price: 0, amount: 0 },
   ]);
 
+  // Deposit / Initial Payment State
+  const [recordDeposit, setRecordDeposit] = useState(false);
+  const [formDepositAmount, setFormDepositAmount] = useState(0);
+  const [formDepositAccount, setFormDepositAccount] = useState("");
+  const [formDepositMethod, setFormDepositMethod] = useState("CASH");
+  const [formDepositRef, setFormDepositRef] = useState("");
+
   const resetForm = () => {
     setEditingInvoiceId(null);
     setFormContactName("");
@@ -63,6 +74,11 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
     setFormAttachments([]);
     setExistingAttachments([]);
     setFormLineItems([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
+    setRecordDeposit(false);
+    setFormDepositAmount(0);
+    setFormDepositAccount(accountsList[0]?.id || "");
+    setFormDepositMethod("CASH");
+    setFormDepositRef("");
   };
 
   const handleOpenCreateDrawer = () => {
@@ -240,6 +256,17 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
       formData.append("attachments[]", f);
     });
 
+    if (!editingInvoiceId && recordDeposit && (parseFloat(formDepositAmount) || 0) > 0) {
+      formData.append("deposit_amount", parseFloat(formDepositAmount) || 0);
+      if (formDepositAccount) {
+        formData.append("deposit_account_id", formDepositAccount);
+      }
+      formData.append("deposit_payment_method", formDepositMethod);
+      if (formDepositRef) {
+        formData.append("deposit_reference", formDepositRef);
+      }
+    }
+
     if (editingInvoiceId) {
       router.post(`/invoices/${editingInvoiceId}`, formData, {
         onSuccess: () => {
@@ -301,8 +328,8 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-xs">
-          <div className="flex items-center gap-2">
-            {["ALL", "SENT", "PAID", "OVERDUE"].map((st) => (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {["ALL", "UNPAID", "PARTIALLY PAID", "PAID", "OVERDUE", "DRAFT"].map((st) => (
               <button
                 key={st}
                 onClick={() => handleFilter(st)}
@@ -333,114 +360,136 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
 
         {/* Invoices Table */}
         <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
-          <table className="w-full text-xs text-left text-slate-600">
-            <thead className="bg-slate-50 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
-              <tr>
-                <th className="py-3 px-4">Invoice #</th>
-                <th className="py-3 px-4">Customer</th>
-                <th className="py-3 px-4">Invoice Date</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Amount (BDT)</th>
-                <th className="py-3 px-4 text-center">WhatsApp</th>
-                <th className="py-3 px-4 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {invoiceList.length === 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left text-slate-600">
+              <thead className="bg-slate-50 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No invoices found. Click <strong>+ New Invoice</strong> to create one.
-                  </td>
+                  <th className="py-3 px-4">Invoice #</th>
+                  <th className="py-3 px-4">Customer</th>
+                  <th className="py-3 px-4">Invoice Date</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Total (BDT)</th>
+                  <th className="py-3 px-4 text-right">Balance Due (BDT)</th>
+                  <th className="py-3 px-4 text-center">WhatsApp</th>
+                  <th className="py-3 px-4 text-center">Actions</th>
                 </tr>
-              ) : (
-                invoiceList.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50/70 transition">
-                    <td className="py-3 px-4 font-mono font-bold text-blue-600">
-                      <div>{inv.invoice_number}</div>
-                      {inv.order_number && (
-                        <div className="text-[10px] text-slate-400 font-normal">Ord: {inv.order_number}</div>
-                      )}
-                      {inv.attachments && inv.attachments.length > 0 && (
-                        <div className="text-[10px] text-emerald-600 font-normal flex items-center gap-0.5 mt-0.5">
-                          <Paperclip className="h-3 w-3" />
-                          <span>{inv.attachments.length} file(s)</span>
-                        </div>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-900">{inv.contact?.name}</div>
-                      <div className="text-[11px] text-slate-400 font-mono">
-                        {inv.contact?.whatsapp_number || inv.contact?.phone}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-slate-600">
-                      <div>{formatDate(inv.issue_date)}</div>
-                      <div className="text-[10px] text-slate-400">
-                        Due: {formatDate(inv.due_date)}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`px-2.5 py-1 text-[10px] font-bold rounded-full inline-flex items-center gap-1 ${
-                          inv.status === "SENT"
-                            ? "bg-blue-100 text-blue-800 border border-blue-300"
-                            : inv.status === "PAID"
-                            ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                            : inv.status === "OVERDUE"
-                            ? "bg-red-100 text-red-800 border border-red-300"
-                            : "bg-slate-100 text-slate-700 border border-slate-300"
-                        }`}
-                      >
-                        {inv.status === "PAID" && <CheckCircle2 className="h-3 w-3" />}
-                        {inv.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right font-bold text-slate-900">
-                      {formatBDT(inv.total_amount)}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <button
-                        onClick={() => handleSendWhatsApp(inv.id)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded border transition ${
-                          inv.whatsapp_sent
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                        }`}
-                      >
-                        <MessageSquare className="h-3 w-3" />
-                        {inv.whatsapp_sent ? "Sent ✓" : "Send Alert"}
-                      </button>
-                    </td>
-                    <td className="py-3 px-4 text-center space-x-1.5">
-                      {inv.status !== "PAID" && (
-                        <button
-                          onClick={() => handleMarkAsPaid(inv.id)}
-                          className="px-2 py-1 text-[11px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded border border-emerald-200 transition inline-flex items-center gap-1"
-                          title="Record Payment / Mark Paid"
-                        >
-                          <CheckCircle2 className="h-3 w-3" />
-                          <span>Mark Paid</span>
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setSelectedInvoice(inv)}
-                        className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded hover:bg-slate-200 transition"
-                      >
-                        View
-                      </button>
-                      <button
-                        onClick={() => handleOpenEditDrawer(inv)}
-                        className="px-2.5 py-1 text-[11px] font-semibold bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition inline-flex items-center gap-1"
-                      >
-                        <Edit className="h-3 w-3" />
-                        <span>Edit</span>
-                      </button>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {invoiceList.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-slate-400">
+                      No invoices found. Click <strong>+ New Invoice</strong> to create one.
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  invoiceList.map((inv) => {
+                    const balanceDue = Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
+                    return (
+                      <tr key={inv.id} className="hover:bg-slate-50/70 transition">
+                        <td className="py-3 px-4 font-mono font-bold text-blue-600">
+                          <div>{inv.invoice_number}</div>
+                          {inv.order_number && (
+                            <div className="text-[10px] text-slate-400 font-normal">Ord: {inv.order_number}</div>
+                          )}
+                          {inv.attachments && inv.attachments.length > 0 && (
+                            <div className="text-[10px] text-emerald-600 font-normal flex items-center gap-0.5 mt-0.5">
+                              <Paperclip className="h-3 w-3" />
+                              <span>{inv.attachments.length} file(s)</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-slate-900">{inv.contact?.name}</div>
+                          <div className="text-[11px] text-slate-400 font-mono">
+                            {inv.contact?.whatsapp_number || inv.contact?.phone}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-slate-600">
+                          <div>{formatDate(inv.issue_date)}</div>
+                          <div className="text-[10px] text-slate-400">
+                            Due: {formatDate(inv.due_date)}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`px-2.5 py-1 text-[10px] font-bold rounded-full inline-flex items-center gap-1 ${
+                              inv.status === "SENT"
+                                ? "bg-blue-100 text-blue-800 border border-blue-300"
+                                : inv.status === "PAID"
+                                ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                : inv.status === "PARTIALLY_PAID"
+                                ? "bg-amber-100 text-amber-800 border border-amber-300"
+                                : inv.status === "OVERDUE"
+                                ? "bg-red-100 text-red-800 border border-red-300"
+                                : "bg-slate-100 text-slate-700 border border-slate-300"
+                            }`}
+                          >
+                            {inv.status === "PAID" && <CheckCircle2 className="h-3 w-3" />}
+                            {inv.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-slate-900">
+                          {formatBDT(inv.total_amount)}
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold">
+                          <span
+                            className={
+                              balanceDue <= 0
+                                ? "text-emerald-600 font-mono"
+                                : "text-amber-700 font-mono"
+                            }
+                          >
+                            {formatBDT(balanceDue)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            onClick={() => handleSendWhatsApp(inv.id)}
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded border transition ${
+                              inv.whatsapp_sent
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                            }`}
+                          >
+                            <MessageSquare className="h-3 w-3" />
+                            {inv.whatsapp_sent ? "Sent ✓" : "Send Alert"}
+                          </button>
+                        </td>
+                        <td className="py-3 px-4 text-center space-x-1.5">
+                          {inv.status !== "PAID" && (
+                            <button
+                              onClick={() => handleMarkAsPaid(inv.id)}
+                              className="px-2 py-1 text-[11px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded border border-emerald-200 transition inline-flex items-center gap-1"
+                              title="Record Payment / Mark Paid"
+                            >
+                              <CheckCircle2 className="h-3 w-3" />
+                              <span>Mark Paid</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setSelectedInvoice(inv)}
+                            className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded hover:bg-slate-200 transition"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => handleOpenEditDrawer(inv)}
+                            className="px-2.5 py-1 text-[11px] font-semibold bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition inline-flex items-center gap-1"
+                          >
+                            <Edit className="h-3 w-3" />
+                            <span>Edit</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* 15-Row Pagination */}
+          <Pagination meta={invoices} />
         </div>
 
         {/* Invoice Form Drawer */}
@@ -741,6 +790,117 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                   )}
                 </div>
 
+                {/* Invoice Deposit / Advance Payment Option */}
+                {!editingInvoiceId && (
+                  <div className="border border-blue-200 bg-blue-50/50 rounded-lg p-3.5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Wallet className="h-4 w-4 text-blue-600" />
+                        <div>
+                          <label className="text-xs font-bold text-slate-900 cursor-pointer flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={recordDeposit}
+                              onChange={(e) => {
+                                const chk = e.target.checked;
+                                setRecordDeposit(chk);
+                                if (chk && (formDepositAmount === 0 || !formDepositAmount)) {
+                                  setFormDepositAmount(totalBDT);
+                                }
+                                if (chk && !formDepositAccount && accountsList.length > 0) {
+                                  setFormDepositAccount(accountsList[0].id);
+                                }
+                              }}
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 h-3.5 w-3.5"
+                            />
+                            <span>Record Deposit / Initial Payment</span>
+                          </label>
+                          <p className="text-[11px] text-slate-500">Collect partial or full upfront payment from customer</p>
+                        </div>
+                      </div>
+                      {recordDeposit && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setFormDepositAmount(totalBDT)}
+                            className="px-2 py-0.5 text-[10px] font-semibold bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                          >
+                            Pay Full
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormDepositAmount(Math.round(totalBDT / 2))}
+                            className="px-2 py-0.5 text-[10px] font-semibold bg-white border border-slate-300 text-slate-700 rounded hover:bg-slate-50 transition"
+                          >
+                            50%
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {recordDeposit && (
+                      <div className="space-y-3 pt-2 border-t border-blue-100">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-700">Deposit Paid (BDT) *</label>
+                            <input
+                              type="number"
+                              min="0"
+                              max={totalBDT}
+                              step="any"
+                              value={formDepositAmount}
+                              onChange={(e) => setFormDepositAmount(parseFloat(e.target.value) || 0)}
+                              className="w-full px-3 py-1.5 text-xs font-mono font-bold text-blue-700 border border-slate-300 rounded-md bg-white"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-700">Deposit Into (Account) *</label>
+                            <select
+                              value={formDepositAccount}
+                              onChange={(e) => setFormDepositAccount(e.target.value)}
+                              className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md bg-white font-medium"
+                            >
+                              {accountsList.map((acc) => (
+                                <option key={acc.id} value={acc.id}>
+                                  {acc.name} ({acc.code})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-700">Payment Method *</label>
+                            <select
+                              value={formDepositMethod}
+                              onChange={(e) => setFormDepositMethod(e.target.value)}
+                              className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md bg-white"
+                            >
+                              <option value="CASH">Cash</option>
+                              <option value="BANK_TRANSFER">Bank Transfer</option>
+                              <option value="MOBILE_BANKING">Mobile Banking (bKash/Nagad)</option>
+                              <option value="CHEQUE">Cheque</option>
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-semibold text-slate-700">Reference / Trx ID</label>
+                            <input
+                              type="text"
+                              value={formDepositRef}
+                              onChange={(e) => setFormDepositRef(e.target.value)}
+                              placeholder="TrxID / Cheque #..."
+                              className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md bg-white font-mono"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5 text-xs text-slate-700">
                   <div className="flex justify-between">
                     <span>Subtotal:</span>
@@ -768,6 +928,18 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                     <span>Total Invoice Payable</span>
                     <span className="text-base text-blue-700">{formatBDT(totalBDT)}</span>
                   </div>
+                  {recordDeposit && (parseFloat(formDepositAmount) || 0) > 0 && (
+                    <>
+                      <div className="flex items-center justify-between text-emerald-700 font-semibold pt-1">
+                        <span>Deposit Paid Upfront:</span>
+                        <span className="font-mono">-{formatBDT(parseFloat(formDepositAmount) || 0)}</span>
+                      </div>
+                      <div className="flex items-center justify-between font-bold text-amber-800 border-t border-dashed border-slate-200 pt-1">
+                        <span>Remaining Balance Due:</span>
+                        <span className="font-mono">{formatBDT(Math.max(0, totalBDT - (parseFloat(formDepositAmount) || 0)))}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-2">
@@ -901,6 +1073,18 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                     <div className="flex justify-between border-t border-slate-200 pt-2 font-bold text-slate-900 text-sm">
                       <span>Total Amount</span>
                       <span className="font-mono text-blue-600">{formatBDT(selectedInvoice.total_amount)}</span>
+                    </div>
+                    {parseFloat(selectedInvoice.paid_amount) > 0 && (
+                      <div className="flex justify-between text-emerald-700 font-semibold">
+                        <span>Paid to Date</span>
+                        <span className="font-mono">{formatBDT(selectedInvoice.paid_amount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between border-t border-slate-200 pt-1 font-bold text-slate-900">
+                      <span>Balance Due</span>
+                      <span className="font-mono text-amber-700">
+                        {formatBDT(Math.max(0, (parseFloat(selectedInvoice.total_amount) || 0) - (parseFloat(selectedInvoice.paid_amount) || 0)))}
+                      </span>
                     </div>
                   </div>
                 </div>

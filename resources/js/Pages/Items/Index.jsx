@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import Pagination from "@/Components/Pagination";
 import { formatBDT } from "@/lib/utils";
 import { Plus, Search, Package, X } from "lucide-react";
 import { Head, router } from "@inertiajs/react";
@@ -193,6 +194,9 @@ export default function ItemsIndex({ items, filters, defaultUom = "Pcs" }) {
               )}
             </tbody>
           </table>
+
+          {/* 15-Row Pagination */}
+          <Pagination meta={items} />
         </div>
 
         {/* Drawer */}

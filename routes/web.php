@@ -48,6 +48,7 @@ Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.inde
 Route::post('invoices', [InvoiceController::class, 'store'])->name('invoices.store');
 Route::post('invoices/{invoice}', [InvoiceController::class, 'update'])->name('invoices.update');
 Route::post('invoices/{invoice}/mark-paid', [InvoiceController::class, 'markAsPaid'])->name('invoices.mark-paid');
+Route::post('invoices/{invoice}/issue', [InvoiceController::class, 'issueDraft'])->name('invoices.issue');
 Route::resource('sales/invoices', InvoiceController::class)->names('invoices.sales');
 Route::post('sales/invoices/{invoice}/send-whatsapp', [InvoiceController::class, 'sendWhatsApp'])->name('invoices.whatsapp');
 Route::post('invoices/{invoice}/send-whatsapp', [InvoiceController::class, 'sendWhatsApp']);

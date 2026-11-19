@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import DateField from "@/Components/DateField";
+import Pagination from "@/Components/Pagination";
 import { formatBDT, formatDate } from "@/lib/utils";
 import {
   Plus,
@@ -266,6 +267,9 @@ export default function PaymentsMadeIndex({
               )}
             </tbody>
           </table>
+
+          {/* 15-Row Pagination */}
+          <Pagination meta={payments} />
         </div>
 
         {/* Record Payment Drawer */}

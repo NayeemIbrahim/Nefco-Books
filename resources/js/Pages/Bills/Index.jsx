@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import DateField from "@/Components/DateField";
+import Pagination from "@/Components/Pagination";
 import { formatBDT, formatDate } from "@/lib/utils";
 import {
   Plus,
@@ -16,7 +17,7 @@ import {
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
-export default function BillsIndex({ bills, vendors, items }) {
+export default function BillsIndex({ bills, vendors, items, filters }) {
   const { flash } = usePage().props;
   const billList = bills?.data || bills || [];
   const vendorList = vendors || [];
@@ -25,7 +26,18 @@ export default function BillsIndex({ bills, vendors, items }) {
   const [editingBillId, setEditingBillId] = useState(null);
   const [selectedBill, setSelectedBill] = useState(null);
   const [notification, setNotification] = useState(flash?.success || null);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(filters?.search || "");
+  const [statusFilter, setStatusFilter] = useState(filters?.status || "ALL");
+
+  const handleFilter = (st) => {
+    setStatusFilter(st);
+    router.get("/bills", { search: searchTerm, status: st }, { preserveState: true, replace: true });
+  };
+
+  const handleSearchChange = (val) => {
+    setSearchTerm(val);
+    router.get("/bills", { search: val, status: statusFilter }, { preserveState: true, replace: true });
+  };
 
   const addDays = (dateStr, days = 2) => {
     if (!dateStr) return "";
@@ -234,24 +246,42 @@ export default function BillsIndex({ bills, vendors, items }) {
             </h1>
             <p className="text-xs text-slate-500">Record and manage vendor bills & expenses in Bangladeshi Taka (৳)</p>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="h-3.5 w-3.5 absolute left-3 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search bill # or vendor..."
-                className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-md w-48 focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
-              />
-            </div>
-            <button
-              onClick={handleOpenCreateDrawer}
-              className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-4 py-2 rounded-md shadow-xs transition"
-            >
-              <Plus className="h-4 w-4" />
-              <span>New Bill</span>
-            </button>
+          <button
+            onClick={handleOpenCreateDrawer}
+            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-4 py-2 rounded-md shadow-xs transition"
+          >
+            <Plus className="h-4 w-4" />
+            <span>New Bill</span>
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3 rounded-lg border border-slate-200 shadow-xs">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {["ALL", "UNPAID", "PARTIALLY PAID", "PAID", "OVERDUE"].map((st) => (
+              <button
+                key={st}
+                onClick={() => handleFilter(st)}
+                className={`px-3 py-1 text-xs font-semibold rounded-md transition ${
+                  statusFilter === st
+                    ? "bg-amber-600 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {st}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative">
+            <Search className="h-3.5 w-3.5 absolute left-3 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search bill # or vendor..."
+              className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-md w-56 focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
+            />
           </div>
         </div>
 
@@ -271,70 +301,86 @@ export default function BillsIndex({ bills, vendors, items }) {
                   <th className="py-2.5 px-4">Bill Date</th>
                   <th className="py-2.5 px-4">Due Date</th>
                   <th className="py-2.5 px-4">Status</th>
-                  <th className="py-2.5 px-4 text-right">Amount (BDT)</th>
+                  <th className="py-2.5 px-4 text-right">Total (BDT)</th>
+                  <th className="py-2.5 px-4 text-right">Balance Due (BDT)</th>
                   <th className="py-2.5 px-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredBills.length === 0 ? (
+                {billList.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="py-8 text-center text-slate-400">
+                    <td colSpan="8" className="py-8 text-center text-slate-400">
                       No bills recorded yet. Click <strong>+ New Bill</strong> to add a vendor bill.
                     </td>
                   </tr>
                 ) : (
-                  filteredBills.map((b) => (
-                    <tr
-                      key={b.id}
-                      onClick={() => setSelectedBill(b)}
-                      className="hover:bg-amber-50/40 cursor-pointer transition"
-                    >
-                      <td className="py-3 px-4 font-mono font-bold text-amber-600">{b.bill_number}</td>
-                      <td className="py-3 px-4 font-semibold text-slate-900">{b.contact?.name || "Vendor"}</td>
-                      <td className="py-3 px-4 text-slate-500">
-                        {formatDate(b.bill_date)}
-                      </td>
-                      <td className="py-3 px-4 text-slate-500">
-                        {formatDate(b.due_date)}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`px-2 py-0.5 text-[10px] font-bold rounded ${
-                            b.status === "PAID"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}
-                        >
-                          {b.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-slate-900">{formatBDT(b.total_amount)}</td>
-                      <td className="py-3 px-4 text-center space-x-1.5" onClick={(e) => e.stopPropagation()}>
-                        {b.status !== "PAID" && (
-                          <button
-                            onClick={() => handleMarkAsPaid(b.id)}
-                            className="px-2 py-1 text-[11px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded border border-emerald-200 transition inline-flex items-center gap-1"
-                            title="Record Payment / Mark Paid"
+                  billList.map((b) => {
+                    const balanceDue = Math.max(0, (parseFloat(b.total_amount) || 0) - (parseFloat(b.paid_amount) || 0));
+                    return (
+                      <tr
+                        key={b.id}
+                        onClick={() => setSelectedBill(b)}
+                        className="hover:bg-amber-50/40 cursor-pointer transition"
+                      >
+                        <td className="py-3 px-4 font-mono font-bold text-amber-600">{b.bill_number}</td>
+                        <td className="py-3 px-4 font-semibold text-slate-900">{b.contact?.name || "Vendor"}</td>
+                        <td className="py-3 px-4 text-slate-500">
+                          {formatDate(b.bill_date)}
+                        </td>
+                        <td className="py-3 px-4 text-slate-500">
+                          {formatDate(b.due_date)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                              b.status === "PAID"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : b.status === "PARTIALLY_PAID"
+                                ? "bg-amber-100 text-amber-800"
+                                : b.status === "OVERDUE"
+                                ? "bg-rose-100 text-rose-800"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
                           >
-                            <CheckCircle2 className="h-3 w-3" />
-                            <span>Mark Paid</span>
+                            {b.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-slate-900">{formatBDT(b.total_amount)}</td>
+                        <td className="py-3 px-4 text-right font-bold">
+                          <span className={balanceDue <= 0 ? "text-emerald-600 font-mono" : "text-amber-700 font-mono"}>
+                            {formatBDT(balanceDue)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center space-x-1.5" onClick={(e) => e.stopPropagation()}>
+                          {b.status !== "PAID" && (
+                            <button
+                              onClick={() => handleMarkAsPaid(b.id)}
+                              className="px-2 py-1 text-[11px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded border border-emerald-200 transition inline-flex items-center gap-1"
+                              title="Record Payment / Mark Paid"
+                            >
+                              <CheckCircle2 className="h-3 w-3" />
+                              <span>Mark Paid</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleOpenEditDrawer(b)}
+                            className="px-2 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded transition inline-flex items-center gap-1"
+                            title="Edit Bill"
+                          >
+                            <Edit className="h-3 w-3" />
+                            <span>Edit</span>
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleOpenEditDrawer(b)}
-                          className="px-2 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded transition inline-flex items-center gap-1"
-                          title="Edit Bill"
-                        >
-                          <Edit className="h-3 w-3" />
-                          <span>Edit</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* 15-Row Pagination */}
+          <Pagination meta={bills} />
         </div>
       </div>
 

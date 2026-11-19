@@ -39,11 +39,17 @@ class BookingController extends Controller
             }
         }
 
+        $draftInvoices = Invoice::with(['contact', 'lineItems.item'])
+            ->where('status', 'DRAFT')
+            ->latest('issue_date')
+            ->get();
+
         return Inertia::render('Bookings/Index', [
-            'bookings' => $query->latest()->paginate(25)->withQueryString(),
-            'contacts' => Contact::active()->whereIn('type', ['CUSTOMER', 'BOTH'])->get(['id', 'name', 'phone', 'whatsapp_number']),
-            'items'    => Item::orderBy('name')->get(['id', 'name', 'sku', 'sales_price', 'unit']),
-            'filters'  => $request->only(['search', 'status']),
+            'bookings'       => $query->latest()->paginate(15)->withQueryString(),
+            'draft_invoices' => $draftInvoices,
+            'contacts'       => Contact::active()->whereIn('type', ['CUSTOMER', 'BOTH'])->get(['id', 'name', 'phone', 'whatsapp_number']),
+            'items'          => Item::orderBy('name')->get(['id', 'name', 'sku', 'sales_price', 'unit']),
+            'filters'        => $request->only(['search', 'status']),
         ]);
     }
 
