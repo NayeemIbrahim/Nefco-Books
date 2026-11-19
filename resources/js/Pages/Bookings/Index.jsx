@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import DateField from "@/Components/DateField";
 import { formatBDT, formatDate } from "@/lib/utils";
 import { Plus, Search, CalendarCheck, FileText, Trash2, X, Phone, Calendar, Edit, Package } from "lucide-react";
 import { Head, router } from "@inertiajs/react";
@@ -431,17 +432,11 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700 block">
-                      Booking / Delivery Date <span className="text-[11px] font-normal text-blue-600 font-mono">({formatDate(formServiceDate)})</span>
-                    </label>
-                    <input
-                      type="date"
-                      value={formServiceDate}
-                      onChange={(e) => setFormServiceDate(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
-                    />
-                  </div>
+                  <DateField
+                    label="Booking / Delivery Date"
+                    value={formServiceDate}
+                    onChange={setFormServiceDate}
+                  />
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700">Status</label>
                     <select

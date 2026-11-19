@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import DateField from "@/Components/DateField";
 import { formatBDT, formatDate } from "@/lib/utils";
 import {
   Plus,
@@ -389,31 +390,21 @@ export default function BillsIndex({ bills, vendors, items }) {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Bill Date * <span className="text-[11px] font-normal text-amber-600 font-mono">({formatDate(billDate)})</span>
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={billDate}
-                    onChange={(e) => handleBillDateChange(e.target.value)}
-                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
-                  />
-                </div>
+                <DateField
+                  label="Bill Date *"
+                  required
+                  value={billDate}
+                  onChange={handleBillDateChange}
+                  colorScheme="amber"
+                />
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Due Date <span className="text-[11px] font-normal text-amber-600 font-mono">({formatDate(dueDate)})</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-1">Default: 2 days after bill date</p>
-                </div>
+                <DateField
+                  label="Due Date"
+                  value={dueDate}
+                  onChange={setDueDate}
+                  helperText="Default: 2 days after bill date"
+                  colorScheme="amber"
+                />
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
