@@ -27,10 +27,11 @@ class AppServiceProvider extends ServiceProvider
     {
         // Self-healing database: auto-run pending migrations if newer schema columns are missing
         try {
-            if (! Cache::has('db_schema_v5_migrated')) {
+            if (! Cache::has('db_schema_v6_migrated')) {
                 $needsMigration = false;
 
                 if (! Schema::hasTable('users') 
+                    || ! Schema::hasTable('expenses')
                     || ! Schema::hasColumn('users', 'default_uom')
                     || ! Schema::hasColumn('users', 'role')
                     || ! Schema::hasColumn('bookings', 'order_number')
@@ -42,7 +43,7 @@ class AppServiceProvider extends ServiceProvider
                     $needsMigration = true;
                 }
 
-                // Auto-run migrations on server to apply nullable whatsapp_number and invoice additions
+                // Auto-run migrations on server to apply nullable whatsapp_number and invoice/expenses additions
                 Artisan::call('migrate', ['--force' => true]);
 
                 // Ensure default admin user exists if users table is empty
@@ -73,7 +74,7 @@ class AppServiceProvider extends ServiceProvider
                     User::create($adminData);
                 }
 
-                Cache::put('db_schema_v5_migrated', true, now()->addDays(3));
+                Cache::put('db_schema_v6_migrated', true, now()->addDays(3));
             }
         } catch (\Throwable $e) {
             Log::warning('Automatic migration / database setup notice: ' . $e->getMessage());

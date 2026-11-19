@@ -7,8 +7,11 @@ use App\Http\Controllers\BillController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ItemController;
+use App\Http\Controllers\PaymentMadeController;
+use App\Http\Controllers\PaymentReceivedController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SettingsController;
 use Illuminate\Support\Facades\Route;
@@ -32,13 +35,15 @@ Route::post('contacts/{contact}/restore', [ContactController::class, 'restore'])
 Route::resource('items', ItemController::class);
 Route::post('items/{item}', [ItemController::class, 'update'])->name('items.update');
 
-// 4. Bookings & Orders
+// 4. Sales Module
+// 4.1 Bookings & Orders (Suboption of Sales)
+Route::get('sales/bookings', [BookingController::class, 'index'])->name('sales.bookings');
 Route::resource('bookings', BookingController::class);
 Route::post('bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
 Route::post('bookings/{booking}/convert-to-invoice', [BookingController::class, 'convertToInvoice'])->name('bookings.convert');
 Route::post('bookings/{booking}/convert', [BookingController::class, 'convertToInvoice']);
 
-// 5. Invoices & Sales
+// 4.2 Invoices & Sales
 Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
 Route::post('invoices', [InvoiceController::class, 'store'])->name('invoices.store');
 Route::post('invoices/{invoice}', [InvoiceController::class, 'update'])->name('invoices.update');
@@ -47,12 +52,37 @@ Route::resource('sales/invoices', InvoiceController::class)->names('invoices.sal
 Route::post('sales/invoices/{invoice}/send-whatsapp', [InvoiceController::class, 'sendWhatsApp'])->name('invoices.whatsapp');
 Route::post('invoices/{invoice}/send-whatsapp', [InvoiceController::class, 'sendWhatsApp']);
 
-// 6. Bills & Purchases
+// 4.3 Payments Received (Suboption of Sales)
+Route::get('sales/payments-received', [PaymentReceivedController::class, 'index'])->name('sales.payments-received');
+Route::post('sales/payments-received', [PaymentReceivedController::class, 'store'])->name('sales.payments-received.store');
+Route::delete('sales/payments-received/{payment}', [PaymentReceivedController::class, 'destroy'])->name('sales.payments-received.destroy');
+Route::get('payments-received', [PaymentReceivedController::class, 'index']);
+Route::post('payments-received', [PaymentReceivedController::class, 'store']);
+Route::delete('payments-received/{payment}', [PaymentReceivedController::class, 'destroy']);
+
+// 5. Purchases Module
+// 5.1 Bills & Purchases
 Route::get('bills', [BillController::class, 'index'])->name('bills.index');
 Route::post('bills', [BillController::class, 'store'])->name('bills.store');
 Route::post('bills/{bill}', [BillController::class, 'update'])->name('bills.update');
 Route::post('bills/{bill}/mark-paid', [BillController::class, 'markAsPaid'])->name('bills.mark-paid');
 Route::resource('purchases/bills', BillController::class)->names('bills.purchases');
+
+// 5.2 Operating Expenses (Suboption of Purchases)
+Route::get('purchases/expenses', [ExpenseController::class, 'index'])->name('purchases.expenses');
+Route::post('purchases/expenses', [ExpenseController::class, 'store'])->name('purchases.expenses.store');
+Route::delete('purchases/expenses/{expense}', [ExpenseController::class, 'destroy'])->name('purchases.expenses.destroy');
+Route::get('expenses', [ExpenseController::class, 'index']);
+Route::post('expenses', [ExpenseController::class, 'store']);
+Route::delete('expenses/{expense}', [ExpenseController::class, 'destroy']);
+
+// 5.3 Payments Made (Suboption of Purchases)
+Route::get('purchases/payments-made', [PaymentMadeController::class, 'index'])->name('purchases.payments-made');
+Route::post('purchases/payments-made', [PaymentMadeController::class, 'store'])->name('purchases.payments-made.store');
+Route::delete('purchases/payments-made/{payment}', [PaymentMadeController::class, 'destroy'])->name('purchases.payments-made.destroy');
+Route::get('payments-made', [PaymentMadeController::class, 'index']);
+Route::post('payments-made', [PaymentMadeController::class, 'store']);
+Route::delete('payments-made/{payment}', [PaymentMadeController::class, 'destroy']);
 
 // 7. Banking & Ledger
 Route::get('banking', [BankingController::class, 'index'])->name('banking.index');

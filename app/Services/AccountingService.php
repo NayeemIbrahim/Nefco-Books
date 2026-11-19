@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exceptions\UnbalancedJournalEntryException;
 use App\Models\Account;
 use App\Models\Bill;
+use App\Models\Expense;
 use App\Models\Invoice;
 use App\Models\JournalEntry;
 use App\Models\Payment;
@@ -174,6 +175,75 @@ class AccountingService
                     'debit'        => 0.00,
                     'credit'       => $bill->total_amount,
                     'description'  => "Payable for bill #{$bill->bill_number}",
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Post a vendor payment made:
+     * Debit:  2000 (Accounts Payable)
+     * Credit: Cash / Bank Account (1000, 1010, or 1020)
+     */
+    public function postVendorPayment(Payment $payment): JournalEntry
+    {
+        $paidFromAccount = $payment->account;
+
+        return $this->createBalancedJournalEntry([
+            'entry_number'         => 'JRN-VPAY-' . $payment->payment_number,
+            'date'                 => $payment->payment_date,
+            'reference'            => $payment->payment_number,
+            'description'          => "Vendor payment #{$payment->payment_number} to {$payment->contact->name}",
+            'source_document_type' => 'PAYMENT',
+            'source_document_id'   => $payment->id,
+            'payment_id'           => $payment->id,
+            'lines' => [
+                [
+                    'account_code' => '2000', // Accounts Payable
+                    'debit'        => $payment->amount,
+                    'credit'       => 0.00,
+                    'description'  => "Settlement of payable to {$payment->contact->name}",
+                ],
+                [
+                    'account_code' => $paidFromAccount->code,
+                    'debit'        => 0.00,
+                    'credit'       => $payment->amount,
+                    'description'  => "Funds paid from {$paidFromAccount->name}",
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Post a direct operating expense:
+     * Debit:  Operating Expenses (e.g. 6000)
+     * Credit: Paid Through Account (e.g. 1000 Petty Cash, 1010 Bank, 1020 bKash)
+     */
+    public function postExpense(Expense $expense): JournalEntry
+    {
+        $expenseAccount = $expense->expenseAccount;
+        $paidThroughAccount = $expense->paidThroughAccount;
+        $payee = $expense->contact ? $expense->contact->name : ($expense->category ?? 'Operating Expense');
+
+        return $this->createBalancedJournalEntry([
+            'entry_number'         => 'JRN-EXP-' . $expense->expense_number,
+            'date'                 => $expense->expense_date,
+            'reference'            => $expense->reference_number ?? $expense->expense_number,
+            'description'          => "Operating Expense #{$expense->expense_number} - {$expense->category} ({$payee})",
+            'source_document_type' => 'EXPENSE',
+            'source_document_id'   => $expense->id,
+            'lines' => [
+                [
+                    'account_code' => $expenseAccount->code,
+                    'debit'        => $expense->amount,
+                    'credit'       => 0.00,
+                    'description'  => "Expense: {$expense->category} - {$payee}",
+                ],
+                [
+                    'account_code' => $paidThroughAccount->code,
+                    'debit'        => 0.00,
+                    'credit'       => $expense->amount,
+                    'description'  => "Disbursement from {$paidThroughAccount->name}",
                 ],
             ],
         ]);
