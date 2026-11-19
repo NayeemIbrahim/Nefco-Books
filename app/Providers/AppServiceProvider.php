@@ -27,7 +27,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Self-healing database: auto-run pending migrations if newer schema columns are missing
         try {
-            if (! Cache::has('db_schema_v2_migrated')) {
+            if (! Cache::has('db_schema_v3_migrated')) {
                 $needsMigration = false;
 
                 if (! Schema::hasTable('users') 
@@ -35,6 +35,7 @@ class AppServiceProvider extends ServiceProvider
                     || ! Schema::hasColumn('users', 'role')
                     || ! Schema::hasColumn('bookings', 'order_number')
                     || ! Schema::hasColumn('invoices', 'order_number')
+                    || ! Schema::hasColumn('contacts', 'is_hidden')
                 ) {
                     $needsMigration = true;
                 }
@@ -71,7 +72,7 @@ class AppServiceProvider extends ServiceProvider
                     User::create($adminData);
                 }
 
-                Cache::put('db_schema_v2_migrated', true, now()->addDays(3));
+                Cache::put('db_schema_v3_migrated', true, now()->addDays(3));
             }
         } catch (\Throwable $e) {
             Log::warning('Automatic migration / database setup notice: ' . $e->getMessage());

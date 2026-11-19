@@ -38,7 +38,7 @@ class InvoiceController extends Controller
         }
 
         $invoices = $query->latest('issue_date')->paginate(15)->withQueryString();
-        $contacts = Contact::whereIn('type', ['CUSTOMER', 'BOTH'])->get(['id', 'name', 'phone', 'whatsapp_number']);
+        $contacts = Contact::active()->whereIn('type', ['CUSTOMER', 'BOTH'])->get(['id', 'name', 'phone', 'whatsapp_number']);
         $items    = Item::get(['id', 'name', 'sku', 'sales_price', 'unit']);
 
         return Inertia::render('Invoices/Index', [

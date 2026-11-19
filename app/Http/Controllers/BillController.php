@@ -38,7 +38,7 @@ class BillController extends Controller
 
         return Inertia::render('Bills/Index', [
             'bills'   => $query->latest()->paginate(25)->withQueryString(),
-            'vendors' => Contact::whereIn('type', ['VENDOR', 'BOTH'])->get(['id', 'name', 'phone', 'whatsapp_number']),
+            'vendors' => Contact::active()->whereIn('type', ['VENDOR', 'BOTH'])->get(['id', 'name', 'phone', 'whatsapp_number']),
             'items'   => Item::all(),
             'filters' => $request->only(['search', 'status']),
         ]);
