@@ -81,13 +81,14 @@ class BillController extends Controller
 
         $billCount = Bill::count() + 1;
         $billNumber = 'BIL-2026-' . str_pad($billCount, 4, '0', STR_PAD_LEFT);
+        $defaultDueDate = date('Y-m-d', strtotime(($validated['bill_date'] ?? now()->toDateString()) . ' +2 days'));
 
-        DB::transaction(function () use ($validated, $vendor, $billNumber) {
+        DB::transaction(function () use ($validated, $vendor, $billNumber, $defaultDueDate) {
             $bill = Bill::create([
                 'bill_number'    => $billNumber,
                 'contact_id'     => $vendor->id,
                 'bill_date'      => $validated['bill_date'],
-                'due_date'       => $validated['due_date'] ?? $validated['bill_date'],
+                'due_date'       => ! empty($validated['due_date']) ? $validated['due_date'] : $defaultDueDate,
                 'status'         => 'RECEIVED',
                 'subtotal'       => $validated['subtotal'],
                 'tax_amount'     => 0,
@@ -141,11 +142,13 @@ class BillController extends Controller
             ]
         );
 
-        DB::transaction(function () use ($validated, $vendor, $bill) {
+        $defaultDueDate = date('Y-m-d', strtotime(($validated['bill_date'] ?? now()->toDateString()) . ' +2 days'));
+
+        DB::transaction(function () use ($validated, $vendor, $bill, $defaultDueDate) {
             $bill->update([
                 'contact_id'     => $vendor->id,
                 'bill_date'      => $validated['bill_date'],
-                'due_date'       => $validated['due_date'] ?? $validated['bill_date'],
+                'due_date'       => ! empty($validated['due_date']) ? $validated['due_date'] : $defaultDueDate,
                 'status'         => $validated['status'],
                 'subtotal'       => $validated['subtotal'],
                 'tax_amount'     => 0,

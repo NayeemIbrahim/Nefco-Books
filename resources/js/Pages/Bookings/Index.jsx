@@ -432,7 +432,9 @@ export default function BookingsIndex({ bookings, contacts, items, filters }) {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Booking / Delivery Date</label>
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Booking / Delivery Date <span className="text-[11px] font-normal text-blue-600 font-mono">({formatDate(formServiceDate)})</span>
+                    </label>
                     <input
                       type="date"
                       value={formServiceDate}

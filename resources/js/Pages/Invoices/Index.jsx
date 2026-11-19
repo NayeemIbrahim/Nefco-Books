@@ -517,7 +517,9 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Invoice Date *</label>
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Invoice Date * <span className="text-[11px] font-normal text-blue-600 font-mono">({formatDate(formIssueDate)})</span>
+                    </label>
                     <input
                       type="date"
                       required
@@ -527,7 +529,9 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Due Date *</label>
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Due Date * <span className="text-[11px] font-normal text-blue-600 font-mono">({formatDate(formDueDate)})</span>
+                    </label>
                     <input
                       type="date"
                       required

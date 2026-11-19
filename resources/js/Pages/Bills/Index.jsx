@@ -26,13 +26,23 @@ export default function BillsIndex({ bills, vendors, items }) {
   const [notification, setNotification] = useState(flash?.success || null);
   const [searchTerm, setSearchTerm] = useState("");
 
+  const addDays = (dateStr, days = 2) => {
+    if (!dateStr) return "";
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + days);
+    const year = dt.getFullYear();
+    const month = String(dt.getMonth() + 1).padStart(2, "0");
+    const day = String(dt.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   // Form state
+  const todayStr = new Date().toISOString().split("T")[0];
   const [vendorName, setVendorName] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
-  const [billDate, setBillDate] = useState(new Date().toISOString().split("T")[0]);
-  const [dueDate, setDueDate] = useState(
-    new Date(Date.now() + 86400000 * 14).toISOString().split("T")[0]
-  );
+  const [billDate, setBillDate] = useState(todayStr);
+  const [dueDate, setDueDate] = useState(addDays(todayStr, 2));
   const [status, setStatus] = useState("RECEIVED");
   const [notes, setNotes] = useState("");
   const [discountAmount, setDiscountAmount] = useState(0);
@@ -40,12 +50,20 @@ export default function BillsIndex({ bills, vendors, items }) {
     { description: "", quantity: 1, unit_price: 0, amount: 0 },
   ]);
 
+  const handleBillDateChange = (newDate) => {
+    setBillDate(newDate);
+    if (newDate) {
+      setDueDate(addDays(newDate, 2));
+    }
+  };
+
   const resetForm = () => {
     setEditingBillId(null);
     setVendorName("");
     setWhatsappNumber("");
-    setBillDate(new Date().toISOString().split("T")[0]);
-    setDueDate(new Date(Date.now() + 86400000 * 14).toISOString().split("T")[0]);
+    const today = new Date().toISOString().split("T")[0];
+    setBillDate(today);
+    setDueDate(addDays(today, 2));
     setStatus("RECEIVED");
     setNotes("");
     setDiscountAmount(0);
@@ -61,8 +79,9 @@ export default function BillsIndex({ bills, vendors, items }) {
     setEditingBillId(bill.id);
     setVendorName(bill.contact?.name || "");
     setWhatsappNumber(bill.contact?.whatsapp_number || bill.contact?.phone || "");
-    setBillDate(bill.bill_date ? bill.bill_date.split("T")[0] : new Date().toISOString().split("T")[0]);
-    setDueDate(bill.due_date ? bill.due_date.split("T")[0] : "");
+    const bDate = bill.bill_date ? bill.bill_date.split("T")[0] : new Date().toISOString().split("T")[0];
+    setBillDate(bDate);
+    setDueDate(bill.due_date ? bill.due_date.split("T")[0] : addDays(bDate, 2));
     setStatus(bill.status || "RECEIVED");
     setNotes(bill.notes || "");
     setDiscountAmount(bill.discount_amount || 0);
@@ -371,24 +390,29 @@ export default function BillsIndex({ bills, vendors, items }) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Bill Date *</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Bill Date * <span className="text-[11px] font-normal text-amber-600 font-mono">({formatDate(billDate)})</span>
+                  </label>
                   <input
                     type="date"
                     required
                     value={billDate}
-                    onChange={(e) => setBillDate(e.target.value)}
+                    onChange={(e) => handleBillDateChange(e.target.value)}
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">Due Date</label>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Due Date <span className="text-[11px] font-normal text-amber-600 font-mono">({formatDate(dueDate)})</span>
+                  </label>
                   <input
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
                   />
+                  <p className="text-[10px] text-slate-400 mt-1">Default: 2 days after bill date</p>
                 </div>
 
                 <div>
