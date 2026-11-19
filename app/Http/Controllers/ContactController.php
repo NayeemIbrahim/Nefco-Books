@@ -56,27 +56,33 @@ class ContactController extends Controller
     public function store(StoreContactRequest $request)
     {
         $validated = $request->validated();
+
+        if (empty($validated['whatsapp_number'])) {
+            $validated['whatsapp_number'] = ! empty($validated['phone']) ? $validated['phone'] : '';
+        }
         if (empty($validated['phone']) && ! empty($validated['whatsapp_number'])) {
             $validated['phone'] = $validated['whatsapp_number'];
         }
 
-        // Check for duplicate phone/WhatsApp number
-        $numberToCheck = $validated['whatsapp_number'] ?? ($validated['phone'] ?? null);
-        $existing = Contact::findByNumber($numberToCheck);
+        // Check for duplicate phone/WhatsApp number only if non-empty
+        $numberToCheck = $validated['whatsapp_number'] ?: ($validated['phone'] ?: null);
+        if ($numberToCheck) {
+            $existing = Contact::findByNumber($numberToCheck);
 
-        if ($existing) {
-            // If contact exists and is currently hidden, restore and update it
-            if ($existing->is_hidden) {
-                $existing->update(array_merge($validated, ['is_hidden' => false]));
-                return redirect()->route('contacts.index')->with(
-                    'success',
-                    "Contact '{$existing->name}' with number {$numberToCheck} was previously hidden and has now been restored and updated!"
-                );
+            if ($existing) {
+                // If contact exists and is currently hidden, restore and update it
+                if ($existing->is_hidden) {
+                    $existing->update(array_merge($validated, ['is_hidden' => false]));
+                    return redirect()->route('contacts.index')->with(
+                        'success',
+                        "Contact '{$existing->name}' was previously archived and has now been restored and updated!"
+                    );
+                }
+
+                return back()->withInput()->withErrors([
+                    'whatsapp_number' => "Duplicate contact prevented: '{$existing->name}' already uses this number ({$existing->whatsapp_number}).",
+                ])->with('error', "Contact '{$existing->name}' already exists with this phone/WhatsApp number ({$existing->whatsapp_number}).");
             }
-
-            return back()->withInput()->withErrors([
-                'whatsapp_number' => "A contact already exists with this phone/WhatsApp number: {$existing->name} ({$existing->whatsapp_number})",
-            ])->with('error', "Duplicate contact prevented: '{$existing->name}' already uses this number ({$existing->whatsapp_number}).");
         }
 
         $contact = Contact::create($validated);
@@ -93,21 +99,26 @@ class ContactController extends Controller
             'phone'           => 'nullable|string|max:50',
             'whatsapp_number' => 'nullable|string|max:50',
             'address'         => 'nullable|string',
+            'city'            => 'nullable|string|max:100',
+            'country'         => 'nullable|string|max:100',
             'type'            => 'required|in:CUSTOMER,VENDOR,BOTH',
         ]);
 
         if (empty($validated['phone']) && ! empty($validated['whatsapp_number'])) {
             $validated['phone'] = $validated['whatsapp_number'];
         }
+        if (empty($validated['whatsapp_number']) && ! empty($validated['phone'])) {
+            $validated['whatsapp_number'] = $validated['phone'];
+        }
 
         // Check duplicate number with other contacts
-        $numberToCheck = $validated['whatsapp_number'] ?? ($validated['phone'] ?? null);
+        $numberToCheck = $validated['whatsapp_number'] ?: ($validated['phone'] ?: null);
         if ($numberToCheck) {
             $existing = Contact::findByNumber($numberToCheck, $contact->id);
             if ($existing) {
                 return back()->withInput()->withErrors([
-                    'whatsapp_number' => "Another contact ({$existing->name}) already uses this number.",
-                ])->with('error', "Cannot update: '{$existing->name}' already exists with this phone number.");
+                    'whatsapp_number' => "Duplicate number! Contact '{$existing->name}' already uses this number ({$existing->whatsapp_number}).",
+                ])->with('error', "Cannot update: '{$existing->name}' already exists with this phone/WhatsApp number.");
             }
         }
 

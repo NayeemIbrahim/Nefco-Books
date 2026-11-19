@@ -18,7 +18,7 @@ class StoreContactRequest extends FormRequest
             'company_name'    => ['nullable', 'string', 'max:150'],
             'email'           => ['nullable', 'email', 'max:150'],
             'phone'           => ['nullable', 'string', 'max:30'],
-            'whatsapp_number' => ['required', 'string', 'max:30'],
+            'whatsapp_number' => ['nullable', 'string', 'max:30'],
             'type'            => ['required', 'in:CUSTOMER,VENDOR,BOTH'],
             'address'         => ['nullable', 'string', 'max:255'],
             'city'            => ['nullable', 'string', 'max:100'],

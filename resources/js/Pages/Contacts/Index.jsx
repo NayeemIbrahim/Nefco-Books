@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { formatBDT } from "@/lib/utils";
-import { Plus, Search, MessageSquare, Building2, Phone, Mail, X, Trash2, RotateCcw } from "lucide-react";
+import { Plus, Search, MessageSquare, Building2, Phone, Mail, X, Trash2, RotateCcw, AlertCircle, Check } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
 export default function ContactsIndex({ contacts, filters }) {
@@ -16,11 +16,11 @@ export default function ContactsIndex({ contacts, filters }) {
     name: "",
     company_name: "",
     type: "CUSTOMER",
-    whatsapp_number: "+8801",
+    whatsapp_number: "",
     phone: "",
     email: "",
     address: "",
-    city: "",
+    city: "Dhaka",
   });
 
   const handleOpenCreateDrawer = () => {
@@ -29,11 +29,11 @@ export default function ContactsIndex({ contacts, filters }) {
       name: "",
       company_name: "",
       type: "CUSTOMER",
-      whatsapp_number: "+8801",
+      whatsapp_number: "",
       phone: "",
       email: "",
       address: "",
-      city: "",
+      city: "Dhaka",
     });
     setIsDrawerOpen(true);
   };
@@ -44,11 +44,11 @@ export default function ContactsIndex({ contacts, filters }) {
       name: contact.name || "",
       company_name: contact.company_name || "",
       type: contact.type || "CUSTOMER",
-      whatsapp_number: contact.whatsapp_number || "+8801",
+      whatsapp_number: contact.whatsapp_number || "",
       phone: contact.phone || contact.whatsapp_number || "",
       email: contact.email || "",
       address: contact.address || "",
-      city: contact.city || "",
+      city: contact.city || "Dhaka",
     });
     setIsDrawerOpen(true);
   };
@@ -70,15 +70,22 @@ export default function ContactsIndex({ contacts, filters }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const payload = {
+      ...formData,
+      whatsapp_number: formData.whatsapp_number ? formData.whatsapp_number.trim() : "",
+      phone: formData.phone ? formData.phone.trim() : (formData.whatsapp_number ? formData.whatsapp_number.trim() : ""),
+      email: formData.email ? formData.email.trim() : null,
+    };
+
     if (editingContact) {
-      router.post(`/contacts/${editingContact.id}`, formData, {
+      router.post(`/contacts/${editingContact.id}`, payload, {
         onSuccess: () => {
           setIsDrawerOpen(false);
           setEditingContact(null);
         },
       });
     } else {
-      router.post("/contacts", formData, {
+      router.post("/contacts", payload, {
         onSuccess: () => {
           setIsDrawerOpen(false);
         },
@@ -129,6 +136,26 @@ export default function ContactsIndex({ contacts, filters }) {
             <span>New Contact</span>
           </button>
         </div>
+
+        {/* Global Notifications */}
+        {flash?.error && (
+          <div className="p-3.5 text-xs bg-rose-50 border border-rose-200 text-rose-700 rounded-lg flex items-center gap-2 shadow-xs">
+            <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
+            <span className="font-semibold">{flash.error}</span>
+          </div>
+        )}
+        {flash?.success && (
+          <div className="p-3.5 text-xs bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg flex items-center gap-2 shadow-xs">
+            <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+            <span className="font-semibold">{flash.success}</span>
+          </div>
+        )}
+        {flash?.info && (
+          <div className="p-3.5 text-xs bg-blue-50 border border-blue-200 text-blue-700 rounded-lg flex items-center gap-2 shadow-xs">
+            <AlertCircle className="h-4 w-4 text-blue-500 shrink-0" />
+            <span className="font-semibold">{flash.info}</span>
+          </div>
+        )}
 
         {/* Filter & Search Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
@@ -313,6 +340,13 @@ export default function ContactsIndex({ contacts, filters }) {
               </div>
 
               <form onSubmit={handleSubmit} className="p-6 space-y-4 flex-1 overflow-y-auto">
+                {flash?.error && (
+                  <div className="p-3 text-xs bg-rose-50 border border-rose-200 text-rose-700 rounded-md flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
+                    <span>{flash.error}</span>
+                  </div>
+                )}
+
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Contact Name *</label>
                   <input
@@ -321,8 +355,13 @@ export default function ContactsIndex({ contacts, filters }) {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g. Rahim Chowdhury"
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className={`w-full px-3 py-2 text-xs border rounded-md ${
+                      errors?.name ? "border-rose-500 bg-rose-50/50" : "border-slate-300"
+                    } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
                   />
+                  {errors?.name && (
+                    <p className="text-[11px] font-medium text-rose-600 mt-0.5">{errors.name}</p>
+                  )}
                 </div>
 
                 <div className="space-y-1">
@@ -351,13 +390,12 @@ export default function ContactsIndex({ contacts, filters }) {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">WhatsApp / Phone Number *</label>
+                    <label className="text-xs font-semibold text-slate-700">WhatsApp / Phone Number</label>
                     <input
                       type="text"
-                      required
                       value={formData.whatsapp_number}
                       onChange={(e) => setFormData({ ...formData, whatsapp_number: e.target.value, phone: e.target.value })}
-                      placeholder="+8801700000000"
+                      placeholder="e.g. 01700000000 or +8801700000000"
                       className={`w-full px-3 py-2 text-xs border rounded-md font-mono ${
                         errors?.whatsapp_number ? "border-rose-500 bg-rose-50/50" : "border-slate-300"
                       } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
@@ -375,8 +413,13 @@ export default function ContactsIndex({ contacts, filters }) {
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="rahim@example.bd"
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    className={`w-full px-3 py-2 text-xs border rounded-md ${
+                      errors?.email ? "border-rose-500 bg-rose-50/50" : "border-slate-300"
+                    } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
                   />
+                  {errors?.email && (
+                    <p className="text-[11px] font-medium text-rose-600 mt-0.5">{errors.email}</p>
+                  )}
                 </div>
 
                 <div className="space-y-1">

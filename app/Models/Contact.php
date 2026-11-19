@@ -55,11 +55,12 @@ class Contact extends Model
         $raw = trim($number);
         $digits = preg_replace('/\D/', '', $raw);
 
-        if (empty($digits)) {
+        // Require at least 7 digits to consider it a real phone number
+        if (empty($digits) || strlen($digits) < 7) {
             return null;
         }
 
-        // National number suffix (e.g., last 10 digits handles +88017..., 88017..., 017...)
+        // National number suffix (last 10 digits handles +88017..., 88017..., 017...)
         $suffix = strlen($digits) >= 10 ? substr($digits, -10) : $digits;
 
         $query = self::query();
@@ -70,7 +71,7 @@ class Contact extends Model
         return $query->where(function ($q) use ($raw, $suffix) {
             $q->where('whatsapp_number', $raw)
               ->orWhere('phone', $raw);
-            if (! empty($suffix)) {
+            if (! empty($suffix) && strlen($suffix) >= 8) {
                 $q->orWhere('whatsapp_number', 'like', "%{$suffix}")
                   ->orWhere('phone', 'like', "%{$suffix}");
             }
