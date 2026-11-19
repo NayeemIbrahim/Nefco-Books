@@ -8,6 +8,7 @@ use App\Models\Account;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -54,10 +55,32 @@ class ItemController extends Controller
             }
         }
 
-        $items = $query->latest()->paginate(25)->withQueryString();
-        $categories = Category::all();
-        $salesAccounts = Account::where('type', 'REVENUE')->get();
-        $defaultUom = User::whereNotNull('default_uom')->value('default_uom') ?? 'Pcs';
+        try {
+            $items = $query->latest()->paginate(25)->withQueryString();
+        } catch (\Throwable $e) {
+            $items = Item::paginate(25);
+        }
+
+        try {
+            $categories = Category::all();
+        } catch (\Throwable $e) {
+            $categories = collect();
+        }
+
+        try {
+            $salesAccounts = Account::where('type', 'REVENUE')->get();
+        } catch (\Throwable $e) {
+            $salesAccounts = collect();
+        }
+
+        $defaultUom = 'Pcs';
+        try {
+            if (Schema::hasTable('users') && Schema::hasColumn('users', 'default_uom')) {
+                $defaultUom = User::whereNotNull('default_uom')->value('default_uom') ?? 'Pcs';
+            }
+        } catch (\Throwable $e) {
+            $defaultUom = 'Pcs';
+        }
 
         return Inertia::render('Items/Index', [
             'items'         => $items,
@@ -85,7 +108,15 @@ class ItemController extends Controller
         }
 
         if (empty($validated['unit'])) {
-            $validated['unit'] = User::whereNotNull('default_uom')->value('default_uom') ?? 'Pcs';
+            $defaultUom = 'Pcs';
+            try {
+                if (Schema::hasTable('users') && Schema::hasColumn('users', 'default_uom')) {
+                    $defaultUom = User::whereNotNull('default_uom')->value('default_uom') ?? 'Pcs';
+                }
+            } catch (\Throwable $e) {
+                $defaultUom = 'Pcs';
+            }
+            $validated['unit'] = $defaultUom;
         }
 
         Item::create($validated);

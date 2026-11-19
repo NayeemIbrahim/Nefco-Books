@@ -10,6 +10,7 @@ use App\Services\AccountingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,10 +22,14 @@ class BookingController extends Controller
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
-                $q->where('booking_number', 'like', "%{$search}%")
-                  ->orWhere('order_number', 'like', "%{$search}%")
-                  ->orWhere('invoice_number', 'like', "%{$search}%")
-                  ->orWhereHas('contact', fn($c) => $c->where('name', 'like', "%{$search}%"));
+                $q->where('booking_number', 'like', "%{$search}%");
+                if (Schema::hasColumn('bookings', 'order_number')) {
+                    $q->orWhere('order_number', 'like', "%{$search}%");
+                }
+                if (Schema::hasColumn('bookings', 'invoice_number')) {
+                    $q->orWhere('invoice_number', 'like', "%{$search}%");
+                }
+                $q->orWhereHas('contact', fn($c) => $c->where('name', 'like', "%{$search}%"));
             });
         }
 

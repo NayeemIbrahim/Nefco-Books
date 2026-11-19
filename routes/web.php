@@ -78,3 +78,22 @@ Route::post('accounts/{account}/balance', [SettingsController::class, 'updateBal
 Route::post('settings/users/{user}/approve', [SettingsController::class, 'approveUser'])->name('settings.users.approve');
 Route::post('settings/users/{user}/reject', [SettingsController::class, 'rejectUser'])->name('settings.users.reject');
 Route::post('settings/users/{user}/toggle-role', [SettingsController::class, 'toggleRole'])->name('settings.users.toggle-role');
+
+// 10. Database Migration & Schema Sync Helper
+Route::get('migrate', function () {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+        $output = \Illuminate\Support\Facades\Artisan::output();
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Database migrations executed successfully.',
+            'output'  => $output,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => $e->getMessage(),
+        ], 500);
+    }
+})->name('migrate');
+

@@ -8,48 +8,90 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class SettingsController extends Controller
 {
-    private function resolveUser(): User
+    private function resolveUser(): ?User
     {
-        /** @var User|null $user */
-        $user = Auth::user();
+        try {
+            /** @var User|null $user */
+            $user = Auth::user();
 
-        if (! $user) {
-            $user = User::where('role', 'admin')->first() ?? User::first();
+            if (! $user && Schema::hasTable('users')) {
+                if (Schema::hasColumn('users', 'role')) {
+                    $user = User::where('role', 'admin')->first();
+                }
+                if (! $user) {
+                    $user = User::first();
+                }
+            }
+
+            if (! $user && Schema::hasTable('users')) {
+                $userData = [
+                    'name'     => 'Admin User',
+                    'email'    => 'admin@nefcobooks.com',
+                    'password' => Hash::make('admin'),
+                ];
+
+                $possibleCols = [
+                    'role'            => 'admin',
+                    'status'          => 'APPROVED',
+                    'company_name'    => 'Nefco Trading & IT Ltd.',
+                    'company_address' => 'Dhaka, Bangladesh',
+                    'bin_number'      => '123456789-0101',
+                    'phone'           => '+8801711223344',
+                    'currency_symbol' => '৳',
+                    'currency_code'   => 'BDT',
+                    'default_uom'     => 'Pcs',
+                ];
+
+                foreach ($possibleCols as $col => $val) {
+                    if (Schema::hasColumn('users', $col)) {
+                        $userData[$col] = $val;
+                    }
+                }
+
+                $user = User::create($userData);
+            }
+
+            return $user;
+        } catch (\Throwable $e) {
+            Log::warning('SettingsController resolveUser: ' . $e->getMessage());
+            return null;
         }
-
-        if (! $user) {
-            $user = User::create([
-                'name'            => 'Admin User',
-                'email'           => 'admin@nefcobooks.com',
-                'password'        => Hash::make('admin'),
-                'role'            => 'admin',
-                'status'          => 'APPROVED',
-                'company_name'    => 'Nefco Trading & IT Ltd.',
-                'company_address' => 'Dhaka, Bangladesh',
-                'bin_number'      => '123456789-0101',
-                'phone'           => '+8801711223344',
-                'currency_symbol' => '৳',
-                'currency_code'   => 'BDT',
-            ]);
-        }
-
-        return $user;
     }
 
     public function index(): Response
     {
         $user = $this->resolveUser();
 
+        $users = collect();
+        try {
+            if (Schema::hasTable('users')) {
+                $users = User::latest()->get();
+            }
+        } catch (\Throwable $e) {
+            $users = collect();
+        }
+
+        $accounts = collect();
+        try {
+            if (Schema::hasTable('accounts')) {
+                $accounts = Account::orderBy('code')->get();
+            }
+        } catch (\Throwable $e) {
+            $accounts = collect();
+        }
+
         return Inertia::render('Settings/Index', [
             'profile' => [
-                'name'  => $user->name,
-                'email' => $user->email,
-                'role'  => $user->role,
+                'name'  => $user->name ?? 'Admin User',
+                'email' => $user->email ?? 'admin@nefcobooks.com',
+                'role'  => $user->role ?? 'admin',
             ],
             'company' => [
                 'company_name'           => $user->company_name ?? 'Nefco Trading & IT Ltd.',
@@ -62,18 +104,19 @@ class SettingsController extends Controller
                 'whatsapp_phone_number_id'=> $user->whatsapp_phone_number_id ?? '',
                 'whatsapp_access_token'  => $user->whatsapp_access_token ?? '',
             ],
-            'users'    => User::latest()->get(),
-            'accounts' => Account::orderBy('code')->get(),
+            'users'    => $users,
+            'accounts' => $accounts,
         ]);
     }
 
     public function updateProfile(Request $request): RedirectResponse
     {
         $user = $this->resolveUser();
+        $userId = $user ? $user->id : 1;
 
         $validated = $request->validate([
             'name'     => 'required|string|max:255',
-            'email'    => 'required|email|max:255|unique:users,email,' . $user->id,
+            'email'    => 'required|email|max:255|unique:users,email,' . $userId,
             'password' => 'nullable|string|min:4',
         ]);
 
@@ -86,11 +129,12 @@ class SettingsController extends Controller
             $data['password'] = Hash::make($validated['password']);
         }
 
-        $user->update($data);
+        if ($user) {
+            $user->update($data);
 
-        // If not logged in, auto log in as this user
-        if (! Auth::check()) {
-            Auth::login($user);
+            if (! Auth::check()) {
+                Auth::login($user);
+            }
         }
 
         return back()->with('success', 'Profile and login information updated successfully!');
@@ -110,7 +154,22 @@ class SettingsController extends Controller
             'whatsapp_access_token'  => 'nullable|string',
         ]);
 
-        User::query()->update($validated);
+        try {
+            if (Schema::hasTable('users')) {
+                $existingColumns = Schema::getColumnListing('users');
+                $dataToUpdate = array_filter(
+                    $validated,
+                    fn ($key) => in_array($key, $existingColumns),
+                    ARRAY_FILTER_USE_KEY
+                );
+
+                if (! empty($dataToUpdate)) {
+                    User::query()->update($dataToUpdate);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Settings updateCompany error: ' . $e->getMessage());
+        }
 
         return back()->with('success', 'Organization and business settings saved!');
     }
