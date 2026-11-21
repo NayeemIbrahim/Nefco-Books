@@ -74,7 +74,28 @@ class AppServiceProvider extends ServiceProvider
                     User::create($adminData);
                 }
 
-                Cache::put('db_schema_v6_migrated', true, now()->addDays(3));
+                // Ensure any bills or invoices marked as PAID have paid_amount = total_amount
+                if (Schema::hasTable('bills') && Schema::hasColumn('bills', 'paid_amount')) {
+                    \Illuminate\Support\Facades\DB::table('bills')
+                        ->where('status', 'PAID')
+                        ->where(function ($q) {
+                            $q->whereColumn('paid_amount', '<', 'total_amount')
+                              ->orWhereNull('paid_amount');
+                        })
+                        ->update(['paid_amount' => \Illuminate\Support\Facades\DB::raw('total_amount')]);
+                }
+
+                if (Schema::hasTable('invoices') && Schema::hasColumn('invoices', 'paid_amount')) {
+                    \Illuminate\Support\Facades\DB::table('invoices')
+                        ->where('status', 'PAID')
+                        ->where(function ($q) {
+                            $q->whereColumn('paid_amount', '<', 'total_amount')
+                              ->orWhereNull('paid_amount');
+                        })
+                        ->update(['paid_amount' => \Illuminate\Support\Facades\DB::raw('total_amount')]);
+                }
+
+                Cache::put('db_schema_v7_migrated', true, now()->addDays(3));
             }
         } catch (\Throwable $e) {
             Log::warning('Automatic migration / database setup notice: ' . $e->getMessage());

@@ -40,6 +40,7 @@ Route::post('items/{item}', [ItemController::class, 'update'])->name('items.upda
 Route::get('sales/bookings', [BookingController::class, 'index'])->name('sales.bookings');
 Route::resource('bookings', BookingController::class);
 Route::post('bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
+Route::delete('bookings/{booking}', [BookingController::class, 'destroy'])->name('bookings.destroy');
 Route::post('bookings/{booking}/convert-to-invoice', [BookingController::class, 'convertToInvoice'])->name('bookings.convert');
 Route::post('bookings/{booking}/convert', [BookingController::class, 'convertToInvoice']);
 
@@ -47,6 +48,8 @@ Route::post('bookings/{booking}/convert', [BookingController::class, 'convertToI
 Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
 Route::post('invoices', [InvoiceController::class, 'store'])->name('invoices.store');
 Route::post('invoices/{invoice}', [InvoiceController::class, 'update'])->name('invoices.update');
+Route::delete('invoices/{invoice}', [InvoiceController::class, 'destroy'])->name('invoices.destroy');
+Route::delete('sales/invoices/{invoice}', [InvoiceController::class, 'destroy']);
 Route::post('invoices/{invoice}/mark-paid', [InvoiceController::class, 'markAsPaid'])->name('invoices.mark-paid');
 Route::post('invoices/{invoice}/issue', [InvoiceController::class, 'issueDraft'])->name('invoices.issue');
 Route::resource('sales/invoices', InvoiceController::class)->names('invoices.sales');
@@ -67,6 +70,9 @@ Route::get('bills', [BillController::class, 'index'])->name('bills.index');
 Route::post('bills', [BillController::class, 'store'])->name('bills.store');
 Route::post('bills/{bill}', [BillController::class, 'update'])->name('bills.update');
 Route::post('bills/{bill}/mark-paid', [BillController::class, 'markAsPaid'])->name('bills.mark-paid');
+Route::post('bills/{bill}/mark-as-paid', [BillController::class, 'markAsPaid'])->name('bills.mark-as-paid');
+Route::post('purchases/bills/{bill}/mark-paid', [BillController::class, 'markAsPaid'])->name('bills.purchases.mark-paid');
+Route::post('purchases/bills/{bill}/mark-as-paid', [BillController::class, 'markAsPaid'])->name('bills.purchases.mark-as-paid');
 Route::resource('purchases/bills', BillController::class)->names('bills.purchases');
 
 // 5.2 Operating Expenses (Suboption of Purchases)

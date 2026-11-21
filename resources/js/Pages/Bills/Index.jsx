@@ -315,7 +315,8 @@ export default function BillsIndex({ bills, vendors, items, filters }) {
                   </tr>
                 ) : (
                   billList.map((b) => {
-                    const balanceDue = Math.max(0, (parseFloat(b.total_amount) || 0) - (parseFloat(b.paid_amount) || 0));
+                    const isPaid = b.status === "PAID" || (parseFloat(b.paid_amount) || 0) >= (parseFloat(b.total_amount) || 0);
+                    const balanceDue = isPaid ? 0 : Math.max(0, (parseFloat(b.total_amount) || 0) - (parseFloat(b.paid_amount) || 0));
                     return (
                       <tr
                         key={b.id}
@@ -333,7 +334,7 @@ export default function BillsIndex({ bills, vendors, items, filters }) {
                         <td className="py-3 px-4">
                           <span
                             className={`px-2 py-0.5 text-[10px] font-bold rounded ${
-                              b.status === "PAID"
+                              isPaid
                                 ? "bg-emerald-100 text-emerald-800"
                                 : b.status === "PARTIALLY_PAID"
                                 ? "bg-amber-100 text-amber-800"
@@ -342,7 +343,7 @@ export default function BillsIndex({ bills, vendors, items, filters }) {
                                 : "bg-slate-100 text-slate-700"
                             }`}
                           >
-                            {b.status}
+                            {isPaid ? "PAID" : b.status}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right font-bold text-slate-900">{formatBDT(b.total_amount)}</td>
@@ -352,7 +353,7 @@ export default function BillsIndex({ bills, vendors, items, filters }) {
                           </span>
                         </td>
                         <td className="py-3 px-4 text-center space-x-1.5" onClick={(e) => e.stopPropagation()}>
-                          {b.status !== "PAID" && (
+                          {!isPaid && (
                             <button
                               onClick={() => handleMarkAsPaid(b.id)}
                               className="px-2 py-1 text-[11px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded border border-emerald-200 transition inline-flex items-center gap-1"
@@ -660,9 +661,32 @@ export default function BillsIndex({ bills, vendors, items, filters }) {
                 </table>
               </div>
 
-              <div className="flex justify-between items-center bg-slate-50 p-3 rounded-md font-bold text-sm text-slate-900">
-                <span>Total Payable Amount</span>
-                <span className="text-amber-700">{formatBDT(selectedBill.total_amount)}</span>
+              <div className="bg-slate-50 p-3.5 rounded-md space-y-1.5 text-xs text-slate-700">
+                <div className="flex justify-between items-center font-bold text-sm text-slate-900">
+                  <span>Total Bill Amount</span>
+                  <span className="text-amber-700 font-mono">{formatBDT(selectedBill.total_amount)}</span>
+                </div>
+                {(() => {
+                  const isPaid = selectedBill.status === "PAID" || (parseFloat(selectedBill.paid_amount) || 0) >= (parseFloat(selectedBill.total_amount) || 0);
+                  const paid = isPaid ? selectedBill.total_amount : (selectedBill.paid_amount || 0);
+                  const due = isPaid ? 0 : Math.max(0, (parseFloat(selectedBill.total_amount) || 0) - (parseFloat(selectedBill.paid_amount) || 0));
+                  return (
+                    <>
+                      {parseFloat(paid) > 0 && (
+                        <div className="flex justify-between items-center text-emerald-700 font-semibold">
+                          <span>Paid to Date</span>
+                          <span className="font-mono">{formatBDT(paid)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center font-bold pt-1 border-t border-slate-200">
+                        <span>Balance Due</span>
+                        <span className={`font-mono ${due <= 0 ? "text-emerald-600" : "text-amber-700"}`}>
+                          {formatBDT(due)}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {selectedBill.notes && (

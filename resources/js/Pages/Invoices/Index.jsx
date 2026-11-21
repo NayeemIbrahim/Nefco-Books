@@ -479,6 +479,20 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                             <Edit className="h-3 w-3" />
                             <span>Edit</span>
                           </button>
+                          {inv.status === "DRAFT" && (
+                            <button
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to delete draft invoice ${inv.invoice_number}?`)) {
+                                  router.delete(`/invoices/${inv.id}`);
+                                }
+                              }}
+                              className="px-2 py-1 text-[11px] font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 rounded border border-rose-200 transition inline-flex items-center gap-1"
+                              title="Delete Draft Invoice"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                              <span>Delete</span>
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -943,6 +957,25 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                 </div>
 
                 <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-2">
+                  {editingInvoiceId && formStatus === "DRAFT" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (confirm(`Delete draft invoice ${formInvoiceNumber}?`)) {
+                          router.delete(`/invoices/${editingInvoiceId}`, {
+                            onSuccess: () => {
+                              setIsDrawerOpen(false);
+                              resetForm();
+                            },
+                          });
+                        }
+                      }}
+                      className="px-3 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-md transition flex items-center gap-1.5 mr-auto"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Delete Draft</span>
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setIsDrawerOpen(false)}
@@ -1135,6 +1168,21 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                     <Edit className="h-3.5 w-3.5" />
                     <span>Edit Invoice</span>
                   </button>
+                  {selectedInvoice.status === "DRAFT" && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`Delete draft invoice ${selectedInvoice.invoice_number}?`)) {
+                          router.delete(`/invoices/${selectedInvoice.id}`, {
+                            onSuccess: () => setSelectedInvoice(null),
+                          });
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 rounded-md hover:bg-rose-100 transition shadow-xs"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Delete Draft</span>
+                    </button>
+                  )}
                 </div>
 
                 <button

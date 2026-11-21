@@ -26,6 +26,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
   const [statusFilter, setStatusFilter] = useState(filters?.status || "ALL");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingBookingId, setEditingBookingId] = useState(null);
+  const [editingBookingInvoiced, setEditingBookingInvoiced] = useState(false);
 
   const contactList = contacts || [];
   const itemList = items || [];
@@ -37,7 +38,6 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
   const [formOrderNumber, setFormOrderNumber] = useState("");
   const [formInvoiceNumber, setFormInvoiceNumber] = useState("");
   const [formServiceDate, setFormServiceDate] = useState(new Date().toISOString().split("T")[0]);
-  const [formStatus, setFormStatus] = useState("CONFIRMED");
   const [formNotes, setFormNotes] = useState("");
   const [formAttachments, setFormAttachments] = useState([]);
   const [existingAttachments, setExistingAttachments] = useState([]);
@@ -47,12 +47,12 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
 
   const resetForm = () => {
     setEditingBookingId(null);
+    setEditingBookingInvoiced(false);
     setFormContactName("");
     setFormWhatsapp("");
     setFormOrderNumber("");
     setFormInvoiceNumber("");
     setFormServiceDate(new Date().toISOString().split("T")[0]);
-    setFormStatus("CONFIRMED");
     setFormNotes("");
     setFormAttachments([]);
     setExistingAttachments([]);
@@ -66,12 +66,12 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
 
   const handleOpenEditDrawer = (bkg) => {
     setEditingBookingId(bkg.id);
+    setEditingBookingInvoiced(!!(bkg.invoice_number || bkg.status === "INVOICED" || bkg.status === "COMPLETED"));
     setFormContactName(bkg.contact?.name || "");
     setFormWhatsapp(bkg.contact?.whatsapp_number || bkg.contact?.phone || "");
     setFormOrderNumber(bkg.order_number || "");
     setFormInvoiceNumber(bkg.invoice_number || "");
     setFormServiceDate(bkg.booking_date ? bkg.booking_date.split("T")[0] : new Date().toISOString().split("T")[0]);
-    setFormStatus(bkg.status || "CONFIRMED");
     setFormNotes(bkg.notes || "");
     setExistingAttachments(bkg.attachments || []);
     setFormAttachments([]);
@@ -92,6 +92,32 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
     }
 
     setIsDrawerOpen(true);
+  };
+
+  const handleDeleteBooking = (bkgId, bkgNum) => {
+    if (confirm(`Are you sure you want to delete Quote / Booking ${bkgNum || ""}? This cannot be undone.`)) {
+      router.delete(`/bookings/${bkgId}`, {
+        onSuccess: () => {
+          if (isDrawerOpen) setIsDrawerOpen(false);
+        },
+      });
+    }
+  };
+
+  const handleDeleteDraftInvoice = (draftId, invNum) => {
+    if (confirm(`Are you sure you want to delete Draft Invoice ${invNum || ""}? This action cannot be undone.`)) {
+      router.delete(`/invoices/${draftId}`);
+    }
+  };
+
+  const handleAcceptAndInvoice = (bkgId) => {
+    if (confirm("Accept this Quote / Deal and generate an Invoice? It will post to General Ledger upon issuance.")) {
+      router.post(`/bookings/${bkgId}/convert`, {}, {
+        onSuccess: () => {
+          if (isDrawerOpen) setIsDrawerOpen(false);
+        },
+      });
+    }
   };
 
   const handleFilter = (st) => {
@@ -192,7 +218,6 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
     if (formOrderNumber) formData.append("order_number", formOrderNumber);
     if (formInvoiceNumber) formData.append("invoice_number", formInvoiceNumber);
     formData.append("booking_date", formServiceDate);
-    formData.append("status", formStatus);
     formData.append("total_amount", totalCalculatedBDT);
     if (formNotes) formData.append("notes", formNotes);
 
@@ -229,23 +254,25 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
 
   return (
     <AuthenticatedLayout>
-      <Head title="Bookings & Orders - Nefco Books" />
+      <Head title="Quotes & Deals (Bookings) - Nefco Books" />
 
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
           <div>
             <h1 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <CalendarCheck className="h-5 w-5 text-blue-600" />
-              <span>Orders & Bookings</span>
+              <span>Quotes & Deals (Bookings)</span>
             </h1>
-            <p className="text-xs text-slate-500">Record customer service requests, manage product bookings, and convert to invoices</p>
+            <p className="text-xs text-slate-500">
+              Manage quotes and deals. Accept to generate invoice, or modify / delete as needed.
+            </p>
           </div>
           <button
             onClick={handleOpenCreateDrawer}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-md shadow-xs transition"
           >
             <Plus className="h-4 w-4" />
-            <span>New Booking</span>
+            <span>New Quote / Deal</span>
           </button>
         </div>
 
@@ -260,7 +287,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
             }`}
           >
             <CalendarCheck className="h-4 w-4" />
-            <span>Customer Bookings ({bookings?.total ?? bookingList.length})</span>
+            <span>Quotes & Deals ({bookings?.total ?? bookingList.length})</span>
           </button>
           <button
             onClick={() => setActiveTab("DRAFTS")}
@@ -360,6 +387,14 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
                           >
                             <span>Open</span>
                           </button>
+                          <button
+                            onClick={() => handleDeleteDraftInvoice(draft.id, draft.invoice_number)}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold bg-red-50 hover:bg-red-100 text-red-600 rounded transition border border-red-200"
+                            title="Delete Draft Invoice"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            <span>Delete</span>
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -373,17 +408,21 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
         {/* Filter & Search Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
           <div className="flex items-center gap-2">
-            {["ALL", "CONFIRMED", "PENDING", "COMPLETED"].map((tab) => (
+            {[
+              { id: "ALL", label: "All Quotes & Deals" },
+              { id: "QUOTES", label: "Open Quotes" },
+              { id: "INVOICED", label: "Invoiced Deals" },
+            ].map((tab) => (
               <button
-                key={tab}
-                onClick={() => handleFilter(tab)}
+                key={tab.id}
+                onClick={() => handleFilter(tab.id)}
                 className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
-                  statusFilter === tab
+                  statusFilter === tab.id
                     ? "bg-slate-900 text-white font-semibold"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
-                {tab === "ALL" ? "All Bookings" : tab}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -392,7 +431,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by customer, booking #, order #..."
+              placeholder="Search by customer, quote #, order #..."
               value={search}
               onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full pl-9 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
@@ -405,91 +444,115 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
           <table className="w-full text-xs text-left text-slate-600">
             <thead className="bg-slate-50 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
               <tr>
-                <th className="py-3 px-4">Booking & Order #</th>
+                <th className="py-3 px-4">Quote / Deal #</th>
                 <th className="py-3 px-4">Invoice #</th>
                 <th className="py-3 px-4">Customer</th>
-                <th className="py-3 px-4">Booking Date</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 px-4 text-right">Order Total (BDT)</th>
-                <th className="py-3 px-4 text-center">Action</th>
+                <th className="py-3 px-4">Date</th>
+                <th className="py-3 px-4">Status / Stage</th>
+                <th className="py-3 px-4 text-right">Total Amount (BDT)</th>
+                <th className="py-3 px-4 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {bookingList.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No bookings found. Click <strong>+ New Booking</strong> to create one.
+                    No quotes or deals found. Click <strong>+ New Quote / Deal</strong> to create one.
                   </td>
                 </tr>
               ) : (
-                bookingList.map((bkg) => (
-                  <tr
-                    key={bkg.id}
-                    onClick={() => handleOpenEditDrawer(bkg)}
-                    className="hover:bg-slate-50/70 cursor-pointer transition"
-                  >
-                    <td className="py-3 px-4">
-                      <div className="font-mono font-bold text-blue-600">{bkg.booking_number}</div>
-                      {bkg.order_number && (
-                        <div className="text-[11px] text-slate-400 font-mono">Ord: {bkg.order_number}</div>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 font-mono text-slate-700">
-                      {bkg.invoice_number ? (
-                        <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                          {bkg.invoice_number}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400 text-[11px]">Pending</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-900">{bkg.contact?.name}</div>
-                      <div className="text-[11px] text-slate-400 font-mono">
-                        {bkg.contact?.whatsapp_number || bkg.contact?.phone}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-slate-600">
-                      {formatDate(bkg.booking_date)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`px-2 py-0.5 text-[10px] font-bold rounded ${
-                          bkg.status === "CONFIRMED"
-                            ? "bg-blue-100 text-blue-800"
-                            : bkg.status === "COMPLETED"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}
-                      >
-                        {bkg.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right font-bold text-slate-900">
-                      {formatBDT(bkg.total_amount)}
-                    </td>
-                    <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => handleOpenEditDrawer(bkg)}
-                          className="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded"
-                          title="Edit Booking"
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </button>
-                        {bkg.status !== "COMPLETED" && (
-                          <button
-                            onClick={() => router.post(`/bookings/${bkg.id}/convert`)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-blue-600 text-white rounded hover:bg-blue-700 transition shadow-xs"
-                          >
-                            <FileText className="h-3 w-3" />
-                            <span>Invoice</span>
-                          </button>
+                bookingList.map((bkg) => {
+                  const isInvoiced = !!(bkg.invoice_number || bkg.status === "INVOICED" || bkg.status === "COMPLETED");
+                  return (
+                    <tr
+                      key={bkg.id}
+                      onClick={() => handleOpenEditDrawer(bkg)}
+                      className="hover:bg-slate-50/70 cursor-pointer transition"
+                    >
+                      <td className="py-3 px-4">
+                        <div className="font-mono font-bold text-blue-600">{bkg.booking_number}</div>
+                        {bkg.order_number && (
+                          <div className="text-[11px] text-slate-400 font-mono">Ord: {bkg.order_number}</div>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="py-3 px-4 font-mono text-slate-700">
+                        {bkg.invoice_number ? (
+                          <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            {bkg.invoice_number}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">Not Invoiced</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-semibold text-slate-900">{bkg.contact?.name}</div>
+                        <div className="text-[11px] text-slate-400 font-mono">
+                          {bkg.contact?.whatsapp_number || bkg.contact?.phone}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-slate-600">
+                        {formatDate(bkg.booking_date)}
+                      </td>
+                      <td className="py-3 px-4">
+                        {isInvoiced ? (
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-100 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>INVOICED</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-blue-100 text-blue-800 border border-blue-200 inline-flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            <span>OPEN QUOTE</span>
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right font-bold text-slate-900">
+                        {formatBDT(bkg.total_amount)}
+                      </td>
+                      <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-center gap-1.5">
+                          {!isInvoiced && (
+                            <button
+                              type="button"
+                              onClick={() => handleAcceptAndInvoice(bkg.id)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-emerald-600 text-white rounded hover:bg-emerald-700 transition shadow-xs"
+                              title="Accept Deal and generate Invoice"
+                            >
+                              <CheckCircle2 className="h-3 w-3" />
+                              <span>Accept & Invoice</span>
+                            </button>
+                          )}
+                          {isInvoiced && (
+                            <button
+                              type="button"
+                              onClick={() => router.get(`/invoices?search=${bkg.invoice_number}`)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition"
+                              title="Open Invoice"
+                            >
+                              <span>View Invoice</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditDrawer(bkg)}
+                            className="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded"
+                            title="Edit Quote / Deal"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBooking(bkg.id, bkg.booking_number)}
+                            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                            title="Delete Quote / Deal"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -507,9 +570,11 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
               <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                 <div>
                   <h2 className="text-base font-bold text-slate-900">
-                    {editingBookingId ? "Edit Order / Booking" : "Create Order / Booking"}
+                    {editingBookingId ? "Edit Quote / Deal" : "New Quote / Deal"}
                   </h2>
-                  <p className="text-xs text-slate-500">Record customer service request & product reservations</p>
+                  <p className="text-xs text-slate-500">
+                    Prepare quotation or customer deal. Accept to generate an invoice.
+                  </p>
                 </div>
                 <button
                   onClick={() => setIsDrawerOpen(false)}
@@ -563,35 +628,11 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Invoice Number</label>
-                    <input
-                      type="text"
-                      value={formInvoiceNumber}
-                      onChange={(e) => setFormInvoiceNumber(e.target.value)}
-                      placeholder="e.g. INV-2026-0001 (Auto if empty)"
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
+                    <DateField
+                      label="Quote / Deal Date"
+                      value={formServiceDate}
+                      onChange={setFormServiceDate}
                     />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <DateField
-                    label="Booking / Delivery Date"
-                    value={formServiceDate}
-                    onChange={setFormServiceDate}
-                  />
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Status</label>
-                    <select
-                      value={formStatus}
-                      onChange={(e) => setFormStatus(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
-                    >
-                      <option value="CONFIRMED">CONFIRMED</option>
-                      <option value="PENDING">PENDING</option>
-                      <option value="COMPLETED">COMPLETED</option>
-                      <option value="CANCELLED">CANCELLED</option>
-                    </select>
                   </div>
                 </div>
 
@@ -600,7 +641,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
                   <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                     <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
                       <Package className="h-4 w-4 text-blue-600" />
-                      <span>Booking Items</span>
+                      <span>Quote / Deal Items</span>
                     </div>
                     <button
                       type="button"
@@ -672,7 +713,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
                   ))}
 
                   <div className="flex justify-between items-center pt-2 font-bold text-xs text-slate-800">
-                    <span>Order Total (BDT):</span>
+                    <span>Quote Total (BDT):</span>
                     <span className="text-blue-600">{formatBDT(totalCalculatedBDT)}</span>
                   </div>
                 </div>
@@ -693,7 +734,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
                   <div className="flex items-center justify-between">
                     <div>
                       <label className="text-xs font-bold text-slate-800">Attach File(s)</label>
-                      <p className="text-[11px] text-slate-500">Attach invoice, slip, or quotation documents (Max 10 files, 10 MB each)</p>
+                      <p className="text-[11px] text-slate-500">Attach quotation, specifications, or agreement documents (Max 10 files, 10 MB each)</p>
                     </div>
                     <label className="cursor-pointer px-3 py-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded text-xs font-semibold shadow-xs">
                       Choose Files
@@ -751,20 +792,44 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
                   )}
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setIsDrawerOpen(false)}
-                    className="px-4 py-2 border border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold shadow-xs"
-                  >
-                    {editingBookingId ? "Save Booking Changes" : "Save Booking"}
-                  </button>
+                <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+                  {editingBookingId ? (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteBooking(editingBookingId, formOrderNumber)}
+                      className="px-3 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-md text-xs font-bold inline-flex items-center gap-1.5 transition"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span>Delete Quote</span>
+                    </button>
+                  ) : (
+                    <div />
+                  )}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsDrawerOpen(false)}
+                      className="px-4 py-2 border border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                    {editingBookingId && !editingBookingInvoiced && (
+                      <button
+                        type="button"
+                        onClick={() => handleAcceptAndInvoice(editingBookingId)}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold shadow-xs inline-flex items-center gap-1.5 transition"
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span>Accept & Invoice</span>
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold shadow-xs transition"
+                    >
+                      {editingBookingId ? "Save Changes" : "Save Quote / Deal"}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>

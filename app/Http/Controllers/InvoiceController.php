@@ -398,4 +398,18 @@ class InvoiceController extends Controller
 
         return back()->with('error', "Invoice is already issued.");
     }
+
+    public function destroy(Invoice $invoice): RedirectResponse
+    {
+        if ($invoice->status !== 'DRAFT') {
+            return back()->with('error', "Only DRAFT invoices can be deleted. Issued invoices are posted to the general ledger.");
+        }
+
+        DB::transaction(function () use ($invoice) {
+            $invoice->lineItems()->delete();
+            $invoice->delete();
+        });
+
+        return back()->with('success', "Draft Invoice #{$invoice->invoice_number} has been deleted.");
+    }
 }

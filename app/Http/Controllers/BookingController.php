@@ -34,7 +34,18 @@ class BookingController extends Controller
         }
 
         if ($status = $request->input('status')) {
-            if ($status !== 'ALL') {
+            if ($status === 'QUOTES' || $status === 'OPEN') {
+                $query->where(function ($q) {
+                    $q->whereNull('invoice_number')
+                      ->orWhere('invoice_number', '');
+                })->whereNotIn('status', ['COMPLETED', 'INVOICED']);
+            } elseif ($status === 'INVOICED') {
+                $query->where(function ($q) {
+                    $q->where(function ($sub) {
+                        $sub->whereNotNull('invoice_number')->where('invoice_number', '!=', '');
+                    })->orWhereIn('status', ['INVOICED', 'COMPLETED']);
+                });
+            } elseif ($status !== 'ALL') {
                 $query->where('status', $status);
             }
         }
@@ -89,8 +100,12 @@ class BookingController extends Controller
             ]);
         }
 
-        $bkgCount = Booking::count() + 1;
-        $bookingNumber = 'BKG-2026-' . str_pad($bkgCount, 4, '0', STR_PAD_LEFT);
+        $bkgCount = Booking::count();
+        do {
+            $bkgCount++;
+            $bookingNumber = 'BKG-2026-' . str_pad($bkgCount, 4, '0', STR_PAD_LEFT);
+        } while (Booking::where('booking_number', $bookingNumber)->exists());
+
         $orderNumber = ! empty($validated['order_number'])
             ? $validated['order_number']
             : 'ORD-2026-' . str_pad($bkgCount, 4, '0', STR_PAD_LEFT);
@@ -111,14 +126,14 @@ class BookingController extends Controller
             }
         }
 
-        DB::transaction(function () use ($validated, $contact, $bookingNumber, $orderNumber, $invoiceNumber, $savedAttachments) {
+        DB::transaction(function () use ($validated, $contact, $bookingNumber, $orderNumber, $savedAttachments) {
             $booking = Booking::create([
                 'booking_number' => $bookingNumber,
                 'order_number'   => $orderNumber,
-                'invoice_number' => $invoiceNumber,
+                'invoice_number' => null,
                 'contact_id'     => $contact->id,
                 'booking_date'   => $validated['booking_date'],
-                'status'         => 'CONFIRMED',
+                'status'         => 'QUOTE',
                 'total_amount'   => $validated['total_amount'],
                 'notes'          => $validated['notes'] ?? null,
                 'attachments'    => $savedAttachments,
@@ -135,7 +150,7 @@ class BookingController extends Controller
             }
         });
 
-        return back()->with('success', "Booking {$bookingNumber} created successfully!");
+        return back()->with('success', "Quote / Booking {$bookingNumber} created successfully!");
     }
 
     public function update(Request $request, Booking $booking): RedirectResponse
@@ -144,9 +159,8 @@ class BookingController extends Controller
             'contact_name'    => 'required|string|max:255',
             'whatsapp_number' => 'nullable|string|max:50',
             'order_number'    => 'nullable|string|max:100',
-            'invoice_number'  => 'nullable|string|max:100',
             'booking_date'    => 'required|date',
-            'status'          => 'required|in:PENDING,CONFIRMED,COMPLETED,CANCELLED',
+            'status'          => 'nullable|string|max:50',
             'notes'           => 'nullable|string',
             'total_amount'    => 'required|numeric|min:0',
             'attachments.*'   => 'nullable|file|max:10240',
@@ -186,9 +200,8 @@ class BookingController extends Controller
             $booking->update([
                 'contact_id'     => $contact->id,
                 'order_number'   => $validated['order_number'] ?? $booking->order_number,
-                'invoice_number' => $validated['invoice_number'] ?? $booking->invoice_number,
                 'booking_date'   => $validated['booking_date'],
-                'status'         => $validated['status'],
+                'status'         => $validated['status'] ?? $booking->status ?? 'QUOTE',
                 'total_amount'   => $validated['total_amount'],
                 'notes'          => $validated['notes'] ?? null,
                 'attachments'    => $savedAttachments,
@@ -207,13 +220,26 @@ class BookingController extends Controller
             }
         });
 
-        return back()->with('success', "Booking {$booking->booking_number} updated successfully!");
+        return back()->with('success', "Quote / Booking {$booking->booking_number} updated successfully!");
+    }
+
+    public function destroy(Booking $booking): RedirectResponse
+    {
+        DB::transaction(function () use ($booking) {
+            $booking->lineItems()->delete();
+            $booking->delete();
+        });
+
+        return back()->with('success', "Quote / Booking #{$booking->booking_number} deleted successfully.");
     }
 
     public function convertToInvoice(Booking $booking, AccountingService $accountingService): RedirectResponse
     {
-        $invCount = Invoice::count() + 1;
-        $invNumber = 'INV-' . date('Y') . '-' . str_pad($invCount, 4, '0', STR_PAD_LEFT);
+        $invCount = Invoice::count();
+        do {
+            $invCount++;
+            $invNumber = 'INV-' . date('Y') . '-' . str_pad($invCount, 4, '0', STR_PAD_LEFT);
+        } while (Invoice::where('invoice_number', $invNumber)->exists());
 
         DB::transaction(function () use ($booking, $invNumber, $accountingService) {
             $invoice = Invoice::create([
@@ -230,6 +256,7 @@ class BookingController extends Controller
                 'shipping_charges' => 0.00,
                 'adjustment'       => 0.00,
                 'total_amount'     => $booking->total_amount,
+                'paid_amount'      => 0.00,
                 'notes'            => $booking->notes,
                 'terms'            => 'Payment due within 14 days.',
                 'attachments'      => $booking->attachments,
@@ -247,11 +274,11 @@ class BookingController extends Controller
 
             $accountingService->postInvoice($invoice);
             $booking->update([
-                'status'         => 'COMPLETED',
+                'status'         => 'INVOICED',
                 'invoice_number' => $invNumber,
             ]);
         });
 
-        return redirect()->route('invoices.index')->with('success', "Booking converted to Invoice {$invNumber}!");
+        return back()->with('success', "Booking / Deal confirmed and converted to Invoice {$invNumber}!");
     }
 }

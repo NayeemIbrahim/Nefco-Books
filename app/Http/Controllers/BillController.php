@@ -174,7 +174,7 @@ class BillController extends Controller
         $defaultDueDate = date('Y-m-d', strtotime(($validated['bill_date'] ?? now()->toDateString()) . ' +2 days'));
 
         DB::transaction(function () use ($validated, $vendor, $bill, $defaultDueDate) {
-            $bill->update([
+            $billData = [
                 'contact_id'     => $vendor->id,
                 'bill_date'      => $validated['bill_date'],
                 'due_date'       => ! empty($validated['due_date']) ? $validated['due_date'] : $defaultDueDate,
@@ -184,7 +184,13 @@ class BillController extends Controller
                 'discount_amount'=> $validated['discount_amount'] ?? 0,
                 'total_amount'   => $validated['total_amount'],
                 'notes'          => $validated['notes'] ?? null,
-            ]);
+            ];
+
+            if ($validated['status'] === 'PAID') {
+                $billData['paid_amount'] = $validated['total_amount'];
+            }
+
+            $bill->update($billData);
 
             $bill->lineItems()->delete();
 
@@ -203,11 +209,14 @@ class BillController extends Controller
 
     public function markAsPaid(Bill $bill): RedirectResponse
     {
-        if ($bill->status === 'PAID') {
+        if ($bill->status === 'PAID' && (float)$bill->paid_amount >= (float)$bill->total_amount) {
             return back()->with('info', "Bill {$bill->bill_number} is already marked as PAID.");
         }
 
-        $bill->update(['status' => 'PAID']);
+        $bill->update([
+            'status'      => 'PAID',
+            'paid_amount' => $bill->total_amount,
+        ]);
 
         return back()->with('success', "Bill {$bill->bill_number} marked as PAID.");
     }

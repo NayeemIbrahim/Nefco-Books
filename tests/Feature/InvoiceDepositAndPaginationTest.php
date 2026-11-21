@@ -196,4 +196,120 @@ class InvoiceDepositAndPaginationTest extends TestCase
         $this->assertEquals(7500, (float)$invoice->paid_amount);
         $this->assertEquals('PAID', $invoice->status);
     }
+
+    public function test_draft_invoice_can_be_deleted_and_sent_invoice_cannot(): void
+    {
+        $uid = uniqid();
+        $contact = Contact::create([
+            'name'            => 'Draft Delete Client ' . $uid,
+            'type'            => 'CUSTOMER',
+            'currency'        => 'BDT',
+            'whatsapp_number' => '+88017' . substr($uid, -8),
+        ]);
+
+        $draft = Invoice::create([
+            'invoice_number' => 'INV-TEST-DRAFT-' . $uid,
+            'contact_id'     => $contact->id,
+            'issue_date'     => now(),
+            'due_date'       => now(),
+            'status'         => 'DRAFT',
+            'subtotal'       => 2000,
+            'total_amount'   => 2000,
+            'paid_amount'    => 0,
+        ]);
+        $draft->lineItems()->create([
+            'description' => 'Draft Item',
+            'quantity'    => 1,
+            'unit_price'  => 2000,
+            'amount'      => 2000,
+        ]);
+
+        // Delete draft invoice
+        $delResponse = $this->actingAs($this->user)->delete("/invoices/{$draft->id}");
+        $delResponse->assertSessionHas('success');
+        $this->assertDatabaseMissing('invoices', ['id' => $draft->id]);
+
+        // Now test that a SENT invoice cannot be deleted
+        $sentInv = Invoice::create([
+            'invoice_number' => 'INV-TEST-SENT-' . $uid,
+            'contact_id'     => $contact->id,
+            'issue_date'     => now(),
+            'due_date'       => now(),
+            'status'         => 'SENT',
+            'subtotal'       => 3000,
+            'total_amount'   => 3000,
+            'paid_amount'    => 0,
+        ]);
+
+        $failDelResponse = $this->actingAs($this->user)->delete("/invoices/{$sentInv->id}");
+        $failDelResponse->assertSessionHas('error');
+        $this->assertDatabaseHas('invoices', ['id' => $sentInv->id]);
+    }
+
+    public function test_booking_quote_can_be_deleted_and_converted_to_invoice(): void
+    {
+        $uid = uniqid();
+        $contact = Contact::create([
+            'name'            => 'Quote Customer ' . $uid,
+            'type'            => 'CUSTOMER',
+            'currency'        => 'BDT',
+            'whatsapp_number' => '+88018' . substr($uid, -8),
+        ]);
+
+        $booking = Booking::create([
+            'booking_number' => 'BKG-TEST-' . $uid,
+            'contact_id'     => $contact->id,
+            'booking_date'   => now(),
+            'status'         => 'QUOTE',
+            'total_amount'   => 4500,
+        ]);
+        $booking->lineItems()->create([
+            'description' => 'Test Service Item',
+            'quantity'    => 1,
+            'unit_price'  => 4500,
+            'amount'      => 4500,
+        ]);
+
+        // Convert quote to invoice
+        $convertResponse = $this->actingAs($this->user)->post("/bookings/{$booking->id}/convert");
+        $convertResponse->assertSessionHas('success');
+
+        $booking->refresh();
+        $this->assertEquals('INVOICED', $booking->status);
+        $this->assertNotNull($booking->invoice_number);
+
+        // Delete booking
+        $delResponse = $this->actingAs($this->user)->delete("/bookings/{$booking->id}");
+        $delResponse->assertSessionHas('success');
+        $this->assertDatabaseMissing('bookings', ['id' => $booking->id]);
+    }
+
+    public function test_bill_marked_as_paid_sets_paid_amount_equal_to_total(): void
+    {
+        $uid = uniqid();
+        $contact = Contact::create([
+            'name'            => 'Test Vendor ' . $uid,
+            'type'            => 'VENDOR',
+            'currency'        => 'BDT',
+            'whatsapp_number' => '+88019' . substr($uid, -8),
+        ]);
+
+        $bill = Bill::create([
+            'bill_number'  => 'BILL-TEST-PAID-' . $uid,
+            'contact_id'   => $contact->id,
+            'bill_date'    => now(),
+            'due_date'     => now()->addDays(2),
+            'status'       => 'RECEIVED',
+            'subtotal'     => 8000,
+            'total_amount' => 8000,
+            'paid_amount'  => 0,
+        ]);
+
+        $response = $this->actingAs($this->user)->post("/bills/{$bill->id}/mark-paid");
+        $response->assertSessionHas('success');
+
+        $bill->refresh();
+        $this->assertEquals('PAID', $bill->status);
+        $this->assertEquals(8000, (float)$bill->paid_amount);
+    }
 }
