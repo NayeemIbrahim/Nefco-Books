@@ -40,8 +40,13 @@ class PaymentMadeController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'phone', 'whatsapp_number']);
 
-        $unpaidBills = Bill::whereIn('status', ['RECEIVED', 'OVERDUE', 'PARTIALLY_PAID'])
-            ->get(['id', 'bill_number', 'contact_id', 'total_amount', 'paid_amount', 'status']);
+        $unpaidBills = Bill::with('contact')
+            ->whereNotIn('status', ['PAID', 'VOID'])
+            ->where(function ($q) {
+                $q->whereColumn('paid_amount', '<', 'total_amount')->orWhereNull('paid_amount');
+            })
+            ->orderBy('due_date')
+            ->get();
 
         $paidFromAccounts = Account::whereIn('code', ['1000', '1010', '1020'])->get(['id', 'name', 'code']);
 

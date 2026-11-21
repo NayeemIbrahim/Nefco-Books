@@ -102,7 +102,7 @@ class InvoiceController extends Controller
             'booking_id'             => 'nullable|exists:bookings,id',
             'issue_date'             => 'nullable|date',
             'due_date'               => 'nullable|date',
-            'status'                 => 'nullable|string|in:DRAFT,SENT,PAID,PARTIALLY_PAID',
+            'status'                 => 'nullable|string|in:DRAFT,UNPAID,SENT,PAID,PARTIALLY_PAID',
             'notes'                  => 'nullable|string|max:1000',
             'terms'                  => 'nullable|string|max:1000',
             'discount_amount'        => 'nullable|numeric|min:0',
@@ -188,7 +188,7 @@ class InvoiceController extends Controller
             $issueDate = ! empty($validated['issue_date']) ? $validated['issue_date'] : now();
             $dueDate   = ! empty($validated['due_date']) ? $validated['due_date'] : $issueDate;
 
-            $reqStatus = $validated['status'] ?? 'SENT';
+            $reqStatus = $validated['status'] ?? 'UNPAID';
             if ($reqStatus === 'DRAFT') {
                 $finalStatus = 'DRAFT';
             } elseif ($depositAmount >= $totalAmount && $totalAmount > 0) {
@@ -196,7 +196,7 @@ class InvoiceController extends Controller
             } elseif ($depositAmount > 0) {
                 $finalStatus = 'PARTIALLY_PAID';
             } else {
-                $finalStatus = 'SENT';
+                $finalStatus = 'UNPAID';
             }
 
             $invoice = Invoice::create([
@@ -281,7 +281,7 @@ class InvoiceController extends Controller
             'whatsapp_number'  => 'nullable|string|max:50',
             'issue_date'       => 'required|date',
             'due_date'         => 'nullable|date',
-            'status'           => 'required|in:DRAFT,SENT,PAID,OVERDUE,VOID',
+            'status'           => 'required|in:DRAFT,UNPAID,SENT,PAID,PARTIALLY_PAID,OVERDUE,VOID',
             'notes'            => 'nullable|string|max:1000',
             'terms'            => 'nullable|string|max:1000',
             'discount_amount'  => 'nullable|numeric|min:0',
@@ -387,7 +387,10 @@ class InvoiceController extends Controller
     {
         if ($invoice->status === 'DRAFT') {
             DB::transaction(function () use ($invoice) {
-                $invoice->update(['status' => 'SENT']);
+                $newStatus = ((float)$invoice->paid_amount >= (float)$invoice->total_amount && (float)$invoice->total_amount > 0)
+                    ? 'PAID'
+                    : (((float)$invoice->paid_amount > 0) ? 'PARTIALLY_PAID' : 'UNPAID');
+                $invoice->update(['status' => $newStatus]);
                 $this->accountingService->postInvoice($invoice);
             });
 

@@ -1,231 +1,267 @@
-import React, { useState } from "react";
+import React from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { formatBDT, formatDate } from "@/lib/utils";
-import { ArrowUpRight, ArrowDownLeft, Building2, TrendingUp, Plus, Edit, X, Check } from "lucide-react";
-import { Head, Link, router } from "@inertiajs/react";
+import {
+  ArrowUpRight,
+  ArrowDownLeft,
+  CalendarCheck,
+  Plus,
+  FileText,
+  Receipt,
+  CheckCircle2,
+  AlertCircle,
+  CreditCard,
+  Send,
+} from "lucide-react";
+import { Head, Link } from "@inertiajs/react";
 
-export default function Dashboard({ metrics, cashAndBankAccounts, recentInvoices, recentBookings }) {
-  const receivablesBDT = metrics?.receivables ?? 0.0;
-  const payablesBDT = metrics?.payables ?? 0.0;
-  const bankBalanceBDT = metrics?.bankBalance ?? 0.0;
-  const netCashFlowBDT = metrics?.netCashFlow ?? 0.0;
+export default function Dashboard({ receivables, payables, recentBookings }) {
+  const recTotal = receivables?.total ?? 0;
+  const payTotal = payables?.total ?? 0;
 
-  // Edit Account Balance State
-  const [editingAccount, setEditingAccount] = useState(null);
-  const [newBalance, setNewBalance] = useState("");
-  const [balanceNotification, setBalanceNotification] = useState(null);
-
-  const handleOpenEditBalance = (acc) => {
-    setEditingAccount(acc);
-    setNewBalance(acc.balance || 0);
-  };
-
-  const handleSaveBalance = (e) => {
-    e.preventDefault();
-    if (!editingAccount) return;
-
-    router.post(`/accounts/${editingAccount.id}/balance`, {
-      balance: parseFloat(newBalance) || 0,
-    }, {
-      onSuccess: () => {
-        setEditingAccount(null);
-        setBalanceNotification(`✅ Account ${editingAccount.code} balance updated!`);
-      },
-    });
-  };
-
-  const accountList = cashAndBankAccounts || [];
+  const dueInvoices = receivables?.due_invoices || [];
+  const dueBills = payables?.due_bills || [];
+  const bookingList = recentBookings || [];
 
   return (
     <AuthenticatedLayout>
       <Head title="Business Overview - Nefco Books" />
 
       <div className="space-y-6">
-        {balanceNotification && (
-          <div className="flex items-center justify-between p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold rounded-lg shadow-xs">
-            <span>{balanceNotification}</span>
-            <button onClick={() => setBalanceNotification(null)} className="text-emerald-600 hover:text-emerald-900">
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
         {/* Top Header Title */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">Business Overview</h1>
-            <p className="text-xs text-slate-500">Real-time financial summary in Bangladeshi Taka (BDT)</p>
+            <p className="text-xs text-slate-500">Real-time receivables, payables, and customer deals summary</p>
           </div>
-          <div className="text-xs font-semibold text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-md shadow-xs">
-            Financial Year: <span className="text-slate-800 font-bold">2026-2027</span>
-          </div>
-        </div>
-
-        {/* Metric Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Total Receivables */}
-          <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Receivables</span>
-              <div className="p-2 bg-blue-50 text-blue-600 rounded-md">
-                <ArrowUpRight className="h-4 w-4" />
-              </div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-900">{formatBDT(receivablesBDT)}</div>
-              <div className="text-[11px] text-blue-600 font-medium mt-1">Due from Customers</div>
-            </div>
-          </div>
-
-          {/* Total Payables */}
-          <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total Payables</span>
-              <div className="p-2 bg-amber-50 text-amber-600 rounded-md">
-                <ArrowDownLeft className="h-4 w-4" />
-              </div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-900">{formatBDT(payablesBDT)}</div>
-              <div className="text-[11px] text-amber-600 font-medium mt-1">Due to Vendors</div>
-            </div>
-          </div>
-
-          {/* Bank & Cash Balance */}
-          <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Bank & Cash Balance</span>
-              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-md">
-                <Building2 className="h-4 w-4" />
-              </div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-900">{formatBDT(bankBalanceBDT)}</div>
-              <div className="text-[11px] text-emerald-600 font-medium mt-1">
-                Across {accountList.length} Account{accountList.length !== 1 ? "s" : ""}
-              </div>
-            </div>
-          </div>
-
-          {/* Net Cash Flow */}
-          <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">Net Cash Flow</span>
-              <div className="p-2 bg-purple-50 text-purple-600 rounded-md">
-                <TrendingUp className="h-4 w-4" />
-              </div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-900">{formatBDT(netCashFlowBDT)}</div>
-              <div className="text-[11px] text-purple-600 font-medium mt-1">Receivables minus Payables</div>
-            </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/sales/payments-received"
+              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold shadow-xs flex items-center gap-1.5 transition"
+            >
+              <ArrowDownLeft className="h-3.5 w-3.5" />
+              <span>Payments Received</span>
+            </Link>
+            <Link
+              href="/purchases/payments-made"
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-semibold shadow-xs flex items-center gap-1.5 transition"
+            >
+              <ArrowUpRight className="h-3.5 w-3.5" />
+              <span>Payments Made</span>
+            </Link>
           </div>
         </div>
 
-        {/* Account Balances Table & Quick Insights */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-white rounded-lg border border-slate-200 shadow-xs p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        {/* Two Main Cards: Total Receivables & Total Payables */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Card 1: Total Receivables */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-5">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
               <div>
-                <h2 className="text-sm font-bold text-slate-800">Cash & Bank Accounts (BDT)</h2>
-                <span className="text-[11px] text-slate-400 font-medium">Click "Edit" on any account to update its real balance</span>
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                    <ArrowUpRight className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">Total Receivables</h2>
+                    <p className="text-xs text-slate-400">Unpaid & Due Invoices from Customers</p>
+                  </div>
+                </div>
+                <div className="text-3xl font-black text-slate-900 mt-3 font-mono">
+                  {formatBDT(recTotal)}
+                </div>
               </div>
               <Link
-                href="/settings"
-                className="text-xs text-blue-600 hover:text-blue-800 font-semibold"
+                href="/sales/invoices?status=UNPAID"
+                className="text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition"
               >
-                Chart of Accounts →
+                View Invoices →
               </Link>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left text-slate-600">
-                <thead className="bg-slate-50 text-slate-500 uppercase font-semibold text-[10px]">
-                  <tr>
-                    <th className="py-2.5 px-3">Code</th>
-                    <th className="py-2.5 px-3">Account Name</th>
-                    <th className="py-2.5 px-3">Type</th>
-                    <th className="py-2.5 px-3 text-right">Balance</th>
-                    <th className="py-2.5 px-3 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {accountList.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-4 text-center text-slate-400">
-                        No cash or bank accounts found.
-                      </td>
-                    </tr>
-                  ) : (
-                    accountList.map((acc) => (
-                      <tr key={acc.id} className="hover:bg-slate-50/70 transition">
-                        <td className="py-2.5 px-3 font-mono font-semibold text-blue-600">{acc.code}</td>
-                        <td className="py-2.5 px-3 font-medium text-slate-800">{acc.name}</td>
-                        <td className="py-2.5 px-3 text-slate-500">Cash and Bank</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">
-                          {formatBDT(acc.balance || 0)}
-                        </td>
-                        <td className="py-2.5 px-3 text-center">
-                          <button
-                            onClick={() => handleOpenEditBalance(acc)}
-                            className="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[11px] font-semibold transition"
-                            title="Edit Account Balance"
-                          >
-                            <Edit className="h-3 w-3 text-slate-500" />
-                            <span>Edit Amount</span>
-                          </button>
-                        </td>
+            {/* Breakdown Sub-metrics */}
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-lg">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Unpaid</span>
+                <div className="font-bold text-slate-800 mt-0.5">{receivables?.unpaid_count || 0} Invoices</div>
+                <div className="text-[11px] text-slate-500 font-mono mt-0.5">{formatBDT(receivables?.unpaid_amount || 0)}</div>
+              </div>
+              <div className="bg-amber-50/60 border border-amber-200/80 p-3 rounded-lg">
+                <span className="text-[10px] font-bold text-amber-700 uppercase">Partially Paid</span>
+                <div className="font-bold text-slate-800 mt-0.5">{receivables?.partially_paid_count || 0} Invoices</div>
+                <div className="text-[11px] text-amber-800 font-mono mt-0.5">{formatBDT(receivables?.partially_paid_amount || 0)}</div>
+              </div>
+              <div className="bg-red-50/60 border border-red-200/80 p-3 rounded-lg">
+                <span className="text-[10px] font-bold text-red-700 uppercase">Overdue</span>
+                <div className="font-bold text-red-900 mt-0.5">{receivables?.overdue_count || 0} Invoices</div>
+                <div className="text-[11px] text-red-700 font-mono mt-0.5">{formatBDT(receivables?.overdue_amount || 0)}</div>
+              </div>
+            </div>
+
+            {/* Due Invoices List */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700">Top Outstanding Invoices</span>
+                <Link href="/sales/payments-received" className="text-blue-600 hover:underline font-semibold text-[11px]">
+                  Receive Payment →
+                </Link>
+              </div>
+
+              {dueInvoices.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-lg border border-slate-100">
+                  🎉 No outstanding customer invoices due!
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-xs text-left text-slate-600">
+                    <thead className="bg-slate-50 uppercase text-[10px] font-semibold text-slate-400 border-b border-slate-200">
+                      <tr>
+                        <th className="py-2 px-3">Invoice #</th>
+                        <th className="py-2 px-3">Customer</th>
+                        <th className="py-2 px-3">Due Date</th>
+                        <th className="py-2 px-3 text-right">Balance Due</th>
+                        <th className="py-2 px-3 text-center">Action</th>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {dueInvoices.map((inv) => {
+                        const bal = Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
+                        return (
+                          <tr key={inv.id} className="hover:bg-blue-50/30">
+                            <td className="py-2 px-3 font-mono font-bold text-blue-600">{inv.invoice_number}</td>
+                            <td className="py-2 px-3 font-medium text-slate-900 truncate max-w-[120px]">{inv.contact?.name || "Customer"}</td>
+                            <td className="py-2 px-3 text-slate-500">{formatDate(inv.due_date)}</td>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">{formatBDT(bal)}</td>
+                            <td className="py-2 px-3 text-center">
+                              <Link
+                                href="/sales/payments-received"
+                                className="px-2 py-0.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded text-[11px] font-semibold transition"
+                              >
+                                Pay
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Quick System Status & WhatsApp Indicator */}
-          <div className="bg-white rounded-lg border border-slate-200 shadow-xs p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h2 className="text-sm font-bold text-slate-800">Integration Status</h2>
+          {/* Card 2: Total Payables */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-6 space-y-5">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
+                    <ArrowDownLeft className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500">Total Payables</h2>
+                    <p className="text-xs text-slate-400">Unpaid & Due Bills to Vendors</p>
+                  </div>
+                </div>
+                <div className="text-3xl font-black text-slate-900 mt-3 font-mono">
+                  {formatBDT(payTotal)}
+                </div>
+              </div>
+              <Link
+                href="/purchases/bills?status=UNPAID"
+                className="text-xs font-bold text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-md transition"
+              >
+                View Bills →
+              </Link>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-200 rounded-md text-emerald-800">
-                <div className="font-semibold">Currency Engine</div>
-                <div className="bg-emerald-200 text-emerald-900 font-bold px-2 py-0.5 rounded text-[10px]">
-                  BDT (৳) Locked
-                </div>
+            {/* Breakdown Sub-metrics */}
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-lg">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Unpaid</span>
+                <div className="font-bold text-slate-800 mt-0.5">{payables?.unpaid_count || 0} Bills</div>
+                <div className="text-[11px] text-slate-500 font-mono mt-0.5">{formatBDT(payables?.unpaid_amount || 0)}</div>
+              </div>
+              <div className="bg-amber-50/60 border border-amber-200/80 p-3 rounded-lg">
+                <span className="text-[10px] font-bold text-amber-700 uppercase">Partially Paid</span>
+                <div className="font-bold text-slate-800 mt-0.5">{payables?.partially_paid_count || 0} Bills</div>
+                <div className="text-[11px] text-amber-800 font-mono mt-0.5">{formatBDT(payables?.partially_paid_amount || 0)}</div>
+              </div>
+              <div className="bg-red-50/60 border border-red-200/80 p-3 rounded-lg">
+                <span className="text-[10px] font-bold text-red-700 uppercase">Overdue</span>
+                <div className="font-bold text-red-900 mt-0.5">{payables?.overdue_count || 0} Bills</div>
+                <div className="text-[11px] text-red-700 font-mono mt-0.5">{formatBDT(payables?.overdue_amount || 0)}</div>
+              </div>
+            </div>
+
+            {/* Due Bills List */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700">Top Outstanding Vendor Bills</span>
+                <Link href="/purchases/payments-made" className="text-amber-700 hover:underline font-semibold text-[11px]">
+                  Pay Bill →
+                </Link>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800">
-                <div className="font-semibold">Double-Entry Ledger</div>
-                <div className="bg-blue-200 text-blue-900 font-bold px-2 py-0.5 rounded text-[10px]">
-                  Active
+              {dueBills.length === 0 ? (
+                <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-lg border border-slate-100">
+                  🎉 No outstanding vendor bills due!
                 </div>
-              </div>
-
-              <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-md text-slate-700">
-                <div className="font-semibold">WhatsApp Cloud API</div>
-                <div className="bg-slate-200 text-slate-800 font-bold px-2 py-0.5 rounded text-[10px]">
-                  Configured
+              ) : (
+                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-xs text-left text-slate-600">
+                    <thead className="bg-slate-50 uppercase text-[10px] font-semibold text-slate-400 border-b border-slate-200">
+                      <tr>
+                        <th className="py-2 px-3">Bill #</th>
+                        <th className="py-2 px-3">Vendor</th>
+                        <th className="py-2 px-3">Due Date</th>
+                        <th className="py-2 px-3 text-right">Balance Due</th>
+                        <th className="py-2 px-3 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {dueBills.map((b) => {
+                        const bal = Math.max(0, (parseFloat(b.total_amount) || 0) - (parseFloat(b.paid_amount) || 0));
+                        return (
+                          <tr key={b.id} className="hover:bg-amber-50/30">
+                            <td className="py-2 px-3 font-mono font-bold text-amber-700">{b.bill_number}</td>
+                            <td className="py-2 px-3 font-medium text-slate-900 truncate max-w-[120px]">{b.contact?.name || "Vendor"}</td>
+                            <td className="py-2 px-3 text-slate-500">{formatDate(b.due_date)}</td>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">{formatBDT(bal)}</td>
+                            <td className="py-2 px-3 text-center">
+                              <Link
+                                href="/purchases/payments-made"
+                                className="px-2 py-0.5 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded text-[11px] font-semibold transition"
+                              >
+                                Pay
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Recent Product Bookings & Orders */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-xs p-5 space-y-4">
+        {/* Customer Quotes & Deals Section */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
-              <h2 className="text-sm font-bold text-slate-800">Recent Product Bookings & Orders</h2>
-              <p className="text-xs text-slate-400">Customer product reservations and scheduled orders</p>
+              <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <CalendarCheck className="h-4 w-4 text-blue-600" />
+                <span>Customer Quotes & Deals (Bookings)</span>
+              </h2>
+              <p className="text-xs text-slate-400">Quotes and deals ready to be accepted and converted to invoices</p>
             </div>
             <Link
-              href="/bookings"
+              href="/sales/bookings"
               className="text-xs text-blue-600 hover:text-blue-700 font-semibold"
             >
-              View All Bookings →
+              View All Quotes & Deals →
             </Link>
           </div>
 
@@ -233,46 +269,42 @@ export default function Dashboard({ metrics, cashAndBankAccounts, recentInvoices
             <table className="w-full text-xs text-left text-slate-600">
               <thead className="bg-slate-50 text-slate-500 uppercase font-semibold text-[10px]">
                 <tr>
-                  <th className="py-2.5 px-3">Booking #</th>
+                  <th className="py-2.5 px-3">Quote #</th>
                   <th className="py-2.5 px-3">Customer</th>
-                  <th className="py-2.5 px-3">Booking Date</th>
+                  <th className="py-2.5 px-3">Date</th>
                   <th className="py-2.5 px-3">Status</th>
                   <th className="py-2.5 px-3 text-right">Amount (BDT)</th>
                   <th className="py-2.5 px-3 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {(recentBookings || []).length === 0 ? (
+                {bookingList.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="py-4 text-center text-slate-400">
-                      No recent bookings. <Link href="/bookings" className="text-blue-600 font-bold underline">Create booking</Link>
+                    <td colSpan={6} className="py-6 text-center text-slate-400">
+                      No quotes or deals. <Link href="/sales/bookings" className="text-blue-600 font-bold underline">Create Quote</Link>
                     </td>
                   </tr>
                 ) : (
-                  recentBookings.map((bkg) => (
+                  bookingList.map((bkg) => (
                     <tr key={bkg.id} className="hover:bg-slate-50/60 transition">
                       <td className="py-2.5 px-3 font-mono font-bold text-blue-600">{bkg.booking_number}</td>
                       <td className="py-2.5 px-3 font-semibold text-slate-900">{bkg.contact?.name || "Customer"}</td>
-                      <td className="py-2.5 px-3 text-slate-500">
-                        {formatDate(bkg.booking_date)}
-                      </td>
+                      <td className="py-2.5 px-3 text-slate-500">{formatDate(bkg.booking_date)}</td>
                       <td className="py-2.5 px-3">
                         <span
                           className={`px-2 py-0.5 text-[10px] font-bold rounded ${
-                            bkg.status === "COMPLETED"
+                            bkg.invoice_number || bkg.status === "INVOICED"
                               ? "bg-emerald-100 text-emerald-800"
-                              : bkg.status === "CONFIRMED"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-amber-100 text-amber-800"
+                              : "bg-blue-100 text-blue-800"
                           }`}
                         >
-                          {bkg.status}
+                          {bkg.invoice_number ? `INVOICED: ${bkg.invoice_number}` : "OPEN QUOTE"}
                         </span>
                       </td>
                       <td className="py-2.5 px-3 text-right font-bold text-slate-900">{formatBDT(bkg.total_amount)}</td>
                       <td className="py-2.5 px-3 text-center">
                         <Link
-                          href="/bookings"
+                          href="/sales/bookings"
                           className="px-2.5 py-1 text-[10px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition"
                         >
                           Manage
@@ -286,94 +318,41 @@ export default function Dashboard({ metrics, cashAndBankAccounts, recentInvoices
           </div>
         </div>
 
-        {/* Quick Action Bar */}
-        <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs flex items-center justify-between">
+        {/* Quick Actions Footer */}
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
-            <h2 className="text-sm font-bold text-slate-800">Quick Accounting Actions</h2>
-            <p className="text-xs text-slate-500">Record a new sales invoice, customer contact, or vendor bill</p>
+            <h3 className="text-sm font-bold text-slate-800">Quick Accounting Actions</h3>
+            <p className="text-xs text-slate-500">Fast shortcuts for daily transactions</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-2">
             <Link
               href="/sales/invoices"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition shadow-xs flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold shadow-xs flex items-center gap-1.5 transition"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Create Invoice</span>
             </Link>
             <Link
-              href="/contacts"
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold transition border border-slate-200"
+              href="/purchases/bills"
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-semibold shadow-xs flex items-center gap-1.5 transition"
             >
-              + Add Contact
+              <Plus className="h-3.5 w-3.5" />
+              <span>New Bill</span>
             </Link>
             <Link
-              href="/purchases/bills"
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold transition border border-slate-200"
+              href="/sales/payments-received"
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold border border-slate-200 transition"
             >
-              + New Bill
+              Receive Payment
+            </Link>
+            <Link
+              href="/purchases/payments-made"
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold border border-slate-200 transition"
+            >
+              Make Payment
             </Link>
           </div>
         </div>
-
-        {/* Edit Account Balance Modal */}
-        {editingAccount && (
-          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg max-w-sm w-full overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
-              <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
-                <div>
-                  <h3 className="font-bold text-sm">Edit Account Balance</h3>
-                  <p className="text-[11px] text-slate-300">
-                    {editingAccount.code} - {editingAccount.name}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setEditingAccount(null)}
-                  className="text-slate-400 hover:text-white"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSaveBalance} className="p-5 space-y-4 text-xs">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Current Amount / Balance (BDT ৳) *
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    autoFocus
-                    value={newBalance}
-                    onChange={(e) => setNewBalance(e.target.value)}
-                    placeholder="Enter real balance e.g. 50000"
-                    className="w-full text-sm font-mono font-bold px-3 py-2 border border-slate-300 rounded-md text-slate-900 focus:ring-1 focus:ring-blue-600 focus:outline-hidden"
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    No predefined or dummy amount. Enter your actual opening/running balance.
-                  </p>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setEditingAccount(null)}
-                    className="px-3.5 py-1.5 border border-slate-300 rounded-md text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-bold shadow-xs flex items-center gap-1.5"
-                  >
-                    <Check className="h-3.5 w-3.5" />
-                    <span>Save Balance</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
     </AuthenticatedLayout>
   );

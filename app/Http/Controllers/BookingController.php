@@ -249,7 +249,7 @@ class BookingController extends Controller
                 'booking_id'       => $booking->id,
                 'issue_date'       => now(),
                 'due_date'         => now(),
-                'status'           => 'SENT',
+                'status'           => 'UNPAID',
                 'subtotal'         => $booking->total_amount,
                 'tax_amount'       => 0,
                 'discount_amount'  => 0,

@@ -40,8 +40,13 @@ class PaymentReceivedController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'phone', 'whatsapp_number']);
 
-        $unpaidInvoices = Invoice::whereIn('status', ['SENT', 'OVERDUE', 'PARTIALLY_PAID'])
-            ->get(['id', 'invoice_number', 'contact_id', 'total_amount', 'paid_amount', 'status']);
+        $unpaidInvoices = Invoice::with('contact')
+            ->whereNotIn('status', ['PAID', 'DRAFT', 'VOID'])
+            ->where(function ($q) {
+                $q->whereColumn('paid_amount', '<', 'total_amount')->orWhereNull('paid_amount');
+            })
+            ->orderBy('due_date')
+            ->get();
 
         $depositAccounts = Account::whereIn('code', ['1000', '1010', '1020'])->get(['id', 'name', 'code']);
 

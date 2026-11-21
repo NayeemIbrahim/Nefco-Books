@@ -17,10 +17,11 @@ import {
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
-export default function BillsIndex({ bills, vendors, items, filters }) {
+export default function BillsIndex({ bills, vendors, items, deposit_accounts, filters }) {
   const { flash } = usePage().props;
   const billList = bills?.data || bills || [];
   const vendorList = vendors || [];
+  const accountsList = deposit_accounts || [];
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingBillId, setEditingBillId] = useState(null);
@@ -63,6 +64,13 @@ export default function BillsIndex({ bills, vendors, items, filters }) {
     { description: "", quantity: 1, unit_price: 0, amount: 0 },
   ]);
 
+  // Initial Payment / Deposit State
+  const [recordInitialPayment, setRecordInitialPayment] = useState(false);
+  const [formInitialPayment, setFormInitialPayment] = useState("");
+  const [formPaymentAccount, setFormPaymentAccount] = useState("");
+  const [formPaymentMethod, setFormPaymentMethod] = useState("CASH");
+  const [formPaymentRef, setFormPaymentRef] = useState("");
+
   const handleBillDateChange = (newDate) => {
     setBillDate(newDate);
     if (newDate) {
@@ -77,10 +85,15 @@ export default function BillsIndex({ bills, vendors, items, filters }) {
     const today = new Date().toISOString().split("T")[0];
     setBillDate(today);
     setDueDate(addDays(today, 2));
-    setStatus("RECEIVED");
+    setStatus("UNPAID");
     setNotes("");
     setDiscountAmount(0);
     setLineItems([{ description: "", quantity: 1, unit_price: 0, amount: 0 }]);
+    setRecordInitialPayment(false);
+    setFormInitialPayment("");
+    setFormPaymentAccount(accountsList[0]?.id || "");
+    setFormPaymentMethod("CASH");
+    setFormPaymentRef("");
   };
 
   const handleOpenCreateDrawer = () => {
@@ -177,13 +190,20 @@ export default function BillsIndex({ bills, vendors, items, filters }) {
       whatsapp_number: whatsappNumber,
       bill_date: billDate,
       due_date: dueDate,
-      status: status,
+      status: status === "RECEIVED" ? "UNPAID" : status,
       subtotal: subtotalBDT,
       discount_amount: parseFloat(discountAmount) || 0,
       total_amount: totalBDT,
       notes: notes,
       line_items: lineItems,
     };
+
+    if (!editingBillId && recordInitialPayment && (parseFloat(formInitialPayment) || 0) > 0) {
+      payload.deposit_amount = parseFloat(formInitialPayment) || 0;
+      if (formPaymentAccount) payload.deposit_account_id = formPaymentAccount;
+      payload.deposit_payment_method = formPaymentMethod;
+      if (formPaymentRef) payload.deposit_reference = formPaymentRef;
+    }
 
     if (editingBillId) {
       router.post(`/bills/${editingBillId}`, payload, {
@@ -343,7 +363,7 @@ export default function BillsIndex({ bills, vendors, items, filters }) {
                                 : "bg-slate-100 text-slate-700"
                             }`}
                           >
-                            {isPaid ? "PAID" : b.status}
+                            {isPaid ? "PAID" : (b.status === "PARTIALLY_PAID" ? "PARTIALLY PAID" : (b.status === "RECEIVED" ? "UNPAID" : b.status))}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right font-bold text-slate-900">{formatBDT(b.total_amount)}</td>
@@ -456,11 +476,12 @@ export default function BillsIndex({ bills, vendors, items, filters }) {
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
                   <select
-                    value={status}
+                    value={status === "RECEIVED" ? "UNPAID" : status}
                     onChange={(e) => setStatus(e.target.value)}
                     className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500"
                   >
-                    <option value="RECEIVED">RECEIVED</option>
+                    <option value="UNPAID">UNPAID</option>
+                    <option value="PARTIALLY_PAID">PARTIALLY PAID</option>
                     <option value="PAID">PAID</option>
                     <option value="OVERDUE">OVERDUE</option>
                   </select>
@@ -580,6 +601,99 @@ export default function BillsIndex({ bills, vendors, items, filters }) {
                   <span className="text-amber-700">{formatBDT(totalBDT)}</span>
                 </div>
               </div>
+
+              {/* Initial Payment / Deposit */}
+              {!editingBillId && (
+                <div className="border border-amber-200 bg-amber-50/50 rounded-lg p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-slate-800">Initial Payment (Paid Upfront)</span>
+                      <p className="text-[11px] text-slate-500">Record partial or full initial payment for this bill</p>
+                    </div>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={recordInitialPayment}
+                        onChange={(e) => {
+                          setRecordInitialPayment(e.target.checked);
+                          if (e.target.checked && (!formInitialPayment || formInitialPayment <= 0)) {
+                            setFormInitialPayment(totalBDT);
+                          }
+                        }}
+                        className="rounded text-amber-600 focus:ring-amber-500 h-4 w-4"
+                      />
+                      <span className="text-xs font-semibold text-slate-700">Record Payment</span>
+                    </label>
+                  </div>
+
+                  {recordInitialPayment && (
+                    <div className="space-y-3 pt-2 border-t border-amber-200">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Payment Amount (BDT) *</label>
+                          <input
+                            type="number"
+                            min="0.01"
+                            max={totalBDT}
+                            step="any"
+                            value={formInitialPayment}
+                            onChange={(e) => setFormInitialPayment(e.target.value)}
+                            className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md font-mono font-bold"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Paid From Account *</label>
+                          <select
+                            value={formPaymentAccount}
+                            onChange={(e) => setFormPaymentAccount(e.target.value)}
+                            className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md"
+                          >
+                            {accountsList.map((acc) => (
+                              <option key={acc.id} value={acc.id}>
+                                {acc.code} - {acc.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Payment Method</label>
+                          <select
+                            value={formPaymentMethod}
+                            onChange={(e) => setFormPaymentMethod(e.target.value)}
+                            className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md"
+                          >
+                            <option value="CASH">CASH</option>
+                            <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                            <option value="CHEQUE">CHEQUE</option>
+                            <option value="MOBILE_BANKING">MOBILE BANKING (bKash/Nagad)</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-slate-700">Reference / Trx ID</label>
+                          <input
+                            type="text"
+                            placeholder="Cheque # / Trx ID"
+                            value={formPaymentRef}
+                            onChange={(e) => setFormPaymentRef(e.target.value)}
+                            className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-md font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="text-[11px] text-amber-800 font-semibold bg-amber-100/70 p-2 rounded">
+                        {parseFloat(formInitialPayment) >= totalBDT ? (
+                          <span>✅ Full payment will mark bill as <strong>PAID</strong> (Balance Due: ৳0.00).</span>
+                        ) : (
+                          <span>⚠️ Partial payment will mark bill as <strong>PARTIALLY PAID</strong> (Remaining Due: {formatBDT(Math.max(0, totalBDT - (parseFloat(formInitialPayment) || 0)))}).</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
                 <button

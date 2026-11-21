@@ -8,12 +8,13 @@ import {
   Search,
   ArrowDownLeft,
   X,
-  Send,
   Trash2,
   Printer,
   FileText,
   CreditCard,
   CheckCircle2,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
@@ -27,12 +28,18 @@ export default function PaymentsReceivedIndex({
   filters,
 }) {
   const { flash } = usePage().props;
+  const [activeTab, setActiveTab] = useState("UNPAID_INVOICES"); // 'UNPAID_INVOICES' | 'HISTORY'
   const [notification, setNotification] = useState(flash?.success || null);
   const [search, setSearch] = useState(filters?.search || "");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
 
-  // Form State
+  // Inline row payment states (for fast direct payment from table)
+  const [inlineAmounts, setInlineAmounts] = useState({});
+  const [inlineAccounts, setInlineAccounts] = useState({});
+  const [inlineMethods, setInlineMethods] = useState({});
+
+  // Form State for Drawer
   const todayStr = new Date().toISOString().split("T")[0];
   const [formPaymentNumber, setFormPaymentNumber] = useState(next_payment_number || "");
   const [formCustomerId, setFormCustomerId] = useState("");
@@ -45,13 +52,14 @@ export default function PaymentsReceivedIndex({
   const [formNotes, setFormNotes] = useState("");
 
   const paymentList = payments?.data || payments || [];
+  const unpaidInvoicesList = unpaid_invoices || [];
   const customerList = customers || [];
   const accountList = deposit_accounts || [];
 
-  // Filter unpaid invoices for the selected customer
-  const customerInvoices = unpaid_invoices?.filter(
+  // Filter unpaid invoices for the drawer customer
+  const customerInvoices = unpaidInvoicesList.filter(
     (inv) => String(inv.contact_id) === String(formCustomerId)
-  ) || [];
+  );
 
   const handleOpenCreateDrawer = () => {
     setFormPaymentNumber(next_payment_number || `PAY-${new Date().getFullYear()}-0001`);
@@ -64,11 +72,6 @@ export default function PaymentsReceivedIndex({
     setFormReferenceNumber("");
     setFormNotes("");
     setIsDrawerOpen(true);
-  };
-
-  const handleCustomerChange = (custId) => {
-    setFormCustomerId(custId);
-    setFormInvoiceId("");
   };
 
   const handleInvoiceChange = (invId) => {
@@ -111,6 +114,40 @@ export default function PaymentsReceivedIndex({
         onSuccess: () => {
           setIsDrawerOpen(false);
           setNotification("✅ Payment received and posted to General Ledger!");
+        },
+      }
+    );
+  };
+
+  // Direct fast payment submission from table row
+  const handleInlineReceivePayment = (inv) => {
+    const balDue = Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
+    const payAmt = parseFloat(inlineAmounts[inv.id] !== undefined ? inlineAmounts[inv.id] : balDue) || 0;
+    if (payAmt <= 0) {
+      alert("Please enter a valid payment amount greater than 0.");
+      return;
+    }
+    const accId = inlineAccounts[inv.id] || accountList[0]?.id;
+    if (!accId) {
+      alert("Please select a deposit account.");
+      return;
+    }
+    const mode = inlineMethods[inv.id] || "CASH";
+
+    router.post(
+      "/sales/payments-received",
+      {
+        contact_id: inv.contact_id,
+        invoice_id: inv.id,
+        account_id: accId,
+        payment_date: todayStr,
+        amount: payAmt,
+        payment_method: mode,
+        notes: `Direct receipt on invoice #${inv.invoice_number}`,
+      },
+      {
+        onSuccess: () => {
+          setNotification(`✅ Received ${formatBDT(payAmt)} on Invoice #${inv.invoice_number}!`);
         },
       }
     );
@@ -169,119 +206,276 @@ export default function PaymentsReceivedIndex({
             <span className="text-[10px] text-slate-400">Received during current month</span>
           </div>
           <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Transactions</span>
-            <div className="text-xl font-bold text-blue-600 mt-1">{metrics?.count || 0}</div>
-            <span className="text-[10px] text-slate-400">Recorded receipts in system</span>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Outstanding Invoices</span>
+            <div className="text-xl font-bold text-blue-600 mt-1">{unpaidInvoicesList.length}</div>
+            <span className="text-[10px] text-slate-400">Invoices ready for settlement</span>
           </div>
         </div>
 
-        {/* Search */}
-        <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-xs flex items-center justify-between">
-          <form onSubmit={handleSearch} className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="h-3.5 w-3.5 absolute left-3 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search payment #, ref #, or customer..."
-                className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-md w-72 focus:ring-1 focus:ring-emerald-500"
-              />
+        {/* Tab Switcher: Unpaid & Due Invoices vs Payments Received History */}
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <button
+            onClick={() => setActiveTab("UNPAID_INVOICES")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition flex items-center gap-2 ${
+              activeTab === "UNPAID_INVOICES"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            <span>Unpaid & Due Invoices ({unpaidInvoicesList.length})</span>
+            {unpaidInvoicesList.length > 0 && (
+              <span className="px-1.5 py-0.2 bg-amber-400 text-slate-900 rounded-full text-[10px] font-black">
+                {unpaidInvoicesList.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("HISTORY")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition flex items-center gap-2 ${
+              activeTab === "HISTORY"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <ArrowDownLeft className="h-4 w-4" />
+            <span>Payments Received History ({payments?.total ?? paymentList.length})</span>
+          </button>
+        </div>
+
+        {activeTab === "UNPAID_INVOICES" ? (
+          /* Tab 1: Unpaid / Partial Invoices List with INLINE PAYMENT INPUTS */
+          <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-emerald-600" />
+                  <span>Unpaid & Partially Paid Customer Invoices</span>
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Directly enter settlement amount and click "Receive Payment" to post to General Ledger.
+                </p>
+              </div>
             </div>
-          </form>
-        </div>
 
-        {/* Payments Table */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
-          <table className="w-full text-xs text-left text-slate-600">
-            <thead className="bg-slate-50 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
-              <tr>
-                <th className="py-3 px-4">Payment #</th>
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Customer</th>
-                <th className="py-3 px-4">Invoice #</th>
-                <th className="py-3 px-4">Mode</th>
-                <th className="py-3 px-4">Deposited To</th>
-                <th className="py-3 px-4 text-right">Amount (BDT)</th>
-                <th className="py-3 px-4 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {paymentList.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
-                    No payment records found. Click <strong>+ Record Payment</strong> to add one.
-                  </td>
-                </tr>
-              ) : (
-                paymentList.map((pay) => (
-                  <tr key={pay.id} className="hover:bg-slate-50/70 transition">
-                    <td className="py-3 px-4 font-mono font-bold text-emerald-700">
-                      <div>{pay.payment_number}</div>
-                      {pay.reference_number && (
-                        <div className="text-[10px] text-slate-400 font-normal">Ref: {pay.reference_number}</div>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-slate-600 font-mono">
-                      {formatDate(pay.payment_date)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-900">{pay.contact?.name}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">
-                        {pay.contact?.whatsapp_number || pay.contact?.phone}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-mono">
-                      {pay.invoice ? (
-                        <span className="text-blue-600 font-semibold">{pay.invoice.invoice_number}</span>
-                      ) : (
-                        <span className="text-slate-400 italic">Direct Receipt</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-700 border border-slate-300">
-                        {pay.payment_method?.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-slate-700 font-medium">
-                      {pay.account?.name}
-                    </td>
-                    <td className="py-3 px-4 text-right font-bold text-emerald-700 font-mono">
-                      {formatBDT(pay.amount)}
-                    </td>
-                    <td className="py-3 px-4 text-center space-x-1.5">
-                      <button
-                        onClick={() => setSelectedPayment(pay)}
-                        className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded hover:bg-slate-200 transition"
-                      >
-                        Receipt
-                      </button>
-                      <button
-                        onClick={() => handleDelete(pay.id, pay.payment_number)}
-                        className="p-1 text-slate-400 hover:text-red-600 transition"
-                        title="Delete Payment"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left text-slate-600">
+                <thead className="bg-slate-100/70 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
+                  <tr>
+                    <th className="py-3 px-4">Invoice #</th>
+                    <th className="py-3 px-4">Customer</th>
+                    <th className="py-3 px-4">Due Date</th>
+                    <th className="py-3 px-4 text-right">Total (BDT)</th>
+                    <th className="py-3 px-4 text-right">Balance Due (BDT)</th>
+                    <th className="py-3 px-4">Pay Amount (BDT)</th>
+                    <th className="py-3 px-4">Deposit Account</th>
+                    <th className="py-3 px-4 text-center">Action</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {unpaidInvoicesList.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-10 text-center text-slate-400">
+                        🎉 All customer invoices are fully settled! No pending balances.
+                      </td>
+                    </tr>
+                  ) : (
+                    unpaidInvoicesList.map((inv) => {
+                      const balDue = Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
+                      const isOverdue = inv.due_date && new Date(inv.due_date) < new Date(todayStr);
+                      const currentAmount = inlineAmounts[inv.id] !== undefined ? inlineAmounts[inv.id] : balDue;
+                      const currentAccount = inlineAccounts[inv.id] || accountList[0]?.id;
+                      const currentMethod = inlineMethods[inv.id] || "CASH";
 
-          {/* 15-Row Pagination */}
-          <Pagination meta={payments} />
-        </div>
+                      return (
+                        <tr key={inv.id} className="hover:bg-emerald-50/30 transition">
+                          <td className="py-3 px-4 font-mono font-bold text-blue-600">
+                            <div>{inv.invoice_number}</div>
+                            {inv.order_number && (
+                              <div className="text-[10px] text-slate-400 font-normal">Ord: {inv.order_number}</div>
+                            )}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="font-semibold text-slate-900">{inv.contact?.name || "Customer"}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              {inv.contact?.whatsapp_number || inv.contact?.phone}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div>{formatDate(inv.due_date)}</div>
+                            {isOverdue && (
+                              <span className="px-1.5 py-0.2 bg-red-100 text-red-700 rounded text-[9px] font-bold">
+                                OVERDUE
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right font-bold text-slate-900 font-mono">
+                            {formatBDT(inv.total_amount)}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-amber-700">
+                            {formatBDT(balDue)}
+                          </td>
+                          <td className="py-3 px-4">
+                            <input
+                              type="number"
+                              min="0.01"
+                              max={balDue}
+                              step="any"
+                              value={currentAmount}
+                              onChange={(e) =>
+                                setInlineAmounts({
+                                  ...inlineAmounts,
+                                  [inv.id]: e.target.value,
+                                })
+                              }
+                              className="w-28 px-2 py-1 text-xs border border-slate-300 rounded font-mono font-bold text-right focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </td>
+                          <td className="py-3 px-4">
+                            <select
+                              value={currentAccount}
+                              onChange={(e) =>
+                                setInlineAccounts({
+                                  ...inlineAccounts,
+                                  [inv.id]: e.target.value,
+                                })
+                              }
+                              className="w-32 px-2 py-1 text-xs border border-slate-300 rounded focus:ring-1 focus:ring-emerald-500"
+                            >
+                              {accountList.map((acc) => (
+                                <option key={acc.id} value={acc.id}>
+                                  {acc.code} - {acc.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              onClick={() => handleInlineReceivePayment(inv)}
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold transition shadow-xs"
+                              title="Record payment for this invoice"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              <span>Receive</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          /* Tab 2: Payments Received History */
+          <div className="space-y-4">
+            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-xs flex items-center justify-between">
+              <form onSubmit={handleSearch} className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="h-3.5 w-3.5 absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder="Search payment #, ref #, or customer..."
+                    className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-md w-72 focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+              </form>
+            </div>
 
-        {/* Record Payment Drawer */}
+            <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
+              <table className="w-full text-xs text-left text-slate-600">
+                <thead className="bg-slate-50 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
+                  <tr>
+                    <th className="py-3 px-4">Payment #</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Customer</th>
+                    <th className="py-3 px-4">Invoice #</th>
+                    <th className="py-3 px-4">Mode</th>
+                    <th className="py-3 px-4">Deposited To</th>
+                    <th className="py-3 px-4 text-right">Amount (BDT)</th>
+                    <th className="py-3 px-4 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {paymentList.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-400">
+                        No payment records found. Click <strong>+ Record Payment</strong> to add one.
+                      </td>
+                    </tr>
+                  ) : (
+                    paymentList.map((pay) => (
+                      <tr key={pay.id} className="hover:bg-slate-50/70 transition">
+                        <td className="py-3 px-4 font-mono font-bold text-emerald-700">
+                          <div>{pay.payment_number}</div>
+                          {pay.reference_number && (
+                            <div className="text-[10px] text-slate-400 font-normal">Ref: {pay.reference_number}</div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-slate-600 font-mono">
+                          {formatDate(pay.payment_date)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-slate-900">{pay.contact?.name}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            {pay.contact?.whatsapp_number || pay.contact?.phone}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-mono">
+                          {pay.invoice ? (
+                            <span className="text-blue-600 font-semibold">{pay.invoice.invoice_number}</span>
+                          ) : (
+                            <span className="text-slate-400 italic">Direct Receipt</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-700 border border-slate-300">
+                            {pay.payment_method?.replace("_", " ")}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-700 font-medium">
+                          {pay.account?.name}
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-emerald-700 font-mono">
+                          {formatBDT(pay.amount)}
+                        </td>
+                        <td className="py-3 px-4 text-center space-x-1.5">
+                          <button
+                            onClick={() => setSelectedPayment(pay)}
+                            className="p-1 text-slate-500 hover:text-emerald-700 hover:bg-slate-100 rounded"
+                            title="View Receipt"
+                          >
+                            <Printer className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(pay.id, pay.payment_number)}
+                            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                            title="Delete Payment (Reverses Ledger)"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+              <Pagination meta={payments} />
+            </div>
+          </div>
+        )}
+
+        {/* Drawer Form for manual payment */}
         {isDrawerOpen && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex justify-end">
-            <div className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
+            <div className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col justify-between">
               <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                 <div>
                   <h2 className="text-base font-bold text-slate-900">Record Payment Received</h2>
-                  <p className="text-xs text-slate-500">Deposit funds & clear customer accounts receivable (BDT ৳)</p>
+                  <p className="text-xs text-slate-500">Record customer settlement against an invoice or direct</p>
                 </div>
                 <button
                   onClick={() => setIsDrawerOpen(false)}
@@ -292,14 +486,22 @@ export default function PaymentsReceivedIndex({
               </div>
 
               <form onSubmit={handleSubmit} className="p-6 space-y-4 flex-1 overflow-y-auto">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Payment Number</label>
-                  <input
-                    type="text"
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Payment Number</label>
+                    <input
+                      type="text"
+                      required
+                      value={formPaymentNumber}
+                      onChange={(e) => setFormPaymentNumber(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
+                    />
+                  </div>
+                  <DateField
+                    label="Payment Date *"
                     required
-                    value={formPaymentNumber}
-                    onChange={(e) => setFormPaymentNumber(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
+                    value={formPaymentDate}
+                    onChange={setFormPaymentDate}
                   />
                 </div>
 
@@ -308,7 +510,10 @@ export default function PaymentsReceivedIndex({
                   <select
                     required
                     value={formCustomerId}
-                    onChange={(e) => handleCustomerChange(e.target.value)}
+                    onChange={(e) => {
+                      setFormCustomerId(e.target.value);
+                      setFormInvoiceId("");
+                    }}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                   >
                     <option value="">-- Select Customer --</option>
@@ -320,20 +525,20 @@ export default function PaymentsReceivedIndex({
                   </select>
                 </div>
 
-                {formCustomerId && (
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Apply to Invoice (Optional)</label>
+                {customerInvoices.length > 0 && (
+                  <div className="space-y-1 bg-blue-50/50 p-3 rounded-lg border border-blue-200">
+                    <label className="text-xs font-bold text-blue-900">Apply to Outstanding Invoice (Optional)</label>
                     <select
                       value={formInvoiceId}
                       onChange={(e) => handleInvoiceChange(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
+                      className="w-full px-3 py-2 text-xs border border-blue-300 rounded-md bg-white font-mono"
                     >
-                      <option value="">-- Direct Receipt / No Invoice Link --</option>
+                      <option value="">-- Direct Payment (Not tied to invoice) --</option>
                       {customerInvoices.map((inv) => {
-                        const due = (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0);
+                        const rem = Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
                         return (
                           <option key={inv.id} value={inv.id}>
-                            {inv.invoice_number} (Total: {formatBDT(inv.total_amount)}, Balance: {formatBDT(due)})
+                            {inv.invoice_number} (Total: {formatBDT(inv.total_amount)} | Due: {formatBDT(rem)})
                           </option>
                         );
                       })}
@@ -342,15 +547,8 @@ export default function PaymentsReceivedIndex({
                 )}
 
                 <div className="grid grid-cols-2 gap-3">
-                  <DateField
-                    label="Payment Date *"
-                    required
-                    value={formPaymentDate}
-                    onChange={setFormPaymentDate}
-                  />
-
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Amount Received (BDT) *</label>
+                    <label className="text-xs font-semibold text-slate-700">Payment Amount (BDT) *</label>
                     <input
                       type="number"
                       step="0.01"
@@ -359,50 +557,47 @@ export default function PaymentsReceivedIndex({
                       value={formAmount}
                       onChange={(e) => setFormAmount(e.target.value)}
                       placeholder="0.00"
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono font-bold text-emerald-700"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono font-bold"
                     />
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Payment Mode *</label>
+                    <label className="text-xs font-semibold text-slate-700">Payment Method *</label>
                     <select
                       value={formPaymentMethod}
                       onChange={(e) => setFormPaymentMethod(e.target.value)}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                     >
-                      <option value="CASH">Cash</option>
-                      <option value="BANK_TRANSFER">Bank Transfer</option>
-                      <option value="CHEQUE">Cheque</option>
-                      <option value="MOBILE_BANKING">Mobile Banking (bKash/Nagad)</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Deposit To Account *</label>
-                    <select
-                      required
-                      value={formAccountId}
-                      onChange={(e) => setFormAccountId(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
-                    >
-                      {accountList.map((acc) => (
-                        <option key={acc.id} value={acc.id}>
-                          {acc.name} ({acc.code})
-                        </option>
-                      ))}
+                      <option value="CASH">CASH</option>
+                      <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                      <option value="CHEQUE">CHEQUE</option>
+                      <option value="MOBILE_BANKING">MOBILE BANKING (bKash/Nagad)</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Reference / Transaction ID</label>
+                  <label className="text-xs font-semibold text-slate-700">Deposit To Account *</label>
+                  <select
+                    required
+                    value={formAccountId}
+                    onChange={(e) => setFormAccountId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
+                  >
+                    {accountList.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.code} - {acc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Reference / Trx ID</label>
                   <input
                     type="text"
                     value={formReferenceNumber}
                     onChange={(e) => setFormReferenceNumber(e.target.value)}
-                    placeholder="e.g. Bank slip #, Cheque #, TrxID..."
+                    placeholder="e.g. Bank slip # / Trx ID"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
                   />
                 </div>
@@ -413,25 +608,24 @@ export default function PaymentsReceivedIndex({
                     rows={2}
                     value={formNotes}
                     onChange={(e) => setFormNotes(e.target.value)}
-                    placeholder="Internal receipt remarks..."
+                    placeholder="Payment remarks or receipt note..."
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                   />
                 </div>
 
-                <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-2">
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                   <button
                     type="button"
                     onClick={() => setIsDrawerOpen(false)}
-                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition"
+                    className="px-4 py-2 border border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:bg-slate-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition shadow-xs flex items-center gap-1.5"
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold shadow-xs"
                   >
-                    <Send className="h-3.5 w-3.5" />
-                    <span>Save Payment Received</span>
+                    Save & Post Receipt
                   </button>
                 </div>
               </form>
@@ -442,11 +636,11 @@ export default function PaymentsReceivedIndex({
         {/* Payment Receipt Modal */}
         {selectedPayment && (
           <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden flex flex-col">
-              <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
+            <div className="bg-white rounded-xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200">
+              <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <ArrowDownLeft className="h-5 w-5 text-emerald-400" />
-                  <span className="font-bold text-sm">Payment Receipt - {selectedPayment.payment_number}</span>
+                  <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                  <span className="font-bold text-sm">Receipt #{selectedPayment.payment_number}</span>
                 </div>
                 <button onClick={() => setSelectedPayment(null)} className="p-1 text-slate-400 hover:text-white">
                   <X className="h-5 w-5" />

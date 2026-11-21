@@ -39,7 +39,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
   const [formOrderNumber, setFormOrderNumber] = useState("");
   const [formIssueDate, setFormIssueDate] = useState(new Date().toISOString().split("T")[0]);
   const [formDueDate, setFormDueDate] = useState(new Date().toISOString().split("T")[0]);
-  const [formStatus, setFormStatus] = useState("SENT");
+  const [formStatus, setFormStatus] = useState("UNPAID");
   const [formNotes, setFormNotes] = useState("Thank you for your business!");
   const [formDiscount, setFormDiscount] = useState(0);
   const [formShipping, setFormShipping] = useState(0);
@@ -66,7 +66,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
     const today = new Date().toISOString().split("T")[0];
     setFormIssueDate(today);
     setFormDueDate(today);
-    setFormStatus("SENT");
+    setFormStatus("UNPAID");
     setFormNotes("Thank you for your business!");
     setFormDiscount(0);
     setFormShipping(0);
@@ -413,7 +413,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                         <td className="py-3 px-4">
                           <span
                             className={`px-2.5 py-1 text-[10px] font-bold rounded-full inline-flex items-center gap-1 ${
-                              inv.status === "SENT"
+                              inv.status === "UNPAID" || inv.status === "SENT"
                                 ? "bg-blue-100 text-blue-800 border border-blue-300"
                                 : inv.status === "PAID"
                                 ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
@@ -425,7 +425,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                             }`}
                           >
                             {inv.status === "PAID" && <CheckCircle2 className="h-3 w-3" />}
-                            {inv.status}
+                            {inv.status === "PARTIALLY_PAID" ? "PARTIALLY PAID" : (inv.status === "SENT" ? "UNPAID" : inv.status)}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right font-bold text-slate-900">
@@ -595,11 +595,12 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700">Status</label>
                     <select
-                      value={formStatus}
+                      value={formStatus === "SENT" ? "UNPAID" : formStatus}
                       onChange={(e) => setFormStatus(e.target.value)}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                     >
-                      <option value="SENT">SENT</option>
+                      <option value="UNPAID">UNPAID</option>
+                      <option value="PARTIALLY_PAID">PARTIALLY PAID</option>
                       <option value="PAID">PAID</option>
                       <option value="OVERDUE">OVERDUE</option>
                       <option value="DRAFT">DRAFT</option>

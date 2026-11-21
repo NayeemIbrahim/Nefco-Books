@@ -128,7 +128,7 @@ class InvoiceDepositAndPaginationTest extends TestCase
         $issueResponse->assertSessionHas('success');
 
         $draft->refresh();
-        $this->assertEquals('SENT', $draft->status);
+        $this->assertEquals('UNPAID', $draft->status);
     }
 
     public function test_invoice_and_bills_status_filtering(): void
@@ -229,21 +229,21 @@ class InvoiceDepositAndPaginationTest extends TestCase
         $delResponse->assertSessionHas('success');
         $this->assertDatabaseMissing('invoices', ['id' => $draft->id]);
 
-        // Now test that a SENT invoice cannot be deleted
-        $sentInv = Invoice::create([
-            'invoice_number' => 'INV-TEST-SENT-' . $uid,
+        // Now test that an issued UNPAID invoice cannot be deleted
+        $unpaidInv = Invoice::create([
+            'invoice_number' => 'INV-TEST-UNPAID-' . $uid,
             'contact_id'     => $contact->id,
             'issue_date'     => now(),
             'due_date'       => now(),
-            'status'         => 'SENT',
+            'status'         => 'UNPAID',
             'subtotal'       => 3000,
             'total_amount'   => 3000,
             'paid_amount'    => 0,
         ]);
 
-        $failDelResponse = $this->actingAs($this->user)->delete("/invoices/{$sentInv->id}");
+        $failDelResponse = $this->actingAs($this->user)->delete("/invoices/{$unpaidInv->id}");
         $failDelResponse->assertSessionHas('error');
-        $this->assertDatabaseHas('invoices', ['id' => $sentInv->id]);
+        $this->assertDatabaseHas('invoices', ['id' => $unpaidInv->id]);
     }
 
     public function test_booking_quote_can_be_deleted_and_converted_to_invoice(): void
@@ -311,5 +311,66 @@ class InvoiceDepositAndPaginationTest extends TestCase
         $bill->refresh();
         $this->assertEquals('PAID', $bill->status);
         $this->assertEquals(8000, (float)$bill->paid_amount);
+    }
+
+    public function test_bill_with_initial_payment_sets_partially_paid_and_creates_vendor_payment(): void
+    {
+        $uid = uniqid();
+        $vendor = Contact::create([
+            'name'            => 'Partially Paid Vendor ' . $uid,
+            'type'            => 'VENDOR',
+            'currency'        => 'BDT',
+            'whatsapp_number' => '+88019' . substr($uid, -8),
+        ]);
+
+        $account = Account::where('code', '1010')->first(); // Main Bank
+
+        $response = $this->actingAs($this->user)->post('/bills', [
+            'contact_name'           => $vendor->name,
+            'whatsapp_number'        => $vendor->whatsapp_number,
+            'bill_date'              => '2026-11-20',
+            'due_date'               => '2026-11-22',
+            'subtotal'               => 12000,
+            'total_amount'           => 12000,
+            'deposit_amount'         => 5000,
+            'deposit_account_id'     => $account->id,
+            'deposit_payment_method' => 'BANK_TRANSFER',
+            'deposit_reference'      => 'TRX-VPAY-1122',
+            'line_items'             => [
+                [
+                    'description' => 'Office Equipment',
+                    'quantity'    => 1,
+                    'unit_price'  => 12000,
+                    'amount'      => 12000,
+                ],
+            ],
+        ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $bill = Bill::where('contact_id', $vendor->id)->latest('id')->first();
+        $this->assertNotNull($bill);
+        $this->assertEquals('PARTIALLY_PAID', $bill->status);
+        $this->assertEquals(12000, (float)$bill->total_amount);
+        $this->assertEquals(5000, (float)$bill->paid_amount);
+
+        // Check Vendor Payment record
+        $payment = Payment::where('bill_id', $bill->id)->first();
+        $this->assertNotNull($payment);
+        $this->assertEquals('VENDOR_PAYMENT', $payment->type);
+        $this->assertEquals(5000, (float)$payment->amount);
+        $this->assertEquals('BANK_TRANSFER', $payment->payment_method);
+        $this->assertEquals('TRX-VPAY-1122', $payment->reference_number);
+
+        // Check general ledger entries
+        $billJournal = JournalEntry::where('source_document_type', 'BILL')
+            ->where('source_document_id', $bill->id)
+            ->first();
+        $this->assertNotNull($billJournal);
+
+        $paymentJournal = JournalEntry::where('source_document_type', 'PAYMENT')
+            ->where('source_document_id', $payment->id)
+            ->first();
+        $this->assertNotNull($paymentJournal);
     }
 }

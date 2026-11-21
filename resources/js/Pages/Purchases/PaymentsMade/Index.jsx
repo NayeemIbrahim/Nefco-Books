@@ -8,10 +8,13 @@ import {
   Search,
   ArrowUpRight,
   X,
-  Send,
   Trash2,
   Printer,
+  Receipt,
   CreditCard,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
@@ -25,12 +28,18 @@ export default function PaymentsMadeIndex({
   filters,
 }) {
   const { flash } = usePage().props;
+  const [activeTab, setActiveTab] = useState("UNPAID_BILLS"); // 'UNPAID_BILLS' | 'HISTORY'
   const [notification, setNotification] = useState(flash?.success || null);
   const [search, setSearch] = useState(filters?.search || "");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
 
-  // Form State
+  // Inline row payment states (for fast direct payment from table)
+  const [inlineAmounts, setInlineAmounts] = useState({});
+  const [inlineAccounts, setInlineAccounts] = useState({});
+  const [inlineMethods, setInlineMethods] = useState({});
+
+  // Form State for Drawer
   const todayStr = new Date().toISOString().split("T")[0];
   const [formPaymentNumber, setFormPaymentNumber] = useState(next_payment_number || "");
   const [formVendorId, setFormVendorId] = useState("");
@@ -43,13 +52,14 @@ export default function PaymentsMadeIndex({
   const [formNotes, setFormNotes] = useState("");
 
   const paymentList = payments?.data || payments || [];
+  const unpaidBillsList = unpaid_bills || [];
   const vendorList = vendors || [];
   const accountList = paid_from_accounts || [];
 
-  // Filter unpaid bills for the selected vendor
-  const vendorBills = unpaid_bills?.filter(
+  // Filter unpaid bills for the drawer vendor
+  const vendorBills = unpaidBillsList.filter(
     (b) => String(b.contact_id) === String(formVendorId)
-  ) || [];
+  );
 
   const handleOpenCreateDrawer = () => {
     setFormPaymentNumber(next_payment_number || `VPAY-${new Date().getFullYear()}-0001`);
@@ -62,11 +72,6 @@ export default function PaymentsMadeIndex({
     setFormReferenceNumber("");
     setFormNotes("");
     setIsDrawerOpen(true);
-  };
-
-  const handleVendorChange = (vId) => {
-    setFormVendorId(vId);
-    setFormBillId("");
   };
 
   const handleBillChange = (bId) => {
@@ -114,6 +119,40 @@ export default function PaymentsMadeIndex({
     );
   };
 
+  // Direct fast payment submission from table row
+  const handleInlinePayBill = (bill) => {
+    const balDue = Math.max(0, (parseFloat(bill.total_amount) || 0) - (parseFloat(bill.paid_amount) || 0));
+    const payAmt = parseFloat(inlineAmounts[bill.id] !== undefined ? inlineAmounts[bill.id] : balDue) || 0;
+    if (payAmt <= 0) {
+      alert("Please enter a valid payment amount greater than 0.");
+      return;
+    }
+    const accId = inlineAccounts[bill.id] || accountList[0]?.id;
+    if (!accId) {
+      alert("Please select an account to pay from.");
+      return;
+    }
+    const mode = inlineMethods[bill.id] || "CASH";
+
+    router.post(
+      "/purchases/payments-made",
+      {
+        contact_id: bill.contact_id,
+        bill_id: bill.id,
+        account_id: accId,
+        payment_date: todayStr,
+        amount: payAmt,
+        payment_method: mode,
+        notes: `Direct payment on vendor bill #${bill.bill_number}`,
+      },
+      {
+        onSuccess: () => {
+          setNotification(`✅ Paid ${formatBDT(payAmt)} on Vendor Bill #${bill.bill_number}!`);
+        },
+      }
+    );
+  };
+
   const handleDelete = (id, number) => {
     if (confirm(`Are you sure you want to delete Vendor Payment #${number}? This will reverse the ledger entry.`)) {
       router.delete(`/purchases/payments-made/${id}`, {
@@ -140,146 +179,299 @@ export default function PaymentsMadeIndex({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
           <div>
             <h1 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              <ArrowUpRight className="h-5 w-5 text-red-600" />
+              <ArrowUpRight className="h-5 w-5 text-amber-600" />
               <span>Payments Made</span>
             </h1>
-            <p className="text-xs text-slate-500">Record disbursements, settlements against vendor bills, and supplier payments (BDT ৳)</p>
+            <p className="text-xs text-slate-500">Record payments to vendors, settle bills, and track cash outflows (BDT ৳)</p>
           </div>
           <button
             onClick={handleOpenCreateDrawer}
-            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-4 py-2 rounded-md shadow-xs transition"
+            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold px-4 py-2 rounded-md shadow-xs transition"
           >
             <Plus className="h-4 w-4" />
-            <span>Record Payment</span>
+            <span>Make Payment</span>
           </button>
         </div>
 
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Payments Made</span>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Paid</span>
             <div className="text-xl font-bold text-slate-900 mt-1">{formatBDT(metrics?.total_paid || 0)}</div>
-            <span className="text-[10px] text-slate-400">All-time vendor disbursements</span>
+            <span className="text-[10px] text-slate-400">All-time vendor settlements</span>
           </div>
           <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">This Month</span>
-            <div className="text-xl font-bold text-red-600 mt-1">{formatBDT(metrics?.this_month_paid || 0)}</div>
-            <span className="text-[10px] text-slate-400">Paid out during current month</span>
+            <div className="text-xl font-bold text-amber-600 mt-1">{formatBDT(metrics?.this_month_paid || 0)}</div>
+            <span className="text-[10px] text-slate-400">Paid during current month</span>
           </div>
           <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Transactions</span>
-            <div className="text-xl font-bold text-slate-800 mt-1">{metrics?.count || 0}</div>
-            <span className="text-[10px] text-slate-400">Recorded payment vouchers</span>
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Outstanding Bills</span>
+            <div className="text-xl font-bold text-blue-600 mt-1">{unpaidBillsList.length}</div>
+            <span className="text-[10px] text-slate-400">Bills ready for payment</span>
           </div>
         </div>
 
-        {/* Search */}
-        <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-xs flex items-center justify-between">
-          <form onSubmit={handleSearch} className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="h-3.5 w-3.5 absolute left-3 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search payment #, ref #, or vendor..."
-                className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-md w-72 focus:ring-1 focus:ring-slate-500"
-              />
+        {/* Tab Switcher: Unpaid & Due Bills vs Payments Made History */}
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <button
+            onClick={() => setActiveTab("UNPAID_BILLS")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition flex items-center gap-2 ${
+              activeTab === "UNPAID_BILLS"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <Receipt className="h-4 w-4" />
+            <span>Unpaid & Due Bills ({unpaidBillsList.length})</span>
+            {unpaidBillsList.length > 0 && (
+              <span className="px-1.5 py-0.2 bg-amber-400 text-slate-900 rounded-full text-[10px] font-black">
+                {unpaidBillsList.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab("HISTORY")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition flex items-center gap-2 ${
+              activeTab === "HISTORY"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            <ArrowUpRight className="h-4 w-4" />
+            <span>Payments Made History ({payments?.total ?? paymentList.length})</span>
+          </button>
+        </div>
+
+        {activeTab === "UNPAID_BILLS" ? (
+          /* Tab 1: Unpaid / Partial Bills List with INLINE PAYMENT INPUTS */
+          <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
+            <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h2 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-amber-600" />
+                  <span>Unpaid & Partially Paid Vendor Bills</span>
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Directly enter settlement amount and click "Pay Bill" to post to General Ledger.
+                </p>
+              </div>
             </div>
-          </form>
-        </div>
 
-        {/* Payments Table */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
-          <table className="w-full text-xs text-left text-slate-600">
-            <thead className="bg-slate-50 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
-              <tr>
-                <th className="py-3 px-4">Voucher #</th>
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Vendor</th>
-                <th className="py-3 px-4">Bill #</th>
-                <th className="py-3 px-4">Mode</th>
-                <th className="py-3 px-4">Paid From</th>
-                <th className="py-3 px-4 text-right">Amount (BDT)</th>
-                <th className="py-3 px-4 text-center">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {paymentList.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
-                    No vendor payments recorded. Click <strong>+ Record Payment</strong> to add one.
-                  </td>
-                </tr>
-              ) : (
-                paymentList.map((pay) => (
-                  <tr key={pay.id} className="hover:bg-slate-50/70 transition">
-                    <td className="py-3 px-4 font-mono font-bold text-red-700">
-                      <div>{pay.payment_number}</div>
-                      {pay.reference_number && (
-                        <div className="text-[10px] text-slate-400 font-normal">Ref: {pay.reference_number}</div>
-                      )}
-                    </td>
-                    <td className="py-3 px-4 text-slate-600 font-mono">
-                      {formatDate(pay.payment_date)}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-900">{pay.contact?.name}</div>
-                      <div className="text-[10px] text-slate-400 font-mono">
-                        {pay.contact?.phone}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 font-mono">
-                      {pay.bill ? (
-                        <span className="text-amber-600 font-semibold">{pay.bill.bill_number}</span>
-                      ) : (
-                        <span className="text-slate-400 italic">Direct / Advance</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-700 border border-slate-300">
-                        {pay.payment_method?.replace("_", " ")}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-slate-700 font-medium">
-                      {pay.account?.name}
-                    </td>
-                    <td className="py-3 px-4 text-right font-bold text-red-700 font-mono">
-                      {formatBDT(pay.amount)}
-                    </td>
-                    <td className="py-3 px-4 text-center space-x-1.5">
-                      <button
-                        onClick={() => setSelectedPayment(pay)}
-                        className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded hover:bg-slate-200 transition"
-                      >
-                        Voucher
-                      </button>
-                      <button
-                        onClick={() => handleDelete(pay.id, pay.payment_number)}
-                        className="p-1 text-slate-400 hover:text-red-600 transition"
-                        title="Delete Payment"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left text-slate-600">
+                <thead className="bg-slate-100/70 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
+                  <tr>
+                    <th className="py-3 px-4">Bill #</th>
+                    <th className="py-3 px-4">Vendor</th>
+                    <th className="py-3 px-4">Due Date</th>
+                    <th className="py-3 px-4 text-right">Total (BDT)</th>
+                    <th className="py-3 px-4 text-right">Balance Due (BDT)</th>
+                    <th className="py-3 px-4">Pay Amount (BDT)</th>
+                    <th className="py-3 px-4">Paid From Account</th>
+                    <th className="py-3 px-4 text-center">Action</th>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {unpaidBillsList.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-10 text-center text-slate-400">
+                        🎉 All vendor bills are fully paid! No pending liabilities.
+                      </td>
+                    </tr>
+                  ) : (
+                    unpaidBillsList.map((bill) => {
+                      const balDue = Math.max(0, (parseFloat(bill.total_amount) || 0) - (parseFloat(bill.paid_amount) || 0));
+                      const isOverdue = bill.due_date && new Date(bill.due_date) < new Date(todayStr);
+                      const currentAmount = inlineAmounts[bill.id] !== undefined ? inlineAmounts[bill.id] : balDue;
+                      const currentAccount = inlineAccounts[bill.id] || accountList[0]?.id;
 
-          {/* 15-Row Pagination */}
-          <Pagination meta={payments} />
-        </div>
+                      return (
+                        <tr key={bill.id} className="hover:bg-amber-50/30 transition">
+                          <td className="py-3 px-4 font-mono font-bold text-amber-700">
+                            {bill.bill_number}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="font-semibold text-slate-900">{bill.contact?.name || "Vendor"}</div>
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              {bill.contact?.whatsapp_number || bill.contact?.phone}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div>{formatDate(bill.due_date)}</div>
+                            {isOverdue && (
+                              <span className="px-1.5 py-0.2 bg-red-100 text-red-700 rounded text-[9px] font-bold">
+                                OVERDUE
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right font-bold text-slate-900 font-mono">
+                            {formatBDT(bill.total_amount)}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-amber-700">
+                            {formatBDT(balDue)}
+                          </td>
+                          <td className="py-3 px-4">
+                            <input
+                              type="number"
+                              min="0.01"
+                              max={balDue}
+                              step="any"
+                              value={currentAmount}
+                              onChange={(e) =>
+                                setInlineAmounts({
+                                  ...inlineAmounts,
+                                  [bill.id]: e.target.value,
+                                })
+                              }
+                              className="w-28 px-2 py-1 text-xs border border-slate-300 rounded font-mono font-bold text-right focus:ring-1 focus:ring-amber-500"
+                            />
+                          </td>
+                          <td className="py-3 px-4">
+                            <select
+                              value={currentAccount}
+                              onChange={(e) =>
+                                setInlineAccounts({
+                                  ...inlineAccounts,
+                                  [bill.id]: e.target.value,
+                                })
+                              }
+                              className="w-32 px-2 py-1 text-xs border border-slate-300 rounded focus:ring-1 focus:ring-amber-500"
+                            >
+                              {accountList.map((acc) => (
+                                <option key={acc.id} value={acc.id}>
+                                  {acc.code} - {acc.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <button
+                              onClick={() => handleInlinePayBill(bill)}
+                              className="inline-flex items-center gap-1 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold transition shadow-xs"
+                              title="Pay this bill"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              <span>Pay Bill</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          /* Tab 2: Payments Made History */
+          <div className="space-y-4">
+            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-xs flex items-center justify-between">
+              <form onSubmit={handleSearch} className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="h-3.5 w-3.5 absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={search}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    placeholder="Search payment #, ref #, or vendor..."
+                    className="pl-8 pr-3 py-1.5 text-xs border border-slate-200 rounded-md w-72 focus:ring-1 focus:ring-amber-500"
+                  />
+                </div>
+              </form>
+            </div>
 
-        {/* Record Payment Drawer */}
+            <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
+              <table className="w-full text-xs text-left text-slate-600">
+                <thead className="bg-slate-50 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
+                  <tr>
+                    <th className="py-3 px-4">Payment #</th>
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Vendor</th>
+                    <th className="py-3 px-4">Bill #</th>
+                    <th className="py-3 px-4">Mode</th>
+                    <th className="py-3 px-4">Paid From</th>
+                    <th className="py-3 px-4 text-right">Amount (BDT)</th>
+                    <th className="py-3 px-4 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {paymentList.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-400">
+                        No payments recorded yet. Click <strong>+ Make Payment</strong> to record one.
+                      </td>
+                    </tr>
+                  ) : (
+                    paymentList.map((pay) => (
+                      <tr key={pay.id} className="hover:bg-slate-50/70 transition">
+                        <td className="py-3 px-4 font-mono font-bold text-amber-700">
+                          <div>{pay.payment_number}</div>
+                          {pay.reference_number && (
+                            <div className="text-[10px] text-slate-400 font-normal">Ref: {pay.reference_number}</div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-slate-600 font-mono">
+                          {formatDate(pay.payment_date)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-semibold text-slate-900">{pay.contact?.name}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">
+                            {pay.contact?.whatsapp_number || pay.contact?.phone}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-mono">
+                          {pay.bill ? (
+                            <span className="text-amber-700 font-semibold">{pay.bill.bill_number}</span>
+                          ) : (
+                            <span className="text-slate-400 italic">Direct Vendor Payment</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-700 border border-slate-300">
+                            {pay.payment_method?.replace("_", " ")}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-700 font-medium">
+                          {pay.account?.name}
+                        </td>
+                        <td className="py-3 px-4 text-right font-bold text-amber-700 font-mono">
+                          {formatBDT(pay.amount)}
+                        </td>
+                        <td className="py-3 px-4 text-center space-x-1.5">
+                          <button
+                            onClick={() => setSelectedPayment(pay)}
+                            className="p-1 text-slate-500 hover:text-amber-700 hover:bg-slate-100 rounded"
+                            title="View Receipt"
+                          >
+                            <Printer className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(pay.id, pay.payment_number)}
+                            className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                            title="Delete Payment (Reverses Ledger)"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+              <Pagination meta={payments} />
+            </div>
+          </div>
+        )}
+
+        {/* Drawer Form for manual payment */}
         {isDrawerOpen && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex justify-end">
-            <div className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200">
+            <div className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col justify-between">
               <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                 <div>
-                  <h2 className="text-base font-bold text-slate-900">Record Vendor Payment Made</h2>
-                  <p className="text-xs text-slate-500">Disburse funds & clear accounts payable (BDT ৳)</p>
+                  <h2 className="text-base font-bold text-slate-900">Record Vendor Payment</h2>
+                  <p className="text-xs text-slate-500">Record settlement against vendor bill or direct payment</p>
                 </div>
                 <button
                   onClick={() => setIsDrawerOpen(false)}
@@ -290,23 +482,34 @@ export default function PaymentsMadeIndex({
               </div>
 
               <form onSubmit={handleSubmit} className="p-6 space-y-4 flex-1 overflow-y-auto">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Payment Voucher #</label>
-                  <input
-                    type="text"
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700">Payment Number</label>
+                    <input
+                      type="text"
+                      required
+                      value={formPaymentNumber}
+                      onChange={(e) => setFormPaymentNumber(e.target.value)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
+                    />
+                  </div>
+                  <DateField
+                    label="Payment Date *"
                     required
-                    value={formPaymentNumber}
-                    onChange={(e) => setFormPaymentNumber(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
+                    value={formPaymentDate}
+                    onChange={setFormPaymentDate}
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Vendor / Supplier *</label>
+                  <label className="text-xs font-semibold text-slate-700">Vendor *</label>
                   <select
                     required
                     value={formVendorId}
-                    onChange={(e) => handleVendorChange(e.target.value)}
+                    onChange={(e) => {
+                      setFormVendorId(e.target.value);
+                      setFormBillId("");
+                    }}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                   >
                     <option value="">-- Select Vendor --</option>
@@ -318,20 +521,20 @@ export default function PaymentsMadeIndex({
                   </select>
                 </div>
 
-                {formVendorId && (
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Apply to Vendor Bill (Optional)</label>
+                {vendorBills.length > 0 && (
+                  <div className="space-y-1 bg-amber-50/50 p-3 rounded-lg border border-amber-200">
+                    <label className="text-xs font-bold text-amber-900">Apply to Outstanding Bill (Optional)</label>
                     <select
                       value={formBillId}
                       onChange={(e) => handleBillChange(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
+                      className="w-full px-3 py-2 text-xs border border-amber-300 rounded-md bg-white font-mono"
                     >
-                      <option value="">-- Direct Payment / Advance --</option>
+                      <option value="">-- Direct Payment (Not tied to bill) --</option>
                       {vendorBills.map((b) => {
-                        const due = (parseFloat(b.total_amount) || 0) - (parseFloat(b.paid_amount) || 0);
+                        const rem = Math.max(0, (parseFloat(b.total_amount) || 0) - (parseFloat(b.paid_amount) || 0));
                         return (
                           <option key={b.id} value={b.id}>
-                            {b.bill_number} (Total: {formatBDT(b.total_amount)}, Balance: {formatBDT(due)})
+                            {b.bill_number} (Total: {formatBDT(b.total_amount)} | Due: {formatBDT(rem)})
                           </option>
                         );
                       })}
@@ -340,15 +543,8 @@ export default function PaymentsMadeIndex({
                 )}
 
                 <div className="grid grid-cols-2 gap-3">
-                  <DateField
-                    label="Payment Date *"
-                    required
-                    value={formPaymentDate}
-                    onChange={setFormPaymentDate}
-                  />
-
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Amount Paid (BDT) *</label>
+                    <label className="text-xs font-semibold text-slate-700">Payment Amount (BDT) *</label>
                     <input
                       type="number"
                       step="0.01"
@@ -357,79 +553,75 @@ export default function PaymentsMadeIndex({
                       value={formAmount}
                       onChange={(e) => setFormAmount(e.target.value)}
                       placeholder="0.00"
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono font-bold text-red-700"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono font-bold"
                     />
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Payment Mode *</label>
+                    <label className="text-xs font-semibold text-slate-700">Payment Method *</label>
                     <select
                       value={formPaymentMethod}
                       onChange={(e) => setFormPaymentMethod(e.target.value)}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                     >
-                      <option value="CASH">Cash</option>
-                      <option value="BANK_TRANSFER">Bank Transfer</option>
-                      <option value="CHEQUE">Cheque</option>
-                      <option value="MOBILE_BANKING">Mobile Banking (bKash/Nagad)</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Paid From Account *</label>
-                    <select
-                      required
-                      value={formAccountId}
-                      onChange={(e) => setFormAccountId(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
-                    >
-                      {accountList.map((acc) => (
-                        <option key={acc.id} value={acc.id}>
-                          {acc.name} ({acc.code})
-                        </option>
-                      ))}
+                      <option value="CASH">CASH</option>
+                      <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                      <option value="CHEQUE">CHEQUE</option>
+                      <option value="MOBILE_BANKING">MOBILE BANKING (bKash/Nagad)</option>
                     </select>
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Reference / Cheque #</label>
+                  <label className="text-xs font-semibold text-slate-700">Paid From Account *</label>
+                  <select
+                    required
+                    value={formAccountId}
+                    onChange={(e) => setFormAccountId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
+                  >
+                    {accountList.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.code} - {acc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-700">Reference / Trx ID</label>
                   <input
                     type="text"
                     value={formReferenceNumber}
                     onChange={(e) => setFormReferenceNumber(e.target.value)}
-                    placeholder="e.g. Cheque #, Online transfer Ref..."
+                    placeholder="e.g. Cheque # / Trx ID"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md font-mono"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-slate-700">Notes / Purpose</label>
+                  <label className="text-xs font-semibold text-slate-700">Notes / Remarks</label>
                   <textarea
                     rows={2}
                     value={formNotes}
                     onChange={(e) => setFormNotes(e.target.value)}
-                    placeholder="Payment purpose or voucher details..."
+                    placeholder="Payment remarks or reference..."
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                   />
                 </div>
 
-                <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-2">
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-200">
                   <button
                     type="button"
                     onClick={() => setIsDrawerOpen(false)}
-                    className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-md transition"
+                    className="px-4 py-2 border border-slate-300 rounded-md text-xs font-semibold text-slate-700 hover:bg-slate-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-md transition shadow-xs flex items-center gap-1.5"
+                    className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-bold shadow-xs"
                   >
-                    <Send className="h-3.5 w-3.5" />
-                    <span>Save Payment Made</span>
+                    Save & Post Payment
                   </button>
                 </div>
               </form>
@@ -437,14 +629,14 @@ export default function PaymentsMadeIndex({
           </div>
         )}
 
-        {/* Payment Voucher Modal */}
+        {/* Payment Receipt Modal */}
         {selectedPayment && (
           <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-md rounded-xl shadow-2xl overflow-hidden flex flex-col">
-              <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
+            <div className="bg-white rounded-xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200">
+              <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <ArrowUpRight className="h-5 w-5 text-red-400" />
-                  <span className="font-bold text-sm">Payment Voucher - {selectedPayment.payment_number}</span>
+                  <CheckCircle2 className="h-5 w-5 text-amber-400" />
+                  <span className="font-bold text-sm">Voucher #{selectedPayment.payment_number}</span>
                 </div>
                 <button onClick={() => setSelectedPayment(null)} className="p-1 text-slate-400 hover:text-white">
                   <X className="h-5 w-5" />
@@ -454,10 +646,10 @@ export default function PaymentsMadeIndex({
               <div className="p-6 space-y-4 text-xs text-slate-700">
                 <div className="text-center pb-4 border-b border-slate-200">
                   <div className="text-xl font-bold text-slate-900 tracking-tight">PAYMENT VOUCHER</div>
-                  <div className="text-xs font-semibold text-slate-600 mt-1">Nefco Books Cloud Accounting</div>
-                  <div className="text-2xl font-bold text-red-600 mt-3 font-mono">{formatBDT(selectedPayment.amount)}</div>
-                  <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-800">
-                    Disbursed & Posted ✓
+                  <div className="text-xs font-semibold text-amber-600 mt-1">Nefco Books Cloud Accounting</div>
+                  <div className="text-2xl font-bold text-slate-900 mt-3 font-mono">{formatBDT(selectedPayment.amount)}</div>
+                  <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
+                    Vendor Payment Posted ✓
                   </span>
                 </div>
 
@@ -467,17 +659,17 @@ export default function PaymentsMadeIndex({
                     <span className="font-mono font-semibold">{selectedPayment.payment_number}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Date:</span>
+                    <span className="text-slate-400">Payment Date:</span>
                     <span className="font-mono">{formatDate(selectedPayment.payment_date)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Paid To Vendor:</span>
+                    <span className="text-slate-400">Paid To:</span>
                     <span className="font-semibold text-slate-800">{selectedPayment.contact?.name}</span>
                   </div>
                   {selectedPayment.bill && (
                     <div className="flex justify-between">
-                      <span className="text-slate-400">Against Bill:</span>
-                      <span className="font-mono text-amber-600 font-semibold">{selectedPayment.bill.bill_number}</span>
+                      <span className="text-slate-400">Bill Ref:</span>
+                      <span className="font-mono text-amber-700 font-semibold">{selectedPayment.bill.bill_number}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
@@ -485,7 +677,7 @@ export default function PaymentsMadeIndex({
                     <span>{selectedPayment.payment_method?.replace("_", " ")}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Paid From Account:</span>
+                    <span className="text-slate-400">Paid From:</span>
                     <span className="font-medium">{selectedPayment.account?.name}</span>
                   </div>
                   {selectedPayment.reference_number && (
@@ -496,7 +688,7 @@ export default function PaymentsMadeIndex({
                   )}
                   {selectedPayment.notes && (
                     <div className="pt-2 text-slate-500 border-t border-slate-100">
-                      <strong>Remarks:</strong> {selectedPayment.notes}
+                      <strong>Notes:</strong> {selectedPayment.notes}
                     </div>
                   )}
                 </div>
