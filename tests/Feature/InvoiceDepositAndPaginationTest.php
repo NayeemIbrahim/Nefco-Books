@@ -373,4 +373,94 @@ class InvoiceDepositAndPaginationTest extends TestCase
             ->first();
         $this->assertNotNull($paymentJournal);
     }
+
+    public function test_create_new_booking_quote_deal(): void
+    {
+        $response = $this->actingAs($this->user)->post('/bookings', [
+            'contact_name'    => 'New Deal Customer',
+            'whatsapp_number' => '+8801712345678',
+            'order_number'    => 'ORD-2026-0001',
+            'booking_date'    => '2026-11-22',
+            'total_amount'    => 5000,
+            'line_items'      => [
+                [
+                    'description' => 'Website Development',
+                    'quantity'    => 1,
+                    'unit_price'  => 5000,
+                    'amount'      => 5000,
+                ],
+            ],
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+    }
+
+    public function test_create_quote_via_sales_bookings_with_auto_order_number(): void
+    {
+        $response = $this->actingAs($this->user)->post('/sales/bookings', [
+            'contact_name'    => 'Auto Order Client',
+            'whatsapp_number' => '',
+            'booking_date'    => '2026-11-22',
+            'total_amount'    => 12500,
+            'line_items'      => [
+                [
+                    'item_id'     => '',
+                    'description' => 'Custom Consulting Services',
+                    'quantity'    => 2.5,
+                    'unit_price'  => 5000,
+                    'amount'      => 12500,
+                ],
+            ],
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+
+        $booking = Booking::where('total_amount', 12500)->latest()->first();
+        $this->assertNotNull($booking);
+        $this->assertNotNull($booking->order_number);
+        $this->assertEquals('QUOTE', $booking->status);
+    }
+
+    public function test_paying_bill_from_popup_and_viewing_bills_props(): void
+    {
+        $vendor = Contact::create([
+            'name'     => 'Popup Test Vendor ' . uniqid(),
+            'type'     => 'VENDOR',
+            'currency' => 'BDT',
+        ]);
+        $bill = Bill::create([
+            'bill_number'  => 'BIL-TEST-POPUP-' . uniqid(),
+            'contact_id'   => $vendor->id,
+            'issue_date'   => now(),
+            'due_date'     => now()->addDays(2),
+            'status'       => 'UNPAID',
+            'subtotal'     => 10000,
+            'total_amount' => 10000,
+            'paid_amount'  => 0,
+        ]);
+        $account = Account::where('code', '1000')->first();
+
+        // 1. Pay via payments-made
+        $payResponse = $this->actingAs($this->user)->from('/purchases/bills')->post('/purchases/payments-made', [
+            'contact_id'     => $vendor->id,
+            'bill_id'        => $bill->id,
+            'amount'         => 6000,
+            'account_id'     => $account->id,
+            'payment_method' => 'CASH',
+            'payment_date'   => now()->toDateString(),
+        ]);
+        $payResponse->assertSessionHasNoErrors();
+        $payResponse->assertRedirect('/purchases/bills');
+
+        // 2. Visit /bills and /purchases/bills
+        $billsResponse = $this->actingAs($this->user)->get('/purchases/bills');
+        $billsResponse->assertStatus(200);
+        $billsResponse->assertInertia(fn ($page) =>
+            $page->component('Bills/Index')
+                ->has('bills')
+                ->has('deposit_accounts')
+        );
+    }
 }

@@ -38,6 +38,11 @@ Route::post('items/{item}', [ItemController::class, 'update'])->name('items.upda
 // 4. Sales Module
 // 4.1 Bookings & Orders (Suboption of Sales)
 Route::get('sales/bookings', [BookingController::class, 'index'])->name('sales.bookings');
+Route::post('sales/bookings', [BookingController::class, 'store'])->name('sales.bookings.store');
+Route::post('sales/bookings/{booking}', [BookingController::class, 'update'])->name('sales.bookings.update');
+Route::delete('sales/bookings/{booking}', [BookingController::class, 'destroy'])->name('sales.bookings.destroy');
+Route::post('sales/bookings/{booking}/convert-to-invoice', [BookingController::class, 'convertToInvoice']);
+Route::post('sales/bookings/{booking}/convert', [BookingController::class, 'convertToInvoice']);
 Route::resource('bookings', BookingController::class);
 Route::post('bookings/{booking}', [BookingController::class, 'update'])->name('bookings.update');
 Route::delete('bookings/{booking}', [BookingController::class, 'destroy'])->name('bookings.destroy');

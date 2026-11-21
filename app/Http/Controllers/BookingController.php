@@ -66,12 +66,23 @@ class BookingController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        // Sanitize line_items item_id if empty or non-numeric
+        if ($request->has('line_items') && is_array($request->input('line_items'))) {
+            $cleaned = array_map(function ($item) {
+                if (isset($item['item_id']) && (!is_numeric($item['item_id']) || empty($item['item_id']))) {
+                    $item['item_id'] = null;
+                }
+                return $item;
+            }, $request->input('line_items'));
+            $request->merge(['line_items' => $cleaned]);
+        }
+
         $validated = $request->validate([
             'contact_name'    => 'required|string|max:255',
             'whatsapp_number' => 'nullable|string|max:50',
             'order_number'    => 'nullable|string|max:100',
             'invoice_number'  => 'nullable|string|max:100',
-            'booking_date'    => 'required|date',
+            'booking_date'    => 'nullable|date',
             'notes'           => 'nullable|string',
             'total_amount'    => 'required|numeric|min:0',
             'attachments.*'   => 'nullable|file|max:10240', // max 10MB per file
@@ -83,83 +94,107 @@ class BookingController extends Controller
             'line_items.*.amount'      => 'required|numeric|min:0',
         ]);
 
-        $contact = Contact::firstOrCreate(
-            ['name' => $validated['contact_name']],
-            [
-                'type'            => 'CUSTOMER',
-                'currency'        => 'BDT',
-                'phone'           => $validated['whatsapp_number'] ?? null,
-                'whatsapp_number' => $validated['whatsapp_number'] ?? null,
-            ]
-        );
+        try {
+            $contact = Contact::firstOrCreate(
+                ['name' => $validated['contact_name']],
+                [
+                    'type'            => 'CUSTOMER',
+                    'currency'        => 'BDT',
+                    'phone'           => $validated['whatsapp_number'] ?? null,
+                    'whatsapp_number' => $validated['whatsapp_number'] ?? null,
+                ]
+            );
 
-        if (! empty($validated['whatsapp_number'])) {
-            $contact->update([
-                'phone'           => $validated['whatsapp_number'],
-                'whatsapp_number' => $validated['whatsapp_number'],
-            ]);
-        }
-
-        $bkgCount = Booking::count();
-        do {
-            $bkgCount++;
-            $bookingNumber = 'BKG-2026-' . str_pad($bkgCount, 4, '0', STR_PAD_LEFT);
-        } while (Booking::where('booking_number', $bookingNumber)->exists());
-
-        $orderNumber = ! empty($validated['order_number'])
-            ? $validated['order_number']
-            : 'ORD-2026-' . str_pad($bkgCount, 4, '0', STR_PAD_LEFT);
-        $invoiceNumber = ! empty($validated['invoice_number'])
-            ? $validated['invoice_number']
-            : 'INV-2026-' . str_pad($bkgCount, 4, '0', STR_PAD_LEFT);
-
-        $savedAttachments = [];
-        if ($request->hasFile('attachments')) {
-            $files = array_slice($request->file('attachments'), 0, 10);
-            foreach ($files as $file) {
-                $path = $file->store('attachments/bookings', 'public');
-                $savedAttachments[] = [
-                    'name' => $file->getClientOriginalName(),
-                    'path' => '/storage/' . $path,
-                    'size' => $file->getSize(),
-                ];
-            }
-        }
-
-        DB::transaction(function () use ($validated, $contact, $bookingNumber, $orderNumber, $savedAttachments) {
-            $booking = Booking::create([
-                'booking_number' => $bookingNumber,
-                'order_number'   => $orderNumber,
-                'invoice_number' => null,
-                'contact_id'     => $contact->id,
-                'booking_date'   => $validated['booking_date'],
-                'status'         => 'QUOTE',
-                'total_amount'   => $validated['total_amount'],
-                'notes'          => $validated['notes'] ?? null,
-                'attachments'    => $savedAttachments,
-            ]);
-
-            foreach ($validated['line_items'] as $li) {
-                $booking->lineItems()->create([
-                    'item_id'     => $li['item_id'] ?? null,
-                    'description' => $li['description'],
-                    'quantity'    => $li['quantity'],
-                    'unit_price'  => $li['unit_price'],
-                    'amount'      => $li['amount'],
+            if (! empty($validated['whatsapp_number'])) {
+                $contact->update([
+                    'phone'           => $validated['whatsapp_number'],
+                    'whatsapp_number' => $validated['whatsapp_number'],
                 ]);
             }
-        });
 
-        return back()->with('success', "Quote / Booking {$bookingNumber} created successfully!");
+            $bkgCount = Booking::count();
+            do {
+                $bkgCount++;
+                $bookingNumber = 'BKG-2026-' . str_pad($bkgCount, 4, '0', STR_PAD_LEFT);
+            } while (Booking::where('booking_number', $bookingNumber)->exists());
+
+            if (! empty($validated['order_number'])) {
+                $orderNumber = $validated['order_number'];
+            } else {
+                $ordCount = $bkgCount;
+                do {
+                    $orderNumber = 'ORD-2026-' . str_pad($ordCount, 4, '0', STR_PAD_LEFT);
+                    $ordCount++;
+                } while (Booking::where('order_number', $orderNumber)->exists());
+            }
+
+            $bookingDate = ! empty($validated['booking_date']) ? $validated['booking_date'] : now()->toDateString();
+
+            $savedAttachments = [];
+            if ($request->hasFile('attachments')) {
+                $files = array_slice($request->file('attachments'), 0, 10);
+                foreach ($files as $file) {
+                    $path = $file->store('attachments/bookings', 'public');
+                    $savedAttachments[] = [
+                        'name' => $file->getClientOriginalName(),
+                        'path' => '/storage/' . $path,
+                        'size' => $file->getSize(),
+                    ];
+                }
+            }
+
+            DB::transaction(function () use ($validated, $contact, $bookingNumber, $orderNumber, $bookingDate, $savedAttachments) {
+                $booking = Booking::create([
+                    'booking_number' => $bookingNumber,
+                    'order_number'   => $orderNumber,
+                    'invoice_number' => null,
+                    'contact_id'     => $contact->id,
+                    'booking_date'   => $bookingDate,
+                    'service_date'   => $bookingDate,
+                    'status'         => 'QUOTE',
+                    'total_amount'   => $validated['total_amount'],
+                    'notes'          => $validated['notes'] ?? null,
+                    'attachments'    => $savedAttachments,
+                ]);
+
+                foreach ($validated['line_items'] as $li) {
+                    $booking->lineItems()->create([
+                        'item_id'     => $li['item_id'] ?? null,
+                        'description' => $li['description'],
+                        'quantity'    => $li['quantity'],
+                        'unit_price'  => $li['unit_price'],
+                        'amount'      => $li['amount'],
+                    ]);
+                }
+            });
+
+            return back()->with('success', "Quote / Booking {$bookingNumber} created successfully!");
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to create booking: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return back()->withErrors(['error' => 'Failed to create quote / deal: ' . $e->getMessage()]);
+        }
     }
 
     public function update(Request $request, Booking $booking): RedirectResponse
     {
+        // Sanitize line_items item_id if empty or non-numeric
+        if ($request->has('line_items') && is_array($request->input('line_items'))) {
+            $cleaned = array_map(function ($item) {
+                if (isset($item['item_id']) && (!is_numeric($item['item_id']) || empty($item['item_id']))) {
+                    $item['item_id'] = null;
+                }
+                return $item;
+            }, $request->input('line_items'));
+            $request->merge(['line_items' => $cleaned]);
+        }
+
         $validated = $request->validate([
             'contact_name'    => 'required|string|max:255',
             'whatsapp_number' => 'nullable|string|max:50',
             'order_number'    => 'nullable|string|max:100',
-            'booking_date'    => 'required|date',
+            'booking_date'    => 'nullable|date',
             'status'          => 'nullable|string|max:50',
             'notes'           => 'nullable|string',
             'total_amount'    => 'required|numeric|min:0',
@@ -172,55 +207,63 @@ class BookingController extends Controller
             'line_items.*.amount'      => 'required|numeric|min:0',
         ]);
 
-        $contact = Contact::firstOrCreate(
-            ['name' => $validated['contact_name']],
-            [
-                'type'            => 'CUSTOMER',
-                'currency'        => 'BDT',
-                'phone'           => $validated['whatsapp_number'] ?? null,
-                'whatsapp_number' => $validated['whatsapp_number'] ?? null,
-            ]
-        );
+        try {
+            $contact = Contact::firstOrCreate(
+                ['name' => $validated['contact_name']],
+                [
+                    'type'            => 'CUSTOMER',
+                    'currency'        => 'BDT',
+                    'phone'           => $validated['whatsapp_number'] ?? null,
+                    'whatsapp_number' => $validated['whatsapp_number'] ?? null,
+                ]
+            );
 
-        $savedAttachments = $booking->attachments ?? [];
-        if ($request->hasFile('attachments')) {
-            $files = array_slice($request->file('attachments'), 0, 10);
-            foreach ($files as $file) {
-                $path = $file->store('attachments/bookings', 'public');
-                $savedAttachments[] = [
-                    'name' => $file->getClientOriginalName(),
-                    'path' => '/storage/' . $path,
-                    'size' => $file->getSize(),
-                ];
+            $savedAttachments = $booking->attachments ?? [];
+            if ($request->hasFile('attachments')) {
+                $files = array_slice($request->file('attachments'), 0, 10);
+                foreach ($files as $file) {
+                    $path = $file->store('attachments/bookings', 'public');
+                    $savedAttachments[] = [
+                        'name' => $file->getClientOriginalName(),
+                        'path' => '/storage/' . $path,
+                        'size' => $file->getSize(),
+                    ];
+                }
+                $savedAttachments = array_slice($savedAttachments, 0, 10);
             }
-            $savedAttachments = array_slice($savedAttachments, 0, 10);
-        }
 
-        DB::transaction(function () use ($validated, $contact, $booking, $savedAttachments) {
-            $booking->update([
-                'contact_id'     => $contact->id,
-                'order_number'   => $validated['order_number'] ?? $booking->order_number,
-                'booking_date'   => $validated['booking_date'],
-                'status'         => $validated['status'] ?? $booking->status ?? 'QUOTE',
-                'total_amount'   => $validated['total_amount'],
-                'notes'          => $validated['notes'] ?? null,
-                'attachments'    => $savedAttachments,
-            ]);
+            $bookingDate = ! empty($validated['booking_date']) ? $validated['booking_date'] : $booking->booking_date;
 
-            $booking->lineItems()->delete();
-
-            foreach ($validated['line_items'] as $li) {
-                $booking->lineItems()->create([
-                    'item_id'     => $li['item_id'] ?? null,
-                    'description' => $li['description'],
-                    'quantity'    => $li['quantity'],
-                    'unit_price'  => $li['unit_price'],
-                    'amount'      => $li['amount'],
+            DB::transaction(function () use ($validated, $contact, $booking, $bookingDate, $savedAttachments) {
+                $booking->update([
+                    'contact_id'     => $contact->id,
+                    'order_number'   => $validated['order_number'] ?? $booking->order_number,
+                    'booking_date'   => $bookingDate,
+                    'service_date'   => $bookingDate,
+                    'status'         => $validated['status'] ?? $booking->status ?? 'QUOTE',
+                    'total_amount'   => $validated['total_amount'],
+                    'notes'          => $validated['notes'] ?? null,
+                    'attachments'    => $savedAttachments,
                 ]);
-            }
-        });
 
-        return back()->with('success', "Quote / Booking {$booking->booking_number} updated successfully!");
+                $booking->lineItems()->delete();
+
+                foreach ($validated['line_items'] as $li) {
+                    $booking->lineItems()->create([
+                        'item_id'     => $li['item_id'] ?? null,
+                        'description' => $li['description'],
+                        'quantity'    => $li['quantity'],
+                        'unit_price'  => $li['unit_price'],
+                        'amount'      => $li['amount'],
+                    ]);
+                }
+            });
+
+            return back()->with('success', "Quote / Booking {$booking->booking_number} updated successfully!");
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to update booking: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Failed to update quote / deal: ' . $e->getMessage()]);
+        }
     }
 
     public function destroy(Booking $booking): RedirectResponse

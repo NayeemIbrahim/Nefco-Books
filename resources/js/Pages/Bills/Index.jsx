@@ -7,6 +7,7 @@ import {
   Plus,
   Search,
   Receipt,
+  CreditCard,
   CheckCircle2,
   Printer,
   Trash2,
@@ -276,6 +277,7 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
       `/bills/${billId}/mark-paid`,
       {},
       {
+        preserveScroll: true,
         onSuccess: () => {
           setSelectedBill(null);
           setNotification("✅ Vendor Bill marked as PAID.");
@@ -430,6 +432,12 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
                               <span>Mark Paid</span>
                             </button>
                           )}
+                          <button
+                            onClick={() => handleSelectBill(b)}
+                            className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded transition"
+                          >
+                            View
+                          </button>
                           <button
                             onClick={() => handleOpenEditDrawer(b)}
                             className="px-2 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded transition inline-flex items-center gap-1"
@@ -793,7 +801,7 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
                     {selectedBill.status}
                   </span>
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Date: {formatDate(selectedBill.bill_date)}
+                    Date: {formatDate(selectedBill.bill_date || selectedBill.issue_date)}
                   </p>
                 </div>
               </div>

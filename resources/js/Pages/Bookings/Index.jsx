@@ -161,6 +161,7 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
     } else {
       updated[index] = {
         ...updated[index],
+        item_id: null,
         description: value,
       };
     }
@@ -212,9 +213,21 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    if (!formContactName || !formContactName.trim()) {
+      alert("Please provide a customer name.");
+      return;
+    }
+
+    const invalidLine = formLineItems.find((li) => !li.description || !li.description.trim());
+    if (invalidLine) {
+      alert("Please provide a description for all quote items.");
+      return;
+    }
+
     const formData = new FormData();
-    formData.append("contact_name", formContactName);
-    formData.append("whatsapp_number", formWhatsapp);
+    formData.append("contact_name", formContactName.trim());
+    formData.append("whatsapp_number", formWhatsapp || "");
     if (formOrderNumber) formData.append("order_number", formOrderNumber);
     if (formInvoiceNumber) formData.append("invoice_number", formInvoiceNumber);
     formData.append("booking_date", formServiceDate);
@@ -223,31 +236,29 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
 
     formLineItems.forEach((li, idx) => {
       if (li.item_id) formData.append(`line_items[${idx}][item_id]`, li.item_id);
-      formData.append(`line_items[${idx}][description]`, li.description);
-      formData.append(`line_items[${idx}][quantity]`, li.quantity);
-      formData.append(`line_items[${idx}][unit_price]`, li.unit_price);
-      formData.append(`line_items[${idx}][amount]`, li.amount);
+      formData.append(`line_items[${idx}][description]`, li.description.trim());
+      formData.append(`line_items[${idx}][quantity]`, li.quantity || 1);
+      formData.append(`line_items[${idx}][unit_price]`, li.unit_price || 0);
+      formData.append(`line_items[${idx}][amount]`, li.amount || 0);
     });
 
     formAttachments.forEach((f) => {
       formData.append("attachments[]", f);
     });
 
-    if (editingBookingId) {
-      router.post(`/bookings/${editingBookingId}`, formData, {
-        onSuccess: () => {
-          setIsDrawerOpen(false);
-          resetForm();
-        },
-      });
-    } else {
-      router.post("/bookings", formData, {
-        onSuccess: () => {
-          setIsDrawerOpen(false);
-          resetForm();
-        },
-      });
-    }
+    const targetUrl = editingBookingId ? `/bookings/${editingBookingId}` : "/bookings";
+
+    router.post(targetUrl, formData, {
+      preserveScroll: true,
+      onSuccess: () => {
+        setIsDrawerOpen(false);
+        resetForm();
+      },
+      onError: (errs) => {
+        const msg = Object.values(errs)[0];
+        alert(msg || "Could not save quote. Please check the inputs.");
+      },
+    });
   };
 
   const bookingList = bookings?.data || bookings || [];

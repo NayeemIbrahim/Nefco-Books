@@ -23,6 +23,13 @@ class Bill extends Model
         'paid_amount'  => 'decimal:2',
     ];
 
+    protected $appends = ['bill_date'];
+
+    public function getBillDateAttribute()
+    {
+        return $this->issue_date;
+    }
+
     public function contact(): BelongsTo
     {
         return $this->belongsTo(Contact::class);
