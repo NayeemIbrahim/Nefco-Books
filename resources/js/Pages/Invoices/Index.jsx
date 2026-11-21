@@ -57,6 +57,52 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
   const [formDepositMethod, setFormDepositMethod] = useState("CASH");
   const [formDepositRef, setFormDepositRef] = useState("");
 
+  // Modal Direct Payment State
+  const [modalPayAmount, setModalPayAmount] = useState("");
+  const [modalPayAccount, setModalPayAccount] = useState("");
+  const [modalPayMethod, setModalPayMethod] = useState("CASH");
+  const [modalPayRef, setModalPayRef] = useState("");
+  const [isSubmittingInvPay, setIsSubmittingInvPay] = useState(false);
+
+  const handleSelectInvoice = (inv) => {
+    setSelectedInvoice(inv);
+    if (inv) {
+      const due = Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
+      setModalPayAmount(due > 0 ? due.toFixed(2) : "");
+      setModalPayAccount(accountsList[0]?.id || "");
+      setModalPayMethod("CASH");
+      setModalPayRef("");
+    }
+  };
+
+  const handleModalInvoicePayment = (e) => {
+    e.preventDefault();
+    if (!selectedInvoice || !modalPayAmount || parseFloat(modalPayAmount) <= 0) return;
+    setIsSubmittingInvPay(true);
+    router.post(
+      "/sales/payments-received",
+      {
+        contact_id: selectedInvoice.contact_id,
+        invoice_id: selectedInvoice.id,
+        amount: parseFloat(modalPayAmount),
+        account_id: modalPayAccount || accountsList[0]?.id,
+        payment_method: modalPayMethod,
+        payment_date: new Date().toISOString().split("T")[0],
+        reference_number: modalPayRef,
+        notes: `Payment for invoice ${selectedInvoice.invoice_number}`,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setSelectedInvoice(null);
+          setIsSubmittingInvPay(false);
+          setNotification("✅ Customer payment received & posted to general ledger!");
+        },
+        onError: () => setIsSubmittingInvPay(false),
+      }
+    );
+  };
+
   const resetForm = () => {
     setEditingInvoiceId(null);
     setFormContactName("");
@@ -385,7 +431,11 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                   invoiceList.map((inv) => {
                     const balanceDue = Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
                     return (
-                      <tr key={inv.id} className="hover:bg-slate-50/70 transition">
+                      <tr
+                        key={inv.id}
+                        onClick={() => handleSelectInvoice(inv)}
+                        className="hover:bg-blue-50/40 cursor-pointer transition"
+                      >
                         <td className="py-3 px-4 font-mono font-bold text-blue-600">
                           <div>{inv.invoice_number}</div>
                           {inv.order_number && (
@@ -442,7 +492,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                             {formatBDT(balanceDue)}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-center">
+                        <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => handleSendWhatsApp(inv.id)}
                             className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded border transition ${
@@ -455,7 +505,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                             {inv.whatsapp_sent ? "Sent ✓" : "Send Alert"}
                           </button>
                         </td>
-                        <td className="py-3 px-4 text-center space-x-1.5">
+                        <td className="py-3 px-4 text-center space-x-1.5" onClick={(e) => e.stopPropagation()}>
                           {inv.status !== "PAID" && (
                             <button
                               onClick={() => handleMarkAsPaid(inv.id)}
@@ -467,7 +517,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                             </button>
                           )}
                           <button
-                            onClick={() => setSelectedInvoice(inv)}
+                            onClick={() => handleSelectInvoice(inv)}
                             className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded hover:bg-slate-200 transition"
                           >
                             View
@@ -999,9 +1049,9 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
 
         {/* Invoice Printable View Modal */}
         {selectedInvoice && (
-          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-              <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white">
+          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+            <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+              <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-900 text-white shrink-0">
                 <div className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-blue-400" />
                   <span className="font-bold text-sm">Invoice View - {selectedInvoice.invoice_number}</span>
@@ -1014,7 +1064,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                 </button>
               </div>
 
-              <div className="p-8 overflow-y-auto space-y-6 text-xs text-slate-700">
+              <div className="p-4 sm:p-8 overflow-y-auto space-y-6 text-xs text-slate-700 flex-1">
                 {/* Invoice Header */}
                 <div className="flex items-start justify-between border-b border-slate-200 pb-6">
                   <div>
@@ -1122,6 +1172,94 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                     </div>
                   </div>
                 </div>
+
+                {/* Direct Customer Payment / Invoice Settlement Form */}
+                {(() => {
+                  const due = Math.max(0, (parseFloat(selectedInvoice.total_amount) || 0) - (parseFloat(selectedInvoice.paid_amount) || 0));
+                  if (due <= 0) {
+                    return (
+                      <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-md text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <span>This invoice is fully paid. (Balance Due: ৳0.00)</span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-bold text-xs text-amber-950">
+                          <CreditCard className="h-4 w-4 text-amber-600" />
+                          <span>Receive Payment / Settle Invoice</span>
+                        </div>
+                        <span className="text-[10px] text-amber-800 font-medium">Posts to General Ledger</span>
+                      </div>
+
+                      <form onSubmit={handleModalInvoicePayment} className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 uppercase">Payment Amount (৳)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              required
+                              max={due}
+                              value={modalPayAmount}
+                              onChange={(e) => setModalPayAmount(e.target.value)}
+                              className="w-full mt-0.5 px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded bg-white text-slate-900 focus:ring-1 focus:ring-amber-500"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 uppercase">Deposit To Account</label>
+                            <select
+                              value={modalPayAccount}
+                              onChange={(e) => setModalPayAccount(e.target.value)}
+                              className="w-full mt-0.5 px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-900 focus:ring-1 focus:ring-amber-500"
+                            >
+                              {accountsList.map((acc) => (
+                                <option key={acc.id} value={acc.id}>
+                                  {acc.name} ({acc.code})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 uppercase">Payment Method</label>
+                            <select
+                              value={modalPayMethod}
+                              onChange={(e) => setModalPayMethod(e.target.value)}
+                              className="w-full mt-0.5 px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-900 focus:ring-1 focus:ring-amber-500"
+                            >
+                              <option value="CASH">Cash</option>
+                              <option value="BANK_TRANSFER">Bank Transfer</option>
+                              <option value="MOBILE_BANKING">Mobile Banking (bKash/Nagad)</option>
+                              <option value="CHEQUE">Cheque</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-1">
+                          <input
+                            type="text"
+                            value={modalPayRef}
+                            onChange={(e) => setModalPayRef(e.target.value)}
+                            placeholder="Reference # or check/transaction ID"
+                            className="w-full sm:w-1/2 px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-800"
+                          />
+                          <button
+                            type="submit"
+                            disabled={isSubmittingInvPay}
+                            className="w-full sm:w-auto px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span>{isSubmittingInvPay ? "Recording..." : `Receive Payment (${formatBDT(parseFloat(modalPayAmount) || 0)})`}</span>
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  );
+                })()}
 
                 {selectedInvoice.notes && (
                   <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-[11px] text-slate-500">

@@ -30,6 +30,53 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
   const [searchTerm, setSearchTerm] = useState(filters?.search || "");
   const [statusFilter, setStatusFilter] = useState(filters?.status || "ALL");
 
+  // Modal Direct Payment State
+  const [modalPayAmount, setModalPayAmount] = useState("");
+  const [modalPayAccount, setModalPayAccount] = useState("");
+  const [modalPayMethod, setModalPayMethod] = useState("CASH");
+  const [modalPayRef, setModalPayRef] = useState("");
+  const [isSubmittingBillPay, setIsSubmittingBillPay] = useState(false);
+
+  const handleSelectBill = (b) => {
+    setSelectedBill(b);
+    if (b) {
+      const isPaid = b.status === "PAID" || (parseFloat(b.paid_amount) || 0) >= (parseFloat(b.total_amount) || 0);
+      const due = isPaid ? 0 : Math.max(0, (parseFloat(b.total_amount) || 0) - (parseFloat(b.paid_amount) || 0));
+      setModalPayAmount(due > 0 ? due.toFixed(2) : "");
+      setModalPayAccount(accountsList[0]?.id || "");
+      setModalPayMethod("CASH");
+      setModalPayRef("");
+    }
+  };
+
+  const handleModalBillPayment = (e) => {
+    e.preventDefault();
+    if (!selectedBill || !modalPayAmount || parseFloat(modalPayAmount) <= 0) return;
+    setIsSubmittingBillPay(true);
+    router.post(
+      "/purchases/payments-made",
+      {
+        contact_id: selectedBill.contact_id,
+        bill_id: selectedBill.id,
+        amount: parseFloat(modalPayAmount),
+        account_id: modalPayAccount || accountsList[0]?.id,
+        payment_method: modalPayMethod,
+        payment_date: new Date().toISOString().split("T")[0],
+        reference_number: modalPayRef,
+        notes: `Payment for bill ${selectedBill.bill_number}`,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setSelectedBill(null);
+          setIsSubmittingBillPay(false);
+          setNotification("✅ Vendor payment recorded successfully!");
+        },
+        onError: () => setIsSubmittingBillPay(false),
+      }
+    );
+  };
+
   const handleFilter = (st) => {
     setStatusFilter(st);
     router.get("/bills", { search: searchTerm, status: st }, { preserveState: true, replace: true });
@@ -340,7 +387,7 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
                     return (
                       <tr
                         key={b.id}
-                        onClick={() => setSelectedBill(b)}
+                        onClick={() => handleSelectBill(b)}
                         className="hover:bg-amber-50/40 cursor-pointer transition"
                       >
                         <td className="py-3 px-4 font-mono font-bold text-amber-600">{b.bill_number}</td>
@@ -717,9 +764,9 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
 
       {/* Bill Detail Modal */}
       {selectedBill && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg max-w-xl w-full overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in duration-150">
-            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-lg max-w-xl w-full overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in duration-150 flex flex-col max-h-[92vh]">
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2">
                 <Receipt className="h-5 w-5 text-amber-400" />
                 <span className="font-bold text-sm font-mono">{selectedBill.bill_number}</span>
@@ -729,7 +776,7 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
               </button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs text-slate-700">
+            <div className="p-4 sm:p-6 space-y-4 text-xs text-slate-700 overflow-y-auto flex-1">
               <div className="flex justify-between border-b border-slate-100 pb-3">
                 <div>
                   <h3 className="font-bold text-sm text-slate-900">{selectedBill.contact?.name}</h3>
@@ -802,6 +849,96 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
                   );
                 })()}
               </div>
+
+              {/* Direct Bill Payment / Settlement Form */}
+              {(() => {
+                const isPaid = selectedBill.status === "PAID" || (parseFloat(selectedBill.paid_amount) || 0) >= (parseFloat(selectedBill.total_amount) || 0);
+                const due = isPaid ? 0 : Math.max(0, (parseFloat(selectedBill.total_amount) || 0) - (parseFloat(selectedBill.paid_amount) || 0));
+
+                if (due <= 0) {
+                  return (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-md text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <span>This vendor bill is fully paid. (Balance Due: ৳0.00)</span>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-lg space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-amber-950">
+                        <CreditCard className="h-4 w-4 text-amber-600" />
+                        <span>Make Payment / Settle Bill</span>
+                      </div>
+                      <span className="text-[10px] text-amber-800 font-medium">Posts to General Ledger</span>
+                    </div>
+
+                    <form onSubmit={handleModalBillPayment} className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-600 uppercase">Payment Amount (৳)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            required
+                            max={due}
+                            value={modalPayAmount}
+                            onChange={(e) => setModalPayAmount(e.target.value)}
+                            className="w-full mt-0.5 px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded bg-white text-slate-900 focus:ring-1 focus:ring-amber-500"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-600 uppercase">Paid From Account</label>
+                          <select
+                            value={modalPayAccount}
+                            onChange={(e) => setModalPayAccount(e.target.value)}
+                            className="w-full mt-0.5 px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-900 focus:ring-1 focus:ring-amber-500"
+                          >
+                            {accountsList.map((acc) => (
+                              <option key={acc.id} value={acc.id}>
+                                {acc.name} ({acc.code})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-600 uppercase">Payment Method</label>
+                          <select
+                            value={modalPayMethod}
+                            onChange={(e) => setModalPayMethod(e.target.value)}
+                            className="w-full mt-0.5 px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-900 focus:ring-1 focus:ring-amber-500"
+                          >
+                            <option value="CASH">Cash</option>
+                            <option value="BANK_TRANSFER">Bank Transfer</option>
+                            <option value="MOBILE_BANKING">Mobile Banking</option>
+                            <option value="CHEQUE">Cheque</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-1">
+                        <input
+                          type="text"
+                          value={modalPayRef}
+                          onChange={(e) => setModalPayRef(e.target.value)}
+                          placeholder="Reference # or check/transaction ID"
+                          className="w-full sm:w-1/2 px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-800"
+                        />
+                        <button
+                          type="submit"
+                          disabled={isSubmittingBillPay}
+                          className="w-full sm:w-auto px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>{isSubmittingBillPay ? "Recording..." : `Confirm Payment (${formatBDT(parseFloat(modalPayAmount) || 0)})`}</span>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                );
+              })()}
 
               {selectedBill.notes && (
                 <p className="text-slate-500 italic bg-amber-50/50 p-2 rounded border border-amber-100">
