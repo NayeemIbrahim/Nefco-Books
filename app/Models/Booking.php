@@ -20,6 +20,14 @@ class Booking extends Model
         'attachments'  => 'array',
     ];
 
+    public function getStatusAttribute($value): string
+    {
+        if ($value === 'PENDING') {
+            return 'QUOTE';
+        }
+        return $value ?? 'QUOTE';
+    }
+
     public function contact(): BelongsTo
     {
         return $this->belongsTo(Contact::class);

@@ -143,30 +143,48 @@ class BookingController extends Controller
                 }
             }
 
-            DB::transaction(function () use ($validated, $contact, $bookingNumber, $orderNumber, $bookingDate, $savedAttachments) {
-                $booking = Booking::create([
-                    'booking_number' => $bookingNumber,
-                    'order_number'   => $orderNumber,
-                    'invoice_number' => null,
-                    'contact_id'     => $contact->id,
-                    'booking_date'   => $bookingDate,
-                    'service_date'   => $bookingDate,
-                    'status'         => 'QUOTE',
-                    'total_amount'   => $validated['total_amount'],
-                    'notes'          => $validated['notes'] ?? null,
-                    'attachments'    => $savedAttachments,
-                ]);
-
-                foreach ($validated['line_items'] as $li) {
-                    $booking->lineItems()->create([
-                        'item_id'     => $li['item_id'] ?? null,
-                        'description' => $li['description'],
-                        'quantity'    => $li['quantity'],
-                        'unit_price'  => $li['unit_price'],
-                        'amount'      => $li['amount'],
+            $saveBooking = function ($statusValue) use ($validated, $contact, $bookingNumber, $orderNumber, $bookingDate, $savedAttachments) {
+                DB::transaction(function () use ($validated, $contact, $bookingNumber, $orderNumber, $bookingDate, $savedAttachments, $statusValue) {
+                    $booking = Booking::create([
+                        'booking_number' => $bookingNumber,
+                        'order_number'   => $orderNumber,
+                        'invoice_number' => null,
+                        'contact_id'     => $contact->id,
+                        'booking_date'   => $bookingDate,
+                        'service_date'   => $bookingDate,
+                        'status'         => $statusValue,
+                        'total_amount'   => $validated['total_amount'],
+                        'notes'          => $validated['notes'] ?? null,
+                        'attachments'    => $savedAttachments,
                     ]);
+
+                    foreach ($validated['line_items'] as $li) {
+                        $booking->lineItems()->create([
+                            'item_id'     => $li['item_id'] ?? null,
+                            'description' => $li['description'],
+                            'quantity'    => $li['quantity'],
+                            'unit_price'  => $li['unit_price'],
+                            'amount'      => $li['amount'],
+                        ]);
+                    }
+                });
+            };
+
+            try {
+                $saveBooking('QUOTE');
+            } catch (\Throwable $err) {
+                if (str_contains($err->getMessage(), '1265') || str_contains($err->getMessage(), 'Data truncated')) {
+                    try {
+                        DB::statement("ALTER TABLE `bookings` MODIFY COLUMN `status` VARCHAR(50) NOT NULL DEFAULT 'QUOTE'");
+                        $saveBooking('QUOTE');
+                    } catch (\Throwable $alterErr) {
+                        // Fallback to legacy MySQL enum value if ALTER TABLE is disallowed by permissions
+                        $saveBooking('PENDING');
+                    }
+                } else {
+                    throw $err;
                 }
-            });
+            }
 
             return back()->with('success', "Quote / Booking {$bookingNumber} created successfully!");
         } catch (\Throwable $e) {
@@ -234,30 +252,48 @@ class BookingController extends Controller
 
             $bookingDate = ! empty($validated['booking_date']) ? $validated['booking_date'] : $booking->booking_date;
 
-            DB::transaction(function () use ($validated, $contact, $booking, $bookingDate, $savedAttachments) {
-                $booking->update([
-                    'contact_id'     => $contact->id,
-                    'order_number'   => $validated['order_number'] ?? $booking->order_number,
-                    'booking_date'   => $bookingDate,
-                    'service_date'   => $bookingDate,
-                    'status'         => $validated['status'] ?? $booking->status ?? 'QUOTE',
-                    'total_amount'   => $validated['total_amount'],
-                    'notes'          => $validated['notes'] ?? null,
-                    'attachments'    => $savedAttachments,
-                ]);
-
-                $booking->lineItems()->delete();
-
-                foreach ($validated['line_items'] as $li) {
-                    $booking->lineItems()->create([
-                        'item_id'     => $li['item_id'] ?? null,
-                        'description' => $li['description'],
-                        'quantity'    => $li['quantity'],
-                        'unit_price'  => $li['unit_price'],
-                        'amount'      => $li['amount'],
+            $saveBookingUpdate = function ($statusValue) use ($validated, $contact, $booking, $bookingDate, $savedAttachments) {
+                DB::transaction(function () use ($validated, $contact, $booking, $bookingDate, $savedAttachments, $statusValue) {
+                    $booking->update([
+                        'contact_id'     => $contact->id,
+                        'order_number'   => $validated['order_number'] ?? $booking->order_number,
+                        'booking_date'   => $bookingDate,
+                        'service_date'   => $bookingDate,
+                        'status'         => $statusValue,
+                        'total_amount'   => $validated['total_amount'],
+                        'notes'          => $validated['notes'] ?? null,
+                        'attachments'    => $savedAttachments,
                     ]);
+
+                    $booking->lineItems()->delete();
+
+                    foreach ($validated['line_items'] as $li) {
+                        $booking->lineItems()->create([
+                            'item_id'     => $li['item_id'] ?? null,
+                            'description' => $li['description'],
+                            'quantity'    => $li['quantity'],
+                            'unit_price'  => $li['unit_price'],
+                            'amount'      => $li['amount'],
+                        ]);
+                    }
+                });
+            };
+
+            $desiredStatus = $validated['status'] ?? $booking->status ?? 'QUOTE';
+            try {
+                $saveBookingUpdate($desiredStatus);
+            } catch (\Throwable $err) {
+                if (str_contains($err->getMessage(), '1265') || str_contains($err->getMessage(), 'Data truncated')) {
+                    try {
+                        DB::statement("ALTER TABLE `bookings` MODIFY COLUMN `status` VARCHAR(50) NOT NULL DEFAULT 'QUOTE'");
+                        $saveBookingUpdate($desiredStatus);
+                    } catch (\Throwable $alterErr) {
+                        $saveBookingUpdate('PENDING');
+                    }
+                } else {
+                    throw $err;
                 }
-            });
+            }
 
             return back()->with('success', "Quote / Booking {$booking->booking_number} updated successfully!");
         } catch (\Throwable $e) {

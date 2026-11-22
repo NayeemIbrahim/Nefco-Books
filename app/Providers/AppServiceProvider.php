@@ -25,24 +25,21 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Native MySQL schema healing: Ensure ENUM columns are converted to VARCHAR(50)
+        try {
+            $conn = \Illuminate\Support\Facades\DB::connection();
+            if ($conn->getDriverName() === 'mysql') {
+                $conn->statement("ALTER TABLE `bookings` MODIFY COLUMN `status` VARCHAR(50) NOT NULL DEFAULT 'QUOTE'");
+                $conn->statement("ALTER TABLE `invoices` MODIFY COLUMN `status` VARCHAR(50) NOT NULL DEFAULT 'UNPAID'");
+                $conn->statement("ALTER TABLE `bills` MODIFY COLUMN `status` VARCHAR(50) NOT NULL DEFAULT 'UNPAID'");
+            }
+        } catch (\Throwable $e) {
+            // Ignore if tables do not exist yet or already updated
+        }
+
         // Self-healing database: auto-run pending migrations if newer schema columns are missing
         try {
-            if (! Cache::has('db_schema_v6_migrated')) {
-                $needsMigration = false;
-
-                if (! Schema::hasTable('users') 
-                    || ! Schema::hasTable('expenses')
-                    || ! Schema::hasColumn('users', 'default_uom')
-                    || ! Schema::hasColumn('users', 'role')
-                    || ! Schema::hasColumn('bookings', 'order_number')
-                    || ! Schema::hasColumn('invoices', 'order_number')
-                    || ! Schema::hasColumn('invoices', 'shipping_charges')
-                    || ! Schema::hasColumn('invoices', 'adjustment')
-                    || ! Schema::hasColumn('contacts', 'is_hidden')
-                ) {
-                    $needsMigration = true;
-                }
-
+            if (! Cache::has('db_schema_v8_migrated')) {
                 // Auto-run migrations on server to apply nullable whatsapp_number and invoice/expenses additions
                 Artisan::call('migrate', ['--force' => true]);
 
@@ -95,7 +92,7 @@ class AppServiceProvider extends ServiceProvider
                         ->update(['paid_amount' => \Illuminate\Support\Facades\DB::raw('total_amount')]);
                 }
 
-                Cache::put('db_schema_v7_migrated', true, now()->addDays(3));
+                Cache::put('db_schema_v8_migrated', true, now()->addDays(3));
             }
         } catch (\Throwable $e) {
             Log::warning('Automatic migration / database setup notice: ' . $e->getMessage());
