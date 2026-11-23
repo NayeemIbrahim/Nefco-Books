@@ -69,23 +69,20 @@ export default function BankingIndex({ accounts, allAccounts, recentJournals }) 
 
         {/* Account Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs space-y-2">
-            <div className="text-xs font-medium text-slate-500 uppercase">1000 - Petty Cash</div>
-            <div className="text-xl font-bold text-slate-900">{formatBDT(20000)}</div>
-            <div className="text-[11px] text-slate-400">Cash on hand (BDT)</div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs space-y-2">
-            <div className="text-xs font-medium text-slate-500 uppercase">1010 - Main Bank Account</div>
-            <div className="text-xl font-bold text-slate-900">{formatBDT(450000)}</div>
-            <div className="text-[11px] text-slate-400">Standard Chartered BDT</div>
-          </div>
-
-          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs space-y-2">
-            <div className="text-xs font-medium text-slate-500 uppercase">1020 - bKash / Nagad Merchant</div>
-            <div className="text-xl font-bold text-slate-900">{formatBDT(50000)}</div>
-            <div className="text-[11px] text-slate-400">Mobile Financial Service</div>
-          </div>
+          {(accounts || []).map((acc) => (
+            <div key={acc.id} className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs space-y-2">
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center justify-between">
+                <span>{acc.code} - {acc.name}</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                  {acc.type}
+                </span>
+              </div>
+              <div className={`text-xl font-bold font-mono ${parseFloat(acc.balance) < 0 ? "text-rose-600" : "text-slate-900"}`}>
+                {formatBDT(acc.balance)}
+              </div>
+              <div className="text-[11px] text-slate-400 truncate">{acc.description || "General Ledger Balance (BDT)"}</div>
+            </div>
+          ))}
         </div>
 
         {/* Recent Journal Entries Ledger */}

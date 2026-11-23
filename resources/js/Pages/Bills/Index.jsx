@@ -218,6 +218,7 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
       const rate = parseFloat(matchedItem.purchase_price || matchedItem.cost_price || matchedItem.sales_price) || 0;
       updated[index] = {
         ...updated[index],
+        item_id: matchedItem.id,
         description: matchedItem.name,
         unit_price: rate,
         amount: qty * rate,

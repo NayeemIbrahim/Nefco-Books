@@ -159,8 +159,13 @@ class BookingController extends Controller
                     ]);
 
                     foreach ($validated['line_items'] as $li) {
+                        $itemId = $li['item_id'] ?? null;
+                        if (! $itemId && ! empty($li['description'])) {
+                            $itemId = Item::where('name', $li['description'])->value('id');
+                        }
+
                         $booking->lineItems()->create([
-                            'item_id'     => $li['item_id'] ?? null,
+                            'item_id'     => $itemId,
                             'description' => $li['description'],
                             'quantity'    => $li['quantity'],
                             'unit_price'  => $li['unit_price'],
@@ -268,8 +273,13 @@ class BookingController extends Controller
                     $booking->lineItems()->delete();
 
                     foreach ($validated['line_items'] as $li) {
+                        $itemId = $li['item_id'] ?? null;
+                        if (! $itemId && ! empty($li['description'])) {
+                            $itemId = Item::where('name', $li['description'])->value('id');
+                        }
+
                         $booking->lineItems()->create([
-                            'item_id'     => $li['item_id'] ?? null,
+                            'item_id'     => $itemId,
                             'description' => $li['description'],
                             'quantity'    => $li['quantity'],
                             'unit_price'  => $li['unit_price'],

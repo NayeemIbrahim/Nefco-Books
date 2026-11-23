@@ -33,6 +33,7 @@ export default function PaymentsReceivedIndex({
   const [search, setSearch] = useState(filters?.search || "");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
 
   // Inline row payment states (for fast direct payment from table)
   const [inlineAmounts, setInlineAmounts] = useState({});
@@ -290,7 +291,15 @@ export default function PaymentsReceivedIndex({
                       return (
                         <tr key={inv.id} className="hover:bg-emerald-50/30 transition">
                           <td className="py-3 px-4 font-mono font-bold text-blue-600">
-                            <div>{inv.invoice_number}</div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedInvoice(inv)}
+                              className="hover:underline hover:text-blue-900 transition flex items-center gap-1.5 cursor-pointer text-left font-mono font-bold text-blue-600"
+                              title="Click to view Invoice details"
+                            >
+                              <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                              <span>{inv.invoice_number}</span>
+                            </button>
                             {inv.order_number && (
                               <div className="text-[10px] text-slate-400 font-normal">Ord: {inv.order_number}</div>
                             )}
@@ -426,7 +435,15 @@ export default function PaymentsReceivedIndex({
                         </td>
                         <td className="py-3 px-4 font-mono">
                           {pay.invoice ? (
-                            <span className="text-blue-600 font-semibold">{pay.invoice.invoice_number}</span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedInvoice(pay.invoice)}
+                              className="text-blue-600 hover:text-blue-900 hover:underline font-semibold flex items-center gap-1.5 cursor-pointer font-mono"
+                              title="Click to view Invoice details"
+                            >
+                              <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                              <span>{pay.invoice.invoice_number}</span>
+                            </button>
                           ) : (
                             <span className="text-slate-400 italic">Direct Receipt</span>
                           )}
@@ -708,6 +725,141 @@ export default function PaymentsReceivedIndex({
                 </button>
                 <button
                   onClick={() => setSelectedPayment(null)}
+                  className="px-4 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white rounded-md transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Invoice Detail Modal Popup */}
+        {selectedInvoice && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+            <div className="bg-white rounded-lg max-w-xl w-full overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in duration-150 flex flex-col max-h-[92vh]">
+              <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-blue-400" />
+                  <span className="font-bold text-sm font-mono">Invoice Details - {selectedInvoice.invoice_number}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedInvoice(null)}
+                  className="text-slate-400 hover:text-white p-1"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="p-4 sm:p-6 space-y-4 text-xs text-slate-700 overflow-y-auto flex-1">
+                <div className="flex justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-900">{selectedInvoice.contact?.name || "Customer"}</h3>
+                    <p className="text-slate-500">{selectedInvoice.contact?.whatsapp_number || selectedInvoice.contact?.phone || "Customer Contact"}</p>
+                  </div>
+                  <div className="text-right">
+                    <span
+                      className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                        selectedInvoice.status === "PAID"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
+                    >
+                      {selectedInvoice.status || "CONFIRMED"}
+                    </span>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Date: {formatDate(selectedInvoice.issue_date || selectedInvoice.created_at)}
+                    </p>
+                    {selectedInvoice.due_date && (
+                      <p className="text-[11px] text-slate-500">
+                        Due: {formatDate(selectedInvoice.due_date)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Line Items */}
+                <div className="border border-slate-200 rounded-md overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[10px]">
+                      <tr>
+                        <th className="p-2">Item / Description</th>
+                        <th className="p-2 text-center">Qty</th>
+                        <th className="p-2 text-right">Price (৳)</th>
+                        <th className="p-2 text-right">Amount (৳)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {((selectedInvoice.line_items || selectedInvoice.lineItems || []).length > 0) ? (
+                        (selectedInvoice.line_items || selectedInvoice.lineItems || []).map((li, i) => (
+                          <tr key={i}>
+                            <td className="p-2 font-medium text-slate-800">{li.description}</td>
+                            <td className="p-2 text-center font-mono">{li.quantity}</td>
+                            <td className="p-2 text-right font-mono">{formatBDT(li.unit_price)}</td>
+                            <td className="p-2 text-right font-semibold font-mono">{formatBDT(li.amount)}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td className="p-2 font-medium text-slate-800">Sales Invoice Item / Service</td>
+                          <td className="p-2 text-center font-mono">1</td>
+                          <td className="p-2 text-right font-mono">{formatBDT(selectedInvoice.total_amount)}</td>
+                          <td className="p-2 text-right font-semibold font-mono">{formatBDT(selectedInvoice.total_amount)}</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Summary Totals */}
+                <div className="bg-slate-50 p-3.5 rounded-md space-y-1.5 text-xs text-slate-700">
+                  <div className="flex justify-between items-center font-bold text-sm text-slate-900">
+                    <span>Total Invoice Amount</span>
+                    <span className="text-blue-700 font-mono">{formatBDT(selectedInvoice.total_amount)}</span>
+                  </div>
+                  {(() => {
+                    const isPaid = selectedInvoice.status === "PAID" || (parseFloat(selectedInvoice.paid_amount) || 0) >= (parseFloat(selectedInvoice.total_amount) || 0);
+                    const paid = isPaid ? selectedInvoice.total_amount : (selectedInvoice.paid_amount || 0);
+                    const due = isPaid ? 0 : Math.max(0, (parseFloat(selectedInvoice.total_amount) || 0) - (parseFloat(selectedInvoice.paid_amount) || 0));
+                    return (
+                      <>
+                        {parseFloat(paid) > 0 && (
+                          <div className="flex justify-between items-center text-emerald-700 font-semibold">
+                            <span>Paid to Date</span>
+                            <span className="font-mono">{formatBDT(paid)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center font-bold pt-1 border-t border-slate-200">
+                          <span>Balance Due</span>
+                          <span className={`font-mono ${due <= 0 ? "text-emerald-600" : "text-amber-700"}`}>
+                            {formatBDT(due)}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {selectedInvoice.notes && (
+                  <div className="text-[11px] text-slate-500 italic bg-blue-50/50 p-2.5 rounded border border-blue-100">
+                    <strong>Notes:</strong> {selectedInvoice.notes}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-md hover:bg-slate-100 transition shadow-xs"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  <span>Print Invoice</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedInvoice(null)}
                   className="px-4 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white rounded-md transition"
                 >
                   Close

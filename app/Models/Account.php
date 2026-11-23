@@ -25,4 +25,24 @@ class Account extends Model
     {
         return $this->hasMany(Payment::class);
     }
+
+    public function syncBalanceWithLedger(): float
+    {
+        $debit = (float)$this->journalLines()->sum('debit');
+        $credit = (float)$this->journalLines()->sum('credit');
+
+        $balance = in_array($this->type, ['ASSET', 'EXPENSE'])
+            ? ($debit - $credit)
+            : ($credit - $debit);
+
+        $this->update(['balance' => $balance]);
+        return $balance;
+    }
+
+    public static function syncAllBalances(): void
+    {
+        foreach (static::all() as $account) {
+            $account->syncBalanceWithLedger();
+        }
+    }
 }

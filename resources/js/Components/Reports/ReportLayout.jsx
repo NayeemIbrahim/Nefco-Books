@@ -12,10 +12,13 @@ export default function ReportLayout({
   extraFilters,
   hideDateFilter = false,
 }) {
-  const [selectedPreset, setSelectedPreset] = React.useState(filters.preset || "THIS_MONTH");
-  const [startDate, setStartDate] = React.useState(filters.start_date || "");
-  const [endDate, setEndDate] = React.useState(filters.end_date || "");
-  const [sortOrder, setSortOrder] = React.useState(filters.sort || "DESC");
+  const safeFilters = (filters && typeof filters === "object" && !Array.isArray(filters)) ? filters : {};
+  const [selectedPreset, setSelectedPreset] = React.useState(safeFilters.preset || "THIS_MONTH");
+  const [startDate, setStartDate] = React.useState(safeFilters.start_date || "");
+  const [endDate, setEndDate] = React.useState(safeFilters.end_date || "");
+  const [sortOrder, setSortOrder] = React.useState(
+    typeof safeFilters.sort === "string" ? safeFilters.sort : "DESC"
+  );
 
   // Update dates when preset changes
   const applyPreset = (preset) => {
@@ -63,11 +66,11 @@ export default function ReportLayout({
       setStartDate(start);
       setEndDate(end);
       if (onFilterChange) {
-        onFilterChange({ ...filters, preset, start_date: start, end_date: end, sort: sortOrder });
+        onFilterChange({ ...safeFilters, preset, start_date: start, end_date: end, sort: sortOrder });
       } else {
         router.get(
           window.location.pathname,
-          { ...filters, preset, start_date: start, end_date: end, sort: sortOrder },
+          { ...safeFilters, preset, start_date: start, end_date: end, sort: sortOrder },
           { preserveState: true, replace: true }
         );
       }
@@ -77,11 +80,11 @@ export default function ReportLayout({
   const handleSortChange = (newSort) => {
     setSortOrder(newSort);
     if (onFilterChange) {
-      onFilterChange({ ...filters, preset: selectedPreset, start_date: startDate, end_date: endDate, sort: newSort });
+      onFilterChange({ ...safeFilters, preset: selectedPreset, start_date: startDate, end_date: endDate, sort: newSort });
     } else {
       router.get(
         window.location.pathname,
-        { ...filters, preset: selectedPreset, start_date: startDate, end_date: endDate, sort: newSort },
+        { ...safeFilters, preset: selectedPreset, start_date: startDate, end_date: endDate, sort: newSort },
         { preserveState: true, replace: true }
       );
     }
@@ -90,11 +93,11 @@ export default function ReportLayout({
   const handleCustomApply = (e) => {
     e.preventDefault();
     if (onFilterChange) {
-      onFilterChange({ ...filters, preset: "CUSTOM", start_date: startDate, end_date: endDate, sort: sortOrder });
+      onFilterChange({ ...safeFilters, preset: "CUSTOM", start_date: startDate, end_date: endDate, sort: sortOrder });
     } else {
       router.get(
         window.location.pathname,
-        { ...filters, preset: "CUSTOM", start_date: startDate, end_date: endDate, sort: sortOrder },
+        { ...safeFilters, preset: "CUSTOM", start_date: startDate, end_date: endDate, sort: sortOrder },
         { preserveState: true, replace: true }
       );
     }

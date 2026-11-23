@@ -159,8 +159,13 @@ class InvoiceController extends Controller
                 $lineTotal = round($qty * $unitPrice, 2);
                 $subtotal += $lineTotal;
 
+                $itemId = $line['item_id'] ?? null;
+                if (! $itemId && ! empty($line['description'])) {
+                    $itemId = Item::where('name', $line['description'])->value('id');
+                }
+
                 $lineItemsData[] = [
-                    'item_id'     => $line['item_id'] ?? null,
+                    'item_id'     => $itemId,
                     'description' => $line['description'],
                     'quantity'    => $qty,
                     'unit_price'  => $unitPrice,

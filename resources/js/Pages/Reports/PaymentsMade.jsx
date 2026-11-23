@@ -52,9 +52,17 @@ export default function PaymentsMade({
                       )}
                     </td>
                     <td className="py-2 px-3 font-mono">
-                      <Link href="/purchases/bills" className="text-amber-700 hover:text-amber-900 hover:underline">
-                        {p.bill_number}
-                      </Link>
+                      {p.bill_number ? (
+                        <Link
+                          href={p.bill_id ? `/reports/bill-details?bill_id=${p.bill_id}` : "/purchases/bills"}
+                          className="text-amber-700 hover:text-amber-900 hover:underline font-semibold"
+                          title="View Bill Details"
+                        >
+                          {p.bill_number}
+                        </Link>
+                      ) : (
+                        <span className="text-slate-400 italic">Direct Vendor Payment</span>
+                      )}
                     </td>
                     <td className="py-2 px-3">
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-700">

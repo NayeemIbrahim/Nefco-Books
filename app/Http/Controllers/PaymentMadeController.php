@@ -22,7 +22,7 @@ class PaymentMadeController extends Controller
 
     public function index(Request $request): Response
     {
-        $query = Payment::with(['contact', 'bill', 'account'])
+        $query = Payment::with(['contact', 'bill.lineItems', 'bill.contact', 'account'])
             ->where('type', 'VENDOR_PAYMENT');
 
         if ($search = $request->input('search')) {
@@ -40,7 +40,7 @@ class PaymentMadeController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'phone', 'whatsapp_number']);
 
-        $unpaidBills = Bill::with('contact')
+        $unpaidBills = Bill::with(['contact', 'lineItems'])
             ->whereNotIn('status', ['PAID', 'VOID'])
             ->where(function ($q) {
                 $q->whereColumn('paid_amount', '<', 'total_amount')->orWhereNull('paid_amount');

@@ -52,9 +52,17 @@ export default function PaymentsReceived({
                       )}
                     </td>
                     <td className="py-2 px-3 font-mono">
-                      <Link href="/sales/invoices" className="text-blue-600 hover:text-blue-800 hover:underline">
-                        {p.invoice_number}
-                      </Link>
+                      {p.invoice_number ? (
+                        <Link
+                          href={p.invoice_id ? `/reports/invoice-details?invoice_id=${p.invoice_id}` : "/sales/invoices"}
+                          className="text-blue-600 hover:text-blue-800 hover:underline font-semibold"
+                          title="View Invoice Details"
+                        >
+                          {p.invoice_number}
+                        </Link>
+                      ) : (
+                        <span className="text-slate-400 italic">Direct Receipt</span>
+                      )}
                     </td>
                     <td className="py-2 px-3">
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-slate-100 text-slate-700">

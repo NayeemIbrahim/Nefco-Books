@@ -22,7 +22,7 @@ class PaymentReceivedController extends Controller
 
     public function index(Request $request): Response
     {
-        $query = Payment::with(['contact', 'invoice', 'account'])
+        $query = Payment::with(['contact', 'invoice.lineItems', 'invoice.contact', 'account'])
             ->where('type', 'CUSTOMER_PAYMENT');
 
         if ($search = $request->input('search')) {
@@ -40,7 +40,7 @@ class PaymentReceivedController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'phone', 'whatsapp_number']);
 
-        $unpaidInvoices = Invoice::with('contact')
+        $unpaidInvoices = Invoice::with(['contact', 'lineItems'])
             ->whereNotIn('status', ['PAID', 'DRAFT', 'VOID'])
             ->where(function ($q) {
                 $q->whereColumn('paid_amount', '<', 'total_amount')->orWhereNull('paid_amount');

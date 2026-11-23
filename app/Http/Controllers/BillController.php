@@ -151,7 +151,12 @@ class BillController extends Controller
             ]);
 
             foreach ($validated['line_items'] as $item) {
+                $itemId = $item['item_id'] ?? null;
+                if (! $itemId && ! empty($item['description'])) {
+                    $itemId = \App\Models\Item::where('name', $item['description'])->value('id');
+                }
                 $bill->lineItems()->create([
+                    'item_id'     => $itemId,
                     'description' => $item['description'],
                     'quantity'    => $item['quantity'],
                     'unit_price'  => $item['unit_price'],
@@ -248,7 +253,12 @@ class BillController extends Controller
             $bill->lineItems()->delete();
 
             foreach ($validated['line_items'] as $item) {
+                $itemId = $item['item_id'] ?? null;
+                if (! $itemId && ! empty($item['description'])) {
+                    $itemId = \App\Models\Item::where('name', $item['description'])->value('id');
+                }
                 $bill->lineItems()->create([
+                    'item_id'     => $itemId,
                     'description' => $item['description'],
                     'quantity'    => $item['quantity'],
                     'unit_price'  => $item['unit_price'],

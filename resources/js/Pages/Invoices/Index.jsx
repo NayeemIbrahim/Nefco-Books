@@ -233,6 +233,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
       const rate = parseFloat(matchedItem.sales_price) || 0;
       updated[idx] = {
         ...updated[idx],
+        item_id: matchedItem.id,
         description: matchedItem.name,
         unit_price: rate,
         amount: qty * rate,

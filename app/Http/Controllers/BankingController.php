@@ -17,6 +17,8 @@ class BankingController extends Controller
 
     public function index(): Response
     {
+        Account::syncAllBalances();
+
         $accounts = Account::where('sub_type', 'CASH_AND_BANK')->get();
         $allAccounts = Account::orderBy('code')->get();
         $recentJournals = JournalEntry::with('lines.account')->latest('date')->take(10)->get();

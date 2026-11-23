@@ -33,6 +33,7 @@ export default function PaymentsMadeIndex({
   const [search, setSearch] = useState(filters?.search || "");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState(null);
+  const [selectedBill, setSelectedBill] = useState(null);
 
   // Inline row payment states (for fast direct payment from table)
   const [inlineAmounts, setInlineAmounts] = useState({});
@@ -289,7 +290,15 @@ export default function PaymentsMadeIndex({
                       return (
                         <tr key={bill.id} className="hover:bg-amber-50/30 transition">
                           <td className="py-3 px-4 font-mono font-bold text-amber-700">
-                            {bill.bill_number}
+                            <button
+                              type="button"
+                              onClick={() => setSelectedBill(bill)}
+                              className="hover:underline hover:text-amber-900 transition flex items-center gap-1.5 cursor-pointer text-left font-mono font-bold text-amber-700"
+                              title="Click to view Bill details"
+                            >
+                              <Receipt className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                              <span>{bill.bill_number}</span>
+                            </button>
                           </td>
                           <td className="py-3 px-4">
                             <div className="font-semibold text-slate-900">{bill.contact?.name || "Vendor"}</div>
@@ -422,7 +431,15 @@ export default function PaymentsMadeIndex({
                         </td>
                         <td className="py-3 px-4 font-mono">
                           {pay.bill ? (
-                            <span className="text-amber-700 font-semibold">{pay.bill.bill_number}</span>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedBill(pay.bill)}
+                              className="text-amber-700 hover:text-amber-900 hover:underline font-semibold flex items-center gap-1.5 cursor-pointer font-mono"
+                              title="Click to view Bill details"
+                            >
+                              <Receipt className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                              <span>{pay.bill.bill_number}</span>
+                            </button>
                           ) : (
                             <span className="text-slate-400 italic">Direct Vendor Payment</span>
                           )}
@@ -704,6 +721,141 @@ export default function PaymentsMadeIndex({
                 </button>
                 <button
                   onClick={() => setSelectedPayment(null)}
+                  className="px-4 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white rounded-md transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bill Detail Modal Popup */}
+        {selectedBill && (
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+            <div className="bg-white rounded-lg max-w-xl w-full overflow-hidden shadow-2xl border border-slate-200 animate-in fade-in duration-150 flex flex-col max-h-[92vh]">
+              <div className="p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                  <Receipt className="h-5 w-5 text-amber-400" />
+                  <span className="font-bold text-sm font-mono">Bill Details - {selectedBill.bill_number}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBill(null)}
+                  className="text-slate-400 hover:text-white p-1"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="p-4 sm:p-6 space-y-4 text-xs text-slate-700 overflow-y-auto flex-1">
+                <div className="flex justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-900">{selectedBill.contact?.name || "Vendor"}</h3>
+                    <p className="text-slate-500">{selectedBill.contact?.whatsapp_number || selectedBill.contact?.phone || "Vendor Contact"}</p>
+                  </div>
+                  <div className="text-right">
+                    <span
+                      className={`px-2 py-0.5 text-[10px] font-bold rounded ${
+                        selectedBill.status === "PAID"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {selectedBill.status || "CONFIRMED"}
+                    </span>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Date: {formatDate(selectedBill.bill_date || selectedBill.created_at)}
+                    </p>
+                    {selectedBill.due_date && (
+                      <p className="text-[11px] text-slate-500">
+                        Due: {formatDate(selectedBill.due_date)}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Line Items */}
+                <div className="border border-slate-200 rounded-md overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[10px]">
+                      <tr>
+                        <th className="p-2">Item / Description</th>
+                        <th className="p-2 text-center">Qty</th>
+                        <th className="p-2 text-right">Price (৳)</th>
+                        <th className="p-2 text-right">Amount (৳)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {((selectedBill.line_items || selectedBill.lineItems || []).length > 0) ? (
+                        (selectedBill.line_items || selectedBill.lineItems || []).map((li, i) => (
+                          <tr key={i}>
+                            <td className="p-2 font-medium text-slate-800">{li.description}</td>
+                            <td className="p-2 text-center font-mono">{li.quantity}</td>
+                            <td className="p-2 text-right font-mono">{formatBDT(li.unit_price)}</td>
+                            <td className="p-2 text-right font-semibold font-mono">{formatBDT(li.amount)}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td className="p-2 font-medium text-slate-800">Vendor Purchase / Expense</td>
+                          <td className="p-2 text-center font-mono">1</td>
+                          <td className="p-2 text-right font-mono">{formatBDT(selectedBill.total_amount)}</td>
+                          <td className="p-2 text-right font-semibold font-mono">{formatBDT(selectedBill.total_amount)}</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Summary Totals */}
+                <div className="bg-slate-50 p-3.5 rounded-md space-y-1.5 text-xs text-slate-700">
+                  <div className="flex justify-between items-center font-bold text-sm text-slate-900">
+                    <span>Total Bill Amount</span>
+                    <span className="text-amber-700 font-mono">{formatBDT(selectedBill.total_amount)}</span>
+                  </div>
+                  {(() => {
+                    const isPaid = selectedBill.status === "PAID" || (parseFloat(selectedBill.paid_amount) || 0) >= (parseFloat(selectedBill.total_amount) || 0);
+                    const paid = isPaid ? selectedBill.total_amount : (selectedBill.paid_amount || 0);
+                    const due = isPaid ? 0 : Math.max(0, (parseFloat(selectedBill.total_amount) || 0) - (parseFloat(selectedBill.paid_amount) || 0));
+                    return (
+                      <>
+                        {parseFloat(paid) > 0 && (
+                          <div className="flex justify-between items-center text-emerald-700 font-semibold">
+                            <span>Paid to Date</span>
+                            <span className="font-mono">{formatBDT(paid)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center font-bold pt-1 border-t border-slate-200">
+                          <span>Balance Due</span>
+                          <span className={`font-mono ${due <= 0 ? "text-emerald-600" : "text-amber-700"}`}>
+                            {formatBDT(due)}
+                          </span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+
+                {selectedBill.notes && (
+                  <div className="text-[11px] text-slate-500 italic bg-amber-50/50 p-2.5 rounded border border-amber-100">
+                    <strong>Notes:</strong> {selectedBill.notes}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-md hover:bg-slate-100 transition shadow-xs"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  <span>Print Bill</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedBill(null)}
                   className="px-4 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white rounded-md transition"
                 >
                   Close

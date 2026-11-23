@@ -81,6 +81,7 @@ class SettingsController extends Controller
         $accounts = collect();
         try {
             if (Schema::hasTable('accounts')) {
+                Account::syncAllBalances();
                 $accounts = Account::orderBy('code')->get();
             }
         } catch (\Throwable $e) {
