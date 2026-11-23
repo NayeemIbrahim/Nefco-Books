@@ -39,9 +39,21 @@ class AppServiceProvider extends ServiceProvider
 
         // Self-healing database: auto-run pending migrations if newer schema columns are missing
         try {
-            if (! Cache::has('db_schema_v8_migrated')) {
+            if (! Cache::has('db_schema_v9_migrated')) {
                 // Auto-run migrations on server to apply nullable whatsapp_number and invoice/expenses additions
                 Artisan::call('migrate', ['--force' => true]);
+
+                // Ensure Opening Balance Equity account exists
+                \App\Models\Account::firstOrCreate(
+                    ['code' => '3010'],
+                    [
+                        'name'      => 'Opening Balance Equity',
+                        'type'      => 'EQUITY',
+                        'sub_type'  => 'EQUITY',
+                        'is_system' => true,
+                        'balance'   => 0.00,
+                    ]
+                );
 
                 // Ensure default admin user exists if users table is empty
                 if (Schema::hasTable('users') && User::count() === 0) {
@@ -92,7 +104,7 @@ class AppServiceProvider extends ServiceProvider
                         ->update(['paid_amount' => \Illuminate\Support\Facades\DB::raw('total_amount')]);
                 }
 
-                Cache::put('db_schema_v8_migrated', true, now()->addDays(3));
+                Cache::put('db_schema_v9_migrated', true, now()->addDays(3));
             }
         } catch (\Throwable $e) {
             Log::warning('Automatic migration / database setup notice: ' . $e->getMessage());

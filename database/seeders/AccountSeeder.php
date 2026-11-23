@@ -19,6 +19,7 @@ class AccountSeeder extends Seeder
             ['code' => '2000', 'name' => 'Accounts Payable', 'type' => 'LIABILITY', 'sub_type' => 'ACCOUNTS_PAYABLE', 'is_system' => true, 'balance' => 0.00],
             // Equity
             ['code' => '3000', 'name' => "Owner's Equity", 'type' => 'EQUITY', 'sub_type' => 'EQUITY', 'is_system' => true, 'balance' => 0.00],
+            ['code' => '3010', 'name' => 'Opening Balance Equity', 'type' => 'EQUITY', 'sub_type' => 'EQUITY', 'is_system' => true, 'balance' => 0.00],
             // Revenue
             ['code' => '4000', 'name' => 'Sales Revenue', 'type' => 'REVENUE', 'sub_type' => 'OPERATING_REVENUE', 'is_system' => true, 'balance' => 0.00],
             // Expenses

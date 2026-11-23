@@ -11,7 +11,7 @@ class JournalEntry extends Model
     protected $fillable = [
         'entry_number', 'date', 'reference', 'description', 'status',
         'source_document_type', 'source_document_id', 'created_by_id',
-        'invoice_id', 'bill_id', 'payment_id'
+        'contact_id', 'invoice_id', 'bill_id', 'payment_id'
     ];
 
     protected $casts = [
@@ -21,6 +21,11 @@ class JournalEntry extends Model
     public function lines(): HasMany
     {
         return $this->hasMany(JournalLine::class);
+    }
+
+    public function contact(): BelongsTo
+    {
+        return $this->belongsTo(Contact::class);
     }
 
     public function invoice(): BelongsTo

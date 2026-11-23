@@ -30,6 +30,7 @@ Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 Route::resource('contacts', ContactController::class);
 Route::post('contacts/{contact}', [ContactController::class, 'update'])->name('contacts.update');
 Route::post('contacts/{contact}/restore', [ContactController::class, 'restore'])->name('contacts.restore');
+Route::get('contacts/{contact}/ledger', [ContactController::class, 'ledger'])->name('contacts.ledger');
 
 // 3. Items & Inventory
 Route::resource('items', ItemController::class);

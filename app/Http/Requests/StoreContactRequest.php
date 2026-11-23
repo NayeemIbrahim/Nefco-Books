@@ -23,8 +23,10 @@ class StoreContactRequest extends FormRequest
             'address'         => ['nullable', 'string', 'max:255'],
             'city'            => ['nullable', 'string', 'max:100'],
             'country'         => ['nullable', 'string', 'max:100'],
-            'tax_number'      => ['nullable', 'string', 'max:50'],
-            'opening_balance' => ['nullable', 'numeric'],
+            'tax_number'           => ['nullable', 'string', 'max:50'],
+            'opening_balance'      => ['nullable', 'numeric', 'min:0'],
+            'opening_balance_type' => ['nullable', 'in:TO_RECEIVE,TO_PAY'],
+            'opening_balance_date' => ['nullable', 'date'],
         ];
     }
 }
