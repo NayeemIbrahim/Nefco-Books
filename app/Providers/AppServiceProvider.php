@@ -37,11 +37,63 @@ class AppServiceProvider extends ServiceProvider
             // Ignore if tables do not exist yet or already updated
         }
 
+        // Direct Native Schema Healing for categories, users, and items (zero Artisan dependency)
+        try {
+            if (Schema::hasTable('categories') && !Schema::hasColumn('categories', 'type')) {
+                Schema::table('categories', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    $table->string('type', 50)->default('ITEM')->after('name');
+                });
+            }
+
+            if (Schema::hasTable('users') && !Schema::hasColumn('users', 'enable_stock')) {
+                Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    $table->boolean('enable_stock')->default(false);
+                });
+            }
+
+            if (Schema::hasTable('items') && !Schema::hasColumn('items', 'category_id')) {
+                Schema::table('items', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    $table->unsignedBigInteger('category_id')->nullable()->after('name');
+                });
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Native schema auto-healing notice: ' . $e->getMessage());
+        }
+
         // Self-healing database: auto-run pending migrations if newer schema columns are missing
         try {
-            if (! Cache::has('db_schema_v9_migrated')) {
-                // Auto-run migrations on server to apply nullable whatsapp_number and invoice/expenses additions
+            if (! Cache::has('db_schema_v12_migrated')) {
+                // Auto-run migrations on server to apply any pending schema changes
                 Artisan::call('migrate', ['--force' => true]);
+
+                // Ensure default expense categories exist
+                if (Schema::hasTable('categories') && Schema::hasColumn('categories', 'type')) {
+                    $hasExpenseCats = \Illuminate\Support\Facades\DB::table('categories')->where('type', 'EXPENSE')->exists();
+                    if (! $hasExpenseCats) {
+                        $defaultExpenses = [
+                            'Office Rent',
+                            'Utilities (Electricity/Water/Gas)',
+                            'Internet & Telecom',
+                            'Salaries & Staff Wages',
+                            'Office Supplies & Stationery',
+                            'Repairs & Maintenance',
+                            'Advertising & Marketing',
+                            'Travel & Conveyance',
+                            'Professional & Legal Fees',
+                            'Bank Fees & Charges',
+                            'General & Miscellaneous',
+                        ];
+                        foreach ($defaultExpenses as $name) {
+                            \Illuminate\Support\Facades\DB::table('categories')->insert([
+                                'name'        => $name,
+                                'type'        => 'EXPENSE',
+                                'description' => $name,
+                                'created_at'  => now(),
+                                'updated_at'  => now(),
+                            ]);
+                        }
+                    }
+                }
 
                 // Ensure Opening Balance Equity account exists
                 \App\Models\Account::firstOrCreate(
@@ -80,6 +132,9 @@ class AppServiceProvider extends ServiceProvider
                     if (Schema::hasColumn('users', 'default_uom')) {
                         $adminData['default_uom'] = 'Pcs';
                     }
+                    if (Schema::hasColumn('users', 'enable_stock')) {
+                        $adminData['enable_stock'] = false;
+                    }
                     User::create($adminData);
                 }
 
@@ -104,7 +159,7 @@ class AppServiceProvider extends ServiceProvider
                         ->update(['paid_amount' => \Illuminate\Support\Facades\DB::raw('total_amount')]);
                 }
 
-                Cache::put('db_schema_v9_migrated', true, now()->addDays(3));
+                Cache::put('db_schema_v12_migrated', true, now()->addDays(3));
             }
         } catch (\Throwable $e) {
             Log::warning('Automatic migration / database setup notice: ' . $e->getMessage());

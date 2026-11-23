@@ -80,6 +80,13 @@ class ItemCategoriesAndQuickSellTest extends TestCase
         ]);
         $response->assertRedirect();
         $this->assertTrue((bool)$user->fresh()->enable_stock);
+
+        // Test dedicated toggle-stock route
+        $toggleResp = $this->post(route('settings.toggle-stock'), [
+            'enable_stock' => false,
+        ]);
+        $toggleResp->assertRedirect();
+        $this->assertFalse((bool)$user->fresh()->enable_stock);
     }
 
     public function test_items_index_renders_with_customers_and_categories(): void

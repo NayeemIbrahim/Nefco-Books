@@ -184,6 +184,12 @@ class SettingsController extends Controller
 
         try {
             if (Schema::hasTable('users')) {
+                if (! Schema::hasColumn('users', 'enable_stock')) {
+                    Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+                        $table->boolean('enable_stock')->default(false);
+                    });
+                }
+
                 $existingColumns = Schema::getColumnListing('users');
                 $dataToUpdate = array_filter(
                     $validated,
@@ -192,7 +198,12 @@ class SettingsController extends Controller
                 );
 
                 if (! empty($dataToUpdate)) {
-                    User::query()->update($dataToUpdate);
+                    $user = $this->resolveUser();
+                    if ($user) {
+                        $user->update($dataToUpdate);
+                    } else {
+                        User::query()->update($dataToUpdate);
+                    }
                 }
             }
         } catch (\Throwable $e) {
@@ -200,6 +211,39 @@ class SettingsController extends Controller
         }
 
         return back()->with('success', 'Organization and business settings saved!');
+    }
+
+    public function toggleStock(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'enable_stock' => 'required|boolean',
+        ]);
+
+        try {
+            if (Schema::hasTable('users')) {
+                if (! Schema::hasColumn('users', 'enable_stock')) {
+                    Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+                        $table->boolean('enable_stock')->default(false);
+                    });
+                }
+
+                $enableVal = (bool)$validated['enable_stock'];
+                $user = $this->resolveUser();
+                if ($user) {
+                    $user->update(['enable_stock' => $enableVal]);
+                } else {
+                    User::query()->update(['enable_stock' => $enableVal]);
+                }
+
+                $state = $enableVal ? 'ENABLED' : 'DISABLED';
+                return back()->with('success', "Stock Tracking {$state} successfully! Items table updated.");
+            }
+        } catch (\Throwable $e) {
+            Log::error('Settings toggleStock error: ' . $e->getMessage());
+            return back()->with('error', 'Could not update stock preference: ' . $e->getMessage());
+        }
+
+        return back()->with('success', 'Stock preference updated.');
     }
 
     public function storeAccount(Request $request): RedirectResponse
@@ -300,10 +344,21 @@ class SettingsController extends Controller
             'description' => 'nullable|string|max:255',
         ]);
 
-        $category = Category::create($validated);
+        try {
+            if (Schema::hasTable('categories') && ! Schema::hasColumn('categories', 'type')) {
+                Schema::table('categories', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    $table->string('type', 50)->default('ITEM')->after('name');
+                });
+            }
 
-        $typeLabel = $validated['type'] === 'EXPENSE' ? 'Expense' : 'Item';
-        return back()->with('success', "{$typeLabel} Category '{$category->name}' created successfully!");
+            $category = Category::create($validated);
+
+            $typeLabel = $validated['type'] === 'EXPENSE' ? 'Expense' : 'Item';
+            return back()->with('success', "{$typeLabel} Category '{$category->name}' created successfully!");
+        } catch (\Throwable $e) {
+            Log::error('Settings storeCategory error: ' . $e->getMessage());
+            return back()->with('error', 'Failed to create category: ' . $e->getMessage());
+        }
     }
 
     public function updateCategory(Request $request, Category $category): RedirectResponse
@@ -313,23 +368,32 @@ class SettingsController extends Controller
             'description' => 'nullable|string|max:255',
         ]);
 
-        $category->update($validated);
-
-        return back()->with('success', "Category '{$category->name}' updated successfully!");
+        try {
+            $category->update($validated);
+            return back()->with('success', "Category '{$category->name}' updated successfully!");
+        } catch (\Throwable $e) {
+            Log::error('Settings updateCategory error: ' . $e->getMessage());
+            return back()->with('error', 'Failed to update category: ' . $e->getMessage());
+        }
     }
 
     public function destroyCategory(Category $category): RedirectResponse
     {
-        $name = $category->name;
-        $typeLabel = $category->type === 'EXPENSE' ? 'Expense' : 'Item';
+        try {
+            $name = $category->name;
+            $typeLabel = $category->type === 'EXPENSE' ? 'Expense' : 'Item';
 
-        // Detach items if item category
-        if ($category->type === 'ITEM') {
-            \App\Models\Item::where('category_id', $category->id)->update(['category_id' => null]);
+            // Detach items if item category
+            if ($category->type === 'ITEM' && Schema::hasTable('items') && Schema::hasColumn('items', 'category_id')) {
+                \App\Models\Item::where('category_id', $category->id)->update(['category_id' => null]);
+            }
+
+            $category->delete();
+
+            return back()->with('success', "{$typeLabel} Category '{$name}' deleted successfully!");
+        } catch (\Throwable $e) {
+            Log::error('Settings destroyCategory error: ' . $e->getMessage());
+            return back()->with('error', 'Failed to delete category: ' . $e->getMessage());
         }
-
-        $category->delete();
-
-        return back()->with('success', "{$typeLabel} Category '{$name}' deleted successfully!");
     }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { formatBDT } from "@/lib/utils";
 import {
@@ -47,6 +47,10 @@ export default function SettingsIndex({
   const [currencyCode, setCurrencyCode] = useState(company?.currency_code || "BDT");
   const [defaultUom, setDefaultUom] = useState(company?.default_uom || "Pcs");
   const [enableStock, setEnableStock] = useState(Boolean(company?.enable_stock));
+
+  useEffect(() => {
+    setEnableStock(Boolean(company?.enable_stock));
+  }, [company?.enable_stock]);
   const [whatsappPhoneId, setWhatsappPhoneId] = useState(company?.whatsapp_phone_number_id || "");
   const [whatsappToken, setWhatsappToken] = useState(company?.whatsapp_access_token || "");
 
@@ -111,23 +115,18 @@ export default function SettingsIndex({
   const handleToggleStock = (newVal) => {
     setEnableStock(newVal);
     router.post(
-      "/settings/company",
+      "/settings/toggle-stock",
       {
-        company_name: companyName,
-        company_address: companyAddress,
-        bin_number: binNumber,
-        phone: phone,
-        currency_symbol: currencySymbol,
-        currency_code: currencyCode,
-        default_uom: defaultUom,
         enable_stock: newVal,
-        whatsapp_phone_number_id: whatsappPhoneId,
-        whatsapp_access_token: whatsappToken,
       },
       {
         preserveScroll: true,
         onSuccess: () =>
           setNotification(`✅ Stock Tracking ${newVal ? "ENABLED" : "DISABLED"}! Items page updated.`),
+        onError: () => {
+          setEnableStock(!newVal);
+          setNotification("❌ Could not update stock tracking preference.");
+        },
       }
     );
   };
