@@ -422,31 +422,17 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
                             {formatBDT(balanceDue)}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-center space-x-1.5" onClick={(e) => e.stopPropagation()}>
-                          {!isPaid && (
+                        <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1.5">
                             <button
-                              onClick={() => handleMarkAsPaid(b.id)}
-                              className="px-2 py-1 text-[11px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded border border-emerald-200 transition inline-flex items-center gap-1"
-                              title="Record Payment / Mark Paid"
+                              onClick={() => handleOpenEditDrawer(b)}
+                              className="px-2.5 py-1 text-[11px] font-semibold bg-amber-50 text-amber-800 hover:bg-amber-100 rounded border border-amber-200 transition inline-flex items-center gap-1 shadow-xs"
+                              title="Edit Bill"
                             >
-                              <CheckCircle2 className="h-3 w-3" />
-                              <span>Mark Paid</span>
+                              <Edit className="h-3 w-3" />
+                              <span>Edit</span>
                             </button>
-                          )}
-                          <button
-                            onClick={() => handleSelectBill(b)}
-                            className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded transition"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => handleOpenEditDrawer(b)}
-                            className="px-2 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 rounded transition inline-flex items-center gap-1"
-                            title="Edit Bill"
-                          >
-                            <Edit className="h-3 w-3" />
-                            <span>Edit</span>
-                          </button>
+                          </div>
                         </td>
                       </tr>
                     );

@@ -506,44 +506,31 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                             {inv.whatsapp_sent ? "Sent ✓" : "Send Alert"}
                           </button>
                         </td>
-                        <td className="py-3 px-4 text-center space-x-1.5" onClick={(e) => e.stopPropagation()}>
-                          {inv.status !== "PAID" && (
+                        <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1.5">
                             <button
-                              onClick={() => handleMarkAsPaid(inv.id)}
-                              className="px-2 py-1 text-[11px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded border border-emerald-200 transition inline-flex items-center gap-1"
-                              title="Record Payment / Mark Paid"
+                              onClick={() => handleOpenEditDrawer(inv)}
+                              className="px-2.5 py-1 text-[11px] font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 rounded border border-blue-200 transition inline-flex items-center gap-1 shadow-xs"
+                              title="Edit Invoice"
                             >
-                              <CheckCircle2 className="h-3 w-3" />
-                              <span>Mark Paid</span>
+                              <Edit className="h-3 w-3" />
+                              <span>Edit</span>
                             </button>
-                          )}
-                          <button
-                            onClick={() => handleSelectInvoice(inv)}
-                            className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded hover:bg-slate-200 transition"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => handleOpenEditDrawer(inv)}
-                            className="px-2.5 py-1 text-[11px] font-semibold bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition inline-flex items-center gap-1"
-                          >
-                            <Edit className="h-3 w-3" />
-                            <span>Edit</span>
-                          </button>
-                          {inv.status === "DRAFT" && (
-                            <button
-                              onClick={() => {
-                                if (confirm(`Are you sure you want to delete draft invoice ${inv.invoice_number}?`)) {
-                                  router.delete(`/invoices/${inv.id}`);
-                                }
-                              }}
-                              className="px-2 py-1 text-[11px] font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 rounded border border-rose-200 transition inline-flex items-center gap-1"
-                              title="Delete Draft Invoice"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                              <span>Delete</span>
-                            </button>
-                          )}
+                            {inv.status === "DRAFT" && (
+                              <button
+                                onClick={() => {
+                                  if (confirm(`Are you sure you want to delete draft invoice ${inv.invoice_number}?`)) {
+                                    router.delete(`/invoices/${inv.id}`);
+                                  }
+                                }}
+                                className="px-2 py-1 text-[11px] font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 rounded border border-rose-200 transition inline-flex items-center gap-1"
+                                title="Delete Draft Invoice"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                <span>Delete</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

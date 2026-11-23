@@ -35,6 +35,53 @@ export default function PaymentsMadeIndex({
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [selectedBill, setSelectedBill] = useState(null);
 
+  // Modal Bill Settlement State inside Popup
+  const [modalPayAmount, setModalPayAmount] = useState("");
+  const [modalPayAccount, setModalPayAccount] = useState(paid_from_accounts?.[0]?.id || "");
+  const [modalPayMethod, setModalPayMethod] = useState("CASH");
+  const [modalPayRef, setModalPayRef] = useState("");
+  const [isSubmittingBillPay, setIsSubmittingBillPay] = useState(false);
+
+  const handleOpenBillModal = (bill) => {
+    setSelectedBill(bill);
+    if (bill) {
+      const isPaid = bill.status === "PAID" || (parseFloat(bill.paid_amount) || 0) >= (parseFloat(bill.total_amount) || 0);
+      const due = isPaid ? 0 : Math.max(0, (parseFloat(bill.total_amount) || 0) - (parseFloat(bill.paid_amount) || 0));
+      setModalPayAmount(due > 0 ? due : "");
+      setModalPayAccount(paid_from_accounts?.[0]?.id || "");
+      setModalPayMethod("CASH");
+      setModalPayRef("");
+    }
+  };
+
+  const handleModalBillPayment = (e) => {
+    e.preventDefault();
+    if (!selectedBill || !modalPayAmount || parseFloat(modalPayAmount) <= 0) return;
+    setIsSubmittingBillPay(true);
+    router.post(
+      "/purchases/payments-made",
+      {
+        contact_id: selectedBill.contact_id,
+        bill_id: selectedBill.id,
+        amount: parseFloat(modalPayAmount),
+        account_id: modalPayAccount || paid_from_accounts?.[0]?.id,
+        payment_date: todayStr,
+        payment_method: modalPayMethod,
+        reference_number: modalPayRef,
+        notes: `Payment for bill ${selectedBill.bill_number}`,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setSelectedBill(null);
+          setIsSubmittingBillPay(false);
+          setNotification(`✅ Payment of ${formatBDT(modalPayAmount)} on Bill #${selectedBill.bill_number} recorded & posted!`);
+        },
+        onError: () => setIsSubmittingBillPay(false),
+      }
+    );
+  };
+
   // Inline row payment states (for fast direct payment from table)
   const [inlineAmounts, setInlineAmounts] = useState({});
   const [inlineAccounts, setInlineAccounts] = useState({});
@@ -292,9 +339,9 @@ export default function PaymentsMadeIndex({
                           <td className="py-3 px-4 font-mono font-bold text-amber-700">
                             <button
                               type="button"
-                              onClick={() => setSelectedBill(bill)}
+                              onClick={() => handleOpenBillModal(bill)}
                               className="hover:underline hover:text-amber-900 transition flex items-center gap-1.5 cursor-pointer text-left font-mono font-bold text-amber-700"
-                              title="Click to view Bill details"
+                              title="Click to view Bill details & pay"
                             >
                               <Receipt className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                               <span>{bill.bill_number}</span>
@@ -433,9 +480,9 @@ export default function PaymentsMadeIndex({
                           {pay.bill ? (
                             <button
                               type="button"
-                              onClick={() => setSelectedBill(pay.bill)}
+                              onClick={() => handleOpenBillModal(pay.bill)}
                               className="text-amber-700 hover:text-amber-900 hover:underline font-semibold flex items-center gap-1.5 cursor-pointer font-mono"
-                              title="Click to view Bill details"
+                              title="Click to view Bill details & pay"
                             >
                               <Receipt className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                               <span>{pay.bill.bill_number}</span>
@@ -836,6 +883,97 @@ export default function PaymentsMadeIndex({
                     );
                   })()}
                 </div>
+
+                {/* Direct Bill Payment / Settlement Form inside Popup */}
+                {(() => {
+                  const isPaid = selectedBill.status === "PAID" || (parseFloat(selectedBill.paid_amount) || 0) >= (parseFloat(selectedBill.total_amount) || 0);
+                  const due = isPaid ? 0 : Math.max(0, (parseFloat(selectedBill.total_amount) || 0) - (parseFloat(selectedBill.paid_amount) || 0));
+
+                  if (due <= 0) {
+                    return (
+                      <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-md text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <span>This vendor bill is fully settled & paid. (Balance Due: ৳0.00)</span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="p-3.5 sm:p-4 bg-amber-50/80 border border-amber-200 rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-bold text-xs text-amber-950">
+                          <CreditCard className="h-4 w-4 text-amber-600" />
+                          <span>Pay & Settle This Bill</span>
+                        </div>
+                        <span className="text-[10px] text-amber-800 font-medium">Posts to General Ledger</span>
+                      </div>
+
+                      <form onSubmit={handleModalBillPayment} className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 uppercase">Pay Amount (৳)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              required
+                              min="0.01"
+                              max={due}
+                              value={modalPayAmount}
+                              onChange={(e) => setModalPayAmount(e.target.value)}
+                              className="w-full mt-0.5 px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded bg-white text-slate-900 focus:ring-1 focus:ring-amber-500"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 uppercase">Paid From</label>
+                            <select
+                              value={modalPayAccount}
+                              onChange={(e) => setModalPayAccount(e.target.value)}
+                              className="w-full mt-0.5 px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-900 focus:ring-1 focus:ring-amber-500"
+                            >
+                              {accountList.map((acc) => (
+                                <option key={acc.id} value={acc.id}>
+                                  {acc.name} ({acc.code})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 uppercase">Method</label>
+                            <select
+                              value={modalPayMethod}
+                              onChange={(e) => setModalPayMethod(e.target.value)}
+                              className="w-full mt-0.5 px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-900 focus:ring-1 focus:ring-amber-500"
+                            >
+                              <option value="CASH">Cash</option>
+                              <option value="BANK_TRANSFER">Bank Transfer</option>
+                              <option value="MOBILE_BANKING">Mobile Banking</option>
+                              <option value="CHEQUE">Cheque</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
+                          <input
+                            type="text"
+                            value={modalPayRef}
+                            onChange={(e) => setModalPayRef(e.target.value)}
+                            placeholder="Reference # or transaction ID (optional)"
+                            className="w-full sm:w-1/2 px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-800"
+                          />
+                          <button
+                            type="submit"
+                            disabled={isSubmittingBillPay}
+                            className="w-full sm:w-auto px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span>{isSubmittingBillPay ? "Recording..." : `Confirm Payment (${formatBDT(parseFloat(modalPayAmount) || 0)})`}</span>
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  );
+                })()}
 
                 {selectedBill.notes && (
                   <div className="text-[11px] text-slate-500 italic bg-amber-50/50 p-2.5 rounded border border-amber-100">

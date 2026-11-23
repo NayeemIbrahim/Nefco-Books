@@ -35,6 +35,53 @@ export default function PaymentsReceivedIndex({
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
 
+  // Modal Invoice Settlement State inside Popup
+  const [modalPayAmount, setModalPayAmount] = useState("");
+  const [modalPayAccount, setModalPayAccount] = useState(deposit_accounts?.[0]?.id || "");
+  const [modalPayMethod, setModalPayMethod] = useState("CASH");
+  const [modalPayRef, setModalPayRef] = useState("");
+  const [isSubmittingInvPay, setIsSubmittingInvPay] = useState(false);
+
+  const handleOpenInvoiceModal = (inv) => {
+    setSelectedInvoice(inv);
+    if (inv) {
+      const isPaid = inv.status === "PAID" || (parseFloat(inv.paid_amount) || 0) >= (parseFloat(inv.total_amount) || 0);
+      const due = isPaid ? 0 : Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
+      setModalPayAmount(due > 0 ? due : "");
+      setModalPayAccount(deposit_accounts?.[0]?.id || "");
+      setModalPayMethod("CASH");
+      setModalPayRef("");
+    }
+  };
+
+  const handleModalInvoicePayment = (e) => {
+    e.preventDefault();
+    if (!selectedInvoice || !modalPayAmount || parseFloat(modalPayAmount) <= 0) return;
+    setIsSubmittingInvPay(true);
+    router.post(
+      "/sales/payments-received",
+      {
+        contact_id: selectedInvoice.contact_id,
+        invoice_id: selectedInvoice.id,
+        amount: parseFloat(modalPayAmount),
+        account_id: modalPayAccount || deposit_accounts?.[0]?.id,
+        payment_date: todayStr,
+        payment_method: modalPayMethod,
+        reference_number: modalPayRef,
+        notes: `Payment received for invoice ${selectedInvoice.invoice_number}`,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setSelectedInvoice(null);
+          setIsSubmittingInvPay(false);
+          setNotification(`✅ Receipt of ${formatBDT(modalPayAmount)} on Invoice #${selectedInvoice.invoice_number} recorded & posted!`);
+        },
+        onError: () => setIsSubmittingInvPay(false),
+      }
+    );
+  };
+
   // Inline row payment states (for fast direct payment from table)
   const [inlineAmounts, setInlineAmounts] = useState({});
   const [inlineAccounts, setInlineAccounts] = useState({});
@@ -293,9 +340,9 @@ export default function PaymentsReceivedIndex({
                           <td className="py-3 px-4 font-mono font-bold text-blue-600">
                             <button
                               type="button"
-                              onClick={() => setSelectedInvoice(inv)}
+                              onClick={() => handleOpenInvoiceModal(inv)}
                               className="hover:underline hover:text-blue-900 transition flex items-center gap-1.5 cursor-pointer text-left font-mono font-bold text-blue-600"
-                              title="Click to view Invoice details"
+                              title="Click to view Invoice details & receive payment"
                             >
                               <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                               <span>{inv.invoice_number}</span>
@@ -437,9 +484,9 @@ export default function PaymentsReceivedIndex({
                           {pay.invoice ? (
                             <button
                               type="button"
-                              onClick={() => setSelectedInvoice(pay.invoice)}
+                              onClick={() => handleOpenInvoiceModal(pay.invoice)}
                               className="text-blue-600 hover:text-blue-900 hover:underline font-semibold flex items-center gap-1.5 cursor-pointer font-mono"
-                              title="Click to view Invoice details"
+                              title="Click to view Invoice details & receive payment"
                             >
                               <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                               <span>{pay.invoice.invoice_number}</span>
@@ -840,6 +887,97 @@ export default function PaymentsReceivedIndex({
                     );
                   })()}
                 </div>
+
+                {/* Direct Invoice Receipt / Settlement Form inside Popup */}
+                {(() => {
+                  const isPaid = selectedInvoice.status === "PAID" || (parseFloat(selectedInvoice.paid_amount) || 0) >= (parseFloat(selectedInvoice.total_amount) || 0);
+                  const due = isPaid ? 0 : Math.max(0, (parseFloat(selectedInvoice.total_amount) || 0) - (parseFloat(selectedInvoice.paid_amount) || 0));
+
+                  if (due <= 0) {
+                    return (
+                      <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-md text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <span>This sales invoice is fully settled & paid. (Balance Due: ৳0.00)</span>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="p-3.5 sm:p-4 bg-emerald-50/80 border border-emerald-200 rounded-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-950">
+                          <CreditCard className="h-4 w-4 text-emerald-600" />
+                          <span>Receive Payment for This Invoice</span>
+                        </div>
+                        <span className="text-[10px] text-emerald-800 font-medium">Posts to General Ledger</span>
+                      </div>
+
+                      <form onSubmit={handleModalInvoicePayment} className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 uppercase">Receipt Amount (৳)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              required
+                              min="0.01"
+                              max={due}
+                              value={modalPayAmount}
+                              onChange={(e) => setModalPayAmount(e.target.value)}
+                              className="w-full mt-0.5 px-2.5 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded bg-white text-slate-900 focus:ring-1 focus:ring-emerald-500"
+                              placeholder="0.00"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 uppercase">Deposit To Account</label>
+                            <select
+                              value={modalPayAccount}
+                              onChange={(e) => setModalPayAccount(e.target.value)}
+                              className="w-full mt-0.5 px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-900 focus:ring-1 focus:ring-emerald-500"
+                            >
+                              {accountList.map((acc) => (
+                                <option key={acc.id} value={acc.id}>
+                                  {acc.name} ({acc.code})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 uppercase">Payment Method</label>
+                            <select
+                              value={modalPayMethod}
+                              onChange={(e) => setModalPayMethod(e.target.value)}
+                              className="w-full mt-0.5 px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-900 focus:ring-1 focus:ring-emerald-500"
+                            >
+                              <option value="CASH">Cash</option>
+                              <option value="BANK_TRANSFER">Bank Transfer</option>
+                              <option value="MOBILE_BANKING">Mobile Banking</option>
+                              <option value="CHEQUE">Cheque</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1">
+                          <input
+                            type="text"
+                            value={modalPayRef}
+                            onChange={(e) => setModalPayRef(e.target.value)}
+                            placeholder="Reference # or check ID (optional)"
+                            className="w-full sm:w-1/2 px-2.5 py-1.5 text-xs border border-slate-300 rounded bg-white text-slate-800"
+                          />
+                          <button
+                            type="submit"
+                            disabled={isSubmittingInvPay}
+                            className="w-full sm:w-auto px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span>{isSubmittingInvPay ? "Recording..." : `Confirm Receipt (${formatBDT(parseFloat(modalPayAmount) || 0)})`}</span>
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  );
+                })()}
 
                 {selectedInvoice.notes && (
                   <div className="text-[11px] text-slate-500 italic bg-blue-50/50 p-2.5 rounded border border-blue-100">

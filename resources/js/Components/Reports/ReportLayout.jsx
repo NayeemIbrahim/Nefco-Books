@@ -181,12 +181,12 @@ export default function ReportLayout({
 
               {/* Custom Date Form */}
               {selectedPreset === "CUSTOM" && (
-                <form onSubmit={handleCustomApply} className="flex items-center gap-2">
+                <form onSubmit={handleCustomApply} className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="text-xs py-1.5 px-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:outline-none shadow-xs font-mono"
+                    className="text-xs py-1.5 px-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:outline-none shadow-xs font-mono grow sm:grow-0"
                     placeholder="From"
                   />
                   <span className="text-slate-400 text-xs font-medium">to</span>
@@ -194,12 +194,12 @@ export default function ReportLayout({
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="text-xs py-1.5 px-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:outline-none shadow-xs font-mono"
+                    className="text-xs py-1.5 px-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:outline-none shadow-xs font-mono grow sm:grow-0"
                     placeholder="To"
                   />
                   <button
                     type="submit"
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-xs transition"
+                    className="w-full sm:w-auto px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-xs transition"
                   >
                     Apply Filter
                   </button>
