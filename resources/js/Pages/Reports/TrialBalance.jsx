@@ -1,107 +1,86 @@
 import React from "react";
-import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import ReportLayout from "@/Components/Reports/ReportLayout";
 import { formatBDT } from "@/lib/utils";
-import { Scale, Printer, ArrowLeft, CheckCircle2 } from "lucide-react";
-import { Head, Link } from "@inertiajs/react";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 
-export default function TrialBalance({ accounts, totalDebit, totalCredit, isEquilibrium }) {
-  let totalDebitBDT = 0;
-  let totalCreditBDT = 0;
-
-  const rows = (accounts || []).map((acc) => {
-    let debit = 0;
-    let credit = 0;
-
-    if (acc.type === "ASSET" || acc.type === "EXPENSE") {
-      debit = parseFloat(acc.total_debit || acc.balance || 0);
-      totalDebitBDT += debit;
-    } else {
-      credit = parseFloat(acc.total_credit || acc.balance || 0);
-      totalCreditBDT += credit;
-    }
-
-    return {
-      ...acc,
-      debit,
-      credit,
-    };
-  });
-
+export default function TrialBalance({
+  accounts = [],
+  totalDebit = 0,
+  totalCredit = 0,
+  isEquilibrium = true,
+  filters = {},
+}) {
   return (
-    <AuthenticatedLayout>
-      <Head title="Trial Balance Report - Nefco Books" />
-
-      <div className="space-y-6 max-w-4xl mx-auto">
-        <div className="flex items-center justify-between">
-          <Link
-            href="/reports"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to Financial Reports
-          </Link>
-
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 px-3 py-1.5 rounded-md shadow-xs hover:bg-slate-50 transition"
-          >
-            <Printer className="h-4 w-4" /> Print / Export PDF
-          </button>
+    <ReportLayout title="Trial Balance" filters={filters}>
+      <div className="space-y-4">
+        {/* Equilibrium status banner */}
+        <div
+          className={`p-3 rounded-lg flex items-center justify-between text-xs font-semibold ${
+            isEquilibrium
+              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+              : "bg-rose-50 text-rose-800 border border-rose-200"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {isEquilibrium ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertCircle className="h-4 w-4 text-rose-600" />}
+            <span>
+              {isEquilibrium
+                ? "The Trial Balance is in equilibrium (Total Debits = Total Credits)."
+                : "Trial Balance is out of equilibrium! Discrepancy detected."}
+            </span>
+          </div>
+          <span className="font-mono">
+            Difference: {formatBDT(Math.abs(totalDebit - totalCredit))}
+          </span>
         </div>
 
-        <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
-          <div className="border-b border-slate-200 pb-6 text-center space-y-1">
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">TRIAL BALANCE REPORT</h1>
-            <div className="text-xs font-bold text-purple-600">Nefco Books</div>
-            <p className="text-[11px] text-slate-400">Verifying Double-Entry Debit & Credit Equilibrium (BDT)</p>
-          </div>
-
-          <table className="w-full text-xs text-left border-collapse">
-            <thead className="bg-slate-100 font-bold uppercase text-[10px] text-slate-600">
+        {/* Table */}
+        <div className="border border-slate-200 rounded-lg overflow-x-auto">
+          <table className="w-full text-xs text-left text-slate-600 min-w-[600px]">
+            <thead className="bg-slate-100 uppercase text-[10px] font-semibold text-slate-500 border-b border-slate-200">
               <tr>
-                <th className="p-3 border-b border-slate-200">Account Code</th>
-                <th className="p-3 border-b border-slate-200">Account Name</th>
-                <th className="p-3 border-b border-slate-200">Category</th>
-                <th className="p-3 border-b border-slate-200 text-right">Debit (BDT)</th>
-                <th className="p-3 border-b border-slate-200 text-right">Credit (BDT)</th>
+                <th className="py-2.5 px-3">Code</th>
+                <th className="py-2.5 px-3">Account Name</th>
+                <th className="py-2.5 px-3">Type</th>
+                <th className="py-2.5 px-3 text-right">Debit (৳)</th>
+                <th className="py-2.5 px-3 text-right">Credit (৳)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {rows.map((r, idx) => (
-                <tr key={idx} className="hover:bg-slate-50">
-                  <td className="p-3 font-mono font-bold text-blue-600">{r.code}</td>
-                  <td className="p-3 font-semibold text-slate-900">{r.name}</td>
-                  <td className="p-3 text-slate-500 font-medium">{r.type}</td>
-                  <td className="p-3 text-right font-semibold text-slate-900">
-                    {r.debit > 0 ? formatBDT(r.debit) : "-"}
+              {accounts.map((acc) => (
+                <tr key={acc.code} className="hover:bg-slate-50 transition">
+                  <td className="py-2 px-3 font-mono font-bold text-blue-600">{acc.code}</td>
+                  <td className="py-2 px-3 font-medium text-slate-800">{acc.name}</td>
+                  <td className="py-2 px-3">
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                      {acc.type}
+                    </span>
                   </td>
-                  <td className="p-3 text-right font-semibold text-slate-900">
-                    {r.credit > 0 ? formatBDT(r.credit) : "-"}
+                  <td className="py-2 px-3 text-right font-mono text-slate-900">
+                    {acc.total_debit > 0 ? formatBDT(acc.total_debit) : "-"}
+                  </td>
+                  <td className="py-2 px-3 text-right font-mono text-slate-900">
+                    {acc.total_credit > 0 ? formatBDT(acc.total_credit) : "-"}
                   </td>
                 </tr>
               ))}
             </tbody>
-            <tfoot className="bg-slate-900 text-white font-bold text-xs">
+            <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-bold text-slate-900">
               <tr>
-                <td colSpan={3} className="p-3 uppercase tracking-wider">
-                  TOTAL TRIAL BALANCE
+                <td colSpan="3" className="py-2.5 px-3 text-right uppercase tracking-wider">
+                  Total
                 </td>
-                <td className="p-3 text-right text-emerald-400">{formatBDT(totalDebitBDT)}</td>
-                <td className="p-3 text-right text-emerald-400">{formatBDT(totalCreditBDT)}</td>
+                <td className="py-2.5 px-3 text-right font-mono text-blue-700">
+                  {formatBDT(totalDebit)}
+                </td>
+                <td className="py-2.5 px-3 text-right font-mono text-purple-700">
+                  {formatBDT(totalCredit)}
+                </td>
               </tr>
             </tfoot>
           </table>
-
-          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between text-xs font-semibold text-emerald-800">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-              <span>Double-Entry Balance Verification: Total Debit matches Total Credit.</span>
-            </div>
-            <span className="bg-emerald-200 text-emerald-900 font-bold px-2.5 py-0.5 rounded text-[10px]">
-              EQUILIBRIUM OK
-            </span>
-          </div>
         </div>
       </div>
-    </AuthenticatedLayout>
+    </ReportLayout>
   );
 }

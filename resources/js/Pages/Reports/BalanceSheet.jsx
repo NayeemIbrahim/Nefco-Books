@@ -1,120 +1,139 @@
 import React from "react";
-import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import ReportLayout from "@/Components/Reports/ReportLayout";
 import { formatBDT } from "@/lib/utils";
-import { PieChart, Printer, ArrowLeft, ShieldCheck } from "lucide-react";
-import { Head, Link } from "@inertiajs/react";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 
 export default function BalanceSheet({
-  assets,
-  liabilities,
-  equity,
-  totalAssets,
-  totalLiabilities,
-  totalEquity,
-  isBalanced,
+  assets = [],
+  liabilities = [],
+  equity = [],
+  currentEarnings = 0,
+  totalAssets = 0,
+  totalLiabilities = 0,
+  totalEquity = 0,
+  asOfDate = "",
+  isBalanced = true,
+  filters = {},
 }) {
   return (
-    <AuthenticatedLayout>
-      <Head title="Balance Sheet Statement - Nefco Books" />
-
-      <div className="space-y-6 max-w-4xl mx-auto">
-        <div className="flex items-center justify-between">
-          <Link
-            href="/reports"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to Financial Reports
-          </Link>
-
-          <button
-            onClick={() => window.print()}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 px-3 py-1.5 rounded-md shadow-xs hover:bg-slate-50 transition"
-          >
-            <Printer className="h-4 w-4" /> Print / Export PDF
-          </button>
+    <ReportLayout title="Balance Sheet" subtitle={`As of ${asOfDate || "Today"} (Amounts in BDT)`} filters={filters}>
+      <div className="space-y-6">
+        {/* Balanced Banner */}
+        <div
+          className={`p-3 rounded-lg flex items-center justify-between text-xs font-semibold ${
+            isBalanced
+              ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+              : "bg-rose-50 text-rose-800 border border-rose-200"
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {isBalanced ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <AlertCircle className="h-4 w-4 text-rose-600" />}
+            <span>
+              {isBalanced
+                ? "The Balance Sheet is in equilibrium (Assets = Liabilities + Equity)."
+                : "The Balance Sheet is out of balance. Please check journal entries."}
+            </span>
+          </div>
+          <span className="font-mono">
+            Variance: {formatBDT(Math.abs(totalAssets - (totalLiabilities + totalEquity)))}
+          </span>
         </div>
 
-        <div className="bg-white p-8 rounded-xl border border-slate-200 shadow-sm space-y-6">
-          <div className="border-b border-slate-200 pb-6 text-center space-y-1">
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">BALANCE SHEET STATEMENT</h1>
-            <div className="text-xs font-bold text-emerald-600">Nefco Books</div>
-            <p className="text-[11px] text-slate-400">As of August 2026 (Amounts in Bangladeshi Taka)</p>
+        {/* 1. ASSETS */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between bg-slate-100 p-2.5 rounded-lg font-bold text-xs text-slate-800 uppercase tracking-wider">
+            <span>Assets (1000 Series)</span>
+            <span>BDT Amount</span>
           </div>
 
-          {/* ASSETS SECTION */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between bg-blue-50 border border-blue-200 p-2.5 rounded font-bold text-xs text-blue-900 uppercase">
-              <span>ASSETS (1000 Series)</span>
-              <span>BDT Amount</span>
-            </div>
-
-            <div className="space-y-1.5 px-3 text-xs">
-              {assets?.map((acc, idx) => (
-                <div key={idx} className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-700 font-medium">
-                    <span className="font-mono text-blue-600 mr-2">{acc.code}</span>
-                    {acc.name}
-                  </span>
-                  <span className="font-semibold text-slate-900">{formatBDT(acc.balance)}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex justify-between p-3 bg-blue-600 text-white rounded text-xs font-bold shadow-xs">
-              <span>TOTAL ASSETS</span>
-              <span>{formatBDT(totalAssets)}</span>
-            </div>
+          <div className="space-y-1 px-3 text-xs">
+            {assets.map((acc) => (
+              <div key={acc.id} className="flex justify-between py-1.5 border-b border-slate-100">
+                <span className="text-slate-700 font-medium">
+                  <span className="font-mono text-blue-600 mr-2">{acc.code}</span>
+                  {acc.name}
+                  <span className="text-[10px] text-slate-400 ml-1.5 font-normal">({acc.sub_type})</span>
+                </span>
+                <span className="font-semibold text-slate-900 font-mono">{formatBDT(acc.balance)}</span>
+              </div>
+            ))}
           </div>
 
-          {/* LIABILITIES & EQUITY SECTION */}
-          <div className="space-y-3 pt-4">
-            <div className="flex items-center justify-between bg-purple-50 border border-purple-200 p-2.5 rounded font-bold text-xs text-purple-900 uppercase">
-              <span>LIABILITIES & OWNER'S EQUITY (2000/3000 Series)</span>
-              <span>BDT Amount</span>
-            </div>
+          <div className="flex justify-between p-3 bg-blue-50/70 border border-blue-100 rounded-lg text-xs font-bold text-blue-900">
+            <span>TOTAL ASSETS</span>
+            <span className="font-mono">{formatBDT(totalAssets)}</span>
+          </div>
+        </div>
 
-            <div className="space-y-1.5 px-3 text-xs">
-              <div className="font-bold text-slate-400 uppercase text-[10px] pt-1">Liabilities</div>
-              {liabilities?.map((acc, idx) => (
-                <div key={idx} className="flex justify-between py-1 border-b border-slate-100">
+        {/* 2. LIABILITIES */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between bg-slate-100 p-2.5 rounded-lg font-bold text-xs text-slate-800 uppercase tracking-wider">
+            <span>Liabilities (2000 Series)</span>
+            <span>BDT Amount</span>
+          </div>
+
+          <div className="space-y-1 px-3 text-xs">
+            {liabilities.length === 0 ? (
+              <div className="text-slate-400 py-2 italic text-center">No liabilities recorded.</div>
+            ) : (
+              liabilities.map((acc) => (
+                <div key={acc.id} className="flex justify-between py-1.5 border-b border-slate-100">
                   <span className="text-slate-700 font-medium">
                     <span className="font-mono text-amber-600 mr-2">{acc.code}</span>
                     {acc.name}
                   </span>
-                  <span className="font-semibold text-slate-900">{formatBDT(acc.balance)}</span>
+                  <span className="font-semibold text-slate-900 font-mono">{formatBDT(acc.balance)}</span>
                 </div>
-              ))}
-
-              <div className="font-bold text-slate-400 uppercase text-[10px] pt-2">Equity</div>
-              {equity?.map((acc, idx) => (
-                <div key={idx} className="flex justify-between py-1 border-b border-slate-100">
-                  <span className="text-slate-700 font-medium">
-                    <span className="font-mono text-purple-600 mr-2">{acc.code}</span>
-                    {acc.name}
-                  </span>
-                  <span className="font-semibold text-slate-900">{formatBDT(acc.balance)}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex justify-between p-3 bg-purple-900 text-white rounded text-xs font-bold shadow-xs">
-              <span>TOTAL LIABILITIES & EQUITY</span>
-              <span>{formatBDT(totalLiabilities + totalEquity)}</span>
-            </div>
+              ))
+            )}
           </div>
 
-          {/* Balance Equation Status */}
-          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center justify-between text-xs text-emerald-800 font-semibold">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-emerald-600" />
-              <span>Accounting Identity Verified: Assets ({formatBDT(totalAssets)}) = Liabilities + Equity</span>
-            </div>
-            <span className="bg-emerald-200 text-emerald-900 px-2.5 py-0.5 rounded text-[10px] font-bold">
-              BALANCED ✓
-            </span>
+          <div className="flex justify-between p-3 bg-amber-50/70 border border-amber-100 rounded-lg text-xs font-bold text-amber-900">
+            <span>TOTAL LIABILITIES</span>
+            <span className="font-mono">{formatBDT(totalLiabilities)}</span>
           </div>
         </div>
+
+        {/* 3. EQUITY */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between bg-slate-100 p-2.5 rounded-lg font-bold text-xs text-slate-800 uppercase tracking-wider">
+            <span>Equity (3000 Series)</span>
+            <span>BDT Amount</span>
+          </div>
+
+          <div className="space-y-1 px-3 text-xs">
+            {equity.map((acc) => (
+              <div key={acc.id} className="flex justify-between py-1.5 border-b border-slate-100">
+                <span className="text-slate-700 font-medium">
+                  <span className="font-mono text-purple-600 mr-2">{acc.code}</span>
+                  {acc.name}
+                </span>
+                <span className="font-semibold text-slate-900 font-mono">{formatBDT(acc.balance)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between py-1.5 border-b border-slate-100">
+              <span className="text-slate-700 font-medium">
+                <span className="font-mono text-emerald-600 mr-2">3999</span>
+                Current Period Net Earnings
+              </span>
+              <span className={`font-semibold font-mono ${currentEarnings >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                {formatBDT(currentEarnings)}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex justify-between p-3 bg-purple-50/70 border border-purple-100 rounded-lg text-xs font-bold text-purple-900">
+            <span>TOTAL EQUITY</span>
+            <span className="font-mono">{formatBDT(totalEquity)}</span>
+          </div>
+        </div>
+
+        {/* Liabilities + Equity Summary */}
+        <div className="p-4 bg-slate-900 text-white rounded-xl flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider">Total Liabilities & Equity</span>
+          <span className="text-base font-bold font-mono">{formatBDT(totalLiabilities + totalEquity)}</span>
+        </div>
       </div>
-    </AuthenticatedLayout>
+    </ReportLayout>
   );
 }

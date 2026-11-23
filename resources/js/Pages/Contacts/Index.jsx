@@ -406,7 +406,7 @@ export default function ContactsIndex({ contacts, filters }) {
         {/* Slide-out Form Drawer (Zoho style) */}
         {isDrawerOpen && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex justify-end">
-            <div className="w-full max-w-xl bg-white h-full shadow-2xl flex flex-col justify-between">
+            <div className={`w-full ${drawerTab === "LEDGER" ? "max-w-3xl lg:max-w-4xl" : "max-w-xl"} bg-white h-full shadow-2xl flex flex-col justify-between transition-all duration-200`}>
               {/* Drawer Header */}
               <div className="p-5 border-b border-slate-200 bg-slate-50">
                 <div className="flex items-center justify-between">
@@ -535,9 +535,9 @@ export default function ContactsIndex({ contacts, filters }) {
                         No ledger transactions recorded for this contact yet.
                       </div>
                     ) : (
-                      <div className="border border-slate-200 rounded-lg overflow-hidden">
-                        <table className="w-full text-[11px] text-left text-slate-600">
-                          <thead className="bg-slate-100 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
+                      <div className="border border-slate-200 rounded-lg overflow-x-auto max-h-[60vh] overflow-y-auto shadow-inner">
+                        <table className="w-full min-w-[650px] text-[11px] text-left text-slate-600">
+                          <thead className="bg-slate-100 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500 sticky top-0 z-10 shadow-xs">
                             <tr>
                               <th className="py-2.5 px-3">Date</th>
                               <th className="py-2.5 px-3">Type / Ref</th>

@@ -102,13 +102,50 @@ Route::get('banking', [BankingController::class, 'index'])->name('banking.index'
 Route::post('banking/journal', [BankingController::class, 'storeJournalEntry'])->name('banking.journal');
 Route::post('banking/journal-entries', [BankingController::class, 'storeJournalEntry'])->name('banking.journal.store');
 
-// 8. Financial Reports
+// 8. Financial Reports & Reports Center
 Route::prefix('reports')->name('reports.')->group(function () {
     Route::get('/', [ReportController::class, 'index'])->name('index');
+
+    // Business Overview
     Route::get('/profit-and-loss', [ReportController::class, 'profitAndLoss'])->name('profit-and-loss');
     Route::get('/profit-loss', [ReportController::class, 'profitAndLoss']);
     Route::get('/balance-sheet', [ReportController::class, 'balanceSheet'])->name('balance-sheet');
+    Route::get('/cash-flow', [ReportController::class, 'cashFlow'])->name('cash-flow');
+
+    // Sales
+    Route::get('/sales-summary', [ReportController::class, 'salesSummary'])->name('sales-summary');
+    Route::get('/sales-by-customer', [ReportController::class, 'salesByCustomer'])->name('sales-by-customer');
+    Route::get('/sales-by-item', [ReportController::class, 'salesByItem'])->name('sales-by-item');
+
+    // Receivables
+    Route::get('/customer-balance-summary', [ReportController::class, 'customerBalanceSummary'])->name('customer-balance-summary');
+    Route::get('/customer-statement', [ReportController::class, 'customerStatement'])->name('customer-statement');
+    Route::get('/order-details', [ReportController::class, 'orderDetails'])->name('order-details');
+    Route::get('/ar-aging-summary', [ReportController::class, 'arAgingSummary'])->name('ar-aging-summary');
+    Route::get('/invoice-details', [ReportController::class, 'invoiceDetails'])->name('invoice-details');
+    Route::get('/receivable-summary', [ReportController::class, 'receivableSummary'])->name('receivable-summary');
+
+    // Payments Received
+    Route::get('/payments-received', [ReportController::class, 'paymentsReceived'])->name('payments-received');
+
+    // Payables
+    Route::get('/vendor-balance-summary', [ReportController::class, 'vendorBalanceSummary'])->name('vendor-balance-summary');
+    Route::get('/vendor-statement', [ReportController::class, 'vendorStatement'])->name('vendor-statement');
+    Route::get('/ap-aging-summary', [ReportController::class, 'apAgingSummary'])->name('ap-aging-summary');
+    Route::get('/bill-details', [ReportController::class, 'billDetails'])->name('bill-details');
+    Route::get('/payments-made', [ReportController::class, 'paymentsMade'])->name('payments-made');
+    Route::get('/payable-summary', [ReportController::class, 'payableSummary'])->name('payable-summary');
+
+    // Purchases & Expenses
+    Route::get('/purchases-by-vendor', [ReportController::class, 'purchasesByVendor'])->name('purchases-by-vendor');
+    Route::get('/purchases-by-item', [ReportController::class, 'purchasesByItem'])->name('purchases-by-item');
+    Route::get('/expense-details', [ReportController::class, 'expenseDetails'])->name('expense-details');
+    Route::get('/expenses-by-category', [ReportController::class, 'expensesByCategory'])->name('expenses-by-category');
+
+    // Accountant
     Route::get('/trial-balance', [ReportController::class, 'trialBalance'])->name('trial-balance');
+    Route::get('/general-ledger', [ReportController::class, 'generalLedger'])->name('general-ledger');
+    Route::get('/journal-report', [ReportController::class, 'journalReport'])->name('journal-report');
 });
 
 // 9. Settings, Accounts & Organization Management
