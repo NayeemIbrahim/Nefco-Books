@@ -1,6 +1,7 @@
 import React from "react";
 import ReportLayout from "@/Components/Reports/ReportLayout";
 import { formatBDT } from "@/lib/utils";
+import { Link } from "@inertiajs/react";
 
 export default function OrderDetails({
   bookings = [],
@@ -31,12 +32,26 @@ export default function OrderDetails({
               ) : (
                 bookings.map((b) => (
                   <tr key={b.id} className="hover:bg-slate-50 transition">
-                    <td className="py-2 px-3 font-mono font-bold text-blue-600">
-                      {b.order_number || b.booking_number}
+                    <td className="py-2 px-3 font-mono font-bold">
+                      <Link href="/sales/bookings" className="text-blue-600 hover:text-blue-800 hover:underline">
+                        {b.order_number || b.booking_number}
+                      </Link>
                     </td>
                     <td className="py-2 px-3 font-mono text-slate-500 whitespace-nowrap">{b.booking_date}</td>
                     <td className="py-2 px-3 font-mono text-slate-500 whitespace-nowrap">{b.service_date || "-"}</td>
-                    <td className="py-2 px-3 font-semibold text-slate-800">{b.customer_name}</td>
+                    <td className="py-2 px-3 font-semibold">
+                      {b.contact_id ? (
+                        <Link
+                          href={`/reports/customer-statement?contact_id=${b.contact_id}`}
+                          className="text-slate-800 hover:text-blue-600 hover:underline"
+                          title="View Customer Statement"
+                        >
+                          {b.customer_name}
+                        </Link>
+                      ) : (
+                        <span className="text-slate-800">{b.customer_name}</span>
+                      )}
+                    </td>
                     <td className="py-2 px-3">
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
                         {b.status}

@@ -22,6 +22,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   CheckCircle2,
+  Landmark,
 } from "lucide-react";
 
 export default function ReportsIndex() {
@@ -296,6 +297,15 @@ export default function ReportsIndex() {
       category: "Accountant",
       href: "/reports/journal-report",
       icon: FileText,
+      badgeColor: "bg-purple-50 text-purple-700 border-purple-200",
+    },
+    {
+      id: "banking-ledger",
+      title: "Banking & Cash Ledgers",
+      description: "Manage bank accounts, record manual double-entry journal vouchers, and audit cash account ledgers.",
+      category: "Accountant",
+      href: "/banking",
+      icon: Landmark,
       badgeColor: "bg-purple-50 text-purple-700 border-purple-200",
     },
   ];

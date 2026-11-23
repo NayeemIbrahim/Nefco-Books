@@ -43,6 +43,7 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
   const [accountCode, setAccountCode] = useState("");
   const [accountName, setAccountName] = useState("");
   const [accountType, setAccountType] = useState("ASSET");
+  const [accountSubType, setAccountSubType] = useState("OTHER_CURRENT_ASSET");
   const [accountDescription, setAccountDescription] = useState("");
   const [accountBalance, setAccountBalance] = useState("0");
 
@@ -90,6 +91,7 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
     setAccountCode("");
     setAccountName("");
     setAccountType("ASSET");
+    setAccountSubType("OTHER_CURRENT_ASSET");
     setAccountDescription("");
     setAccountBalance("0");
     setIsAccountModalOpen(true);
@@ -100,6 +102,7 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
     setAccountCode(acc.code);
     setAccountName(acc.name);
     setAccountType(acc.type);
+    setAccountSubType(acc.sub_type || "OTHER_CURRENT_ASSET");
     setAccountDescription(acc.description || "");
     setAccountBalance(acc.balance !== undefined && acc.balance !== null ? acc.balance : "0");
     setIsAccountModalOpen(true);
@@ -113,6 +116,7 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
         {
           name: accountName,
           type: accountType,
+          sub_type: accountSubType,
           description: accountDescription,
           balance: parseFloat(accountBalance) || 0,
         },
@@ -130,6 +134,7 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
           code: accountCode,
           name: accountName,
           type: accountType,
+          sub_type: accountSubType,
           description: accountDescription,
           balance: parseFloat(accountBalance) || 0,
         },
@@ -645,7 +650,18 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
                 <label className="block font-semibold text-slate-700 mb-1">Account Classification / Type *</label>
                 <select
                   value={accountType}
-                  onChange={(e) => setAccountType(e.target.value)}
+                  onChange={(e) => {
+                    const newType = e.target.value;
+                    setAccountType(newType);
+                    const defaultSubTypes = {
+                      ASSET: "OTHER_CURRENT_ASSET",
+                      LIABILITY: "OTHER_CURRENT_LIABILITY",
+                      EQUITY: "EQUITY",
+                      REVENUE: "OPERATING_REVENUE",
+                      EXPENSE: "OPERATING_EXPENSE",
+                    };
+                    setAccountSubType(defaultSubTypes[newType] || "OTHER_CURRENT_ASSET");
+                  }}
                   className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md"
                 >
                   <option value="ASSET">ASSET (Cash, Bank, Receivables)</option>
@@ -653,6 +669,47 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
                   <option value="EQUITY">EQUITY (Owner's Capital, Retained Earnings)</option>
                   <option value="REVENUE">REVENUE (Sales, Services)</option>
                   <option value="EXPENSE">EXPENSE (Cost of Goods, Operating Expenses)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Account Sub-Type *</label>
+                <select
+                  value={accountSubType}
+                  onChange={(e) => setAccountSubType(e.target.value)}
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md"
+                >
+                  {accountType === "ASSET" && (
+                    <>
+                      <option value="CASH_AND_BANK">Cash & Bank Account</option>
+                      <option value="ACCOUNTS_RECEIVABLE">Accounts Receivable</option>
+                      <option value="OTHER_CURRENT_ASSET">Other Current Asset</option>
+                      <option value="FIXED_ASSET">Fixed Asset</option>
+                    </>
+                  )}
+                  {accountType === "LIABILITY" && (
+                    <>
+                      <option value="ACCOUNTS_PAYABLE">Accounts Payable</option>
+                      <option value="OTHER_CURRENT_LIABILITY">Other Current Liability</option>
+                      <option value="LONG_TERM_LIABILITY">Long Term Liability</option>
+                    </>
+                  )}
+                  {accountType === "EQUITY" && (
+                    <option value="EQUITY">Equity</option>
+                  )}
+                  {accountType === "REVENUE" && (
+                    <>
+                      <option value="OPERATING_REVENUE">Operating Revenue (Sales)</option>
+                      <option value="OTHER_REVENUE">Other Revenue</option>
+                    </>
+                  )}
+                  {accountType === "EXPENSE" && (
+                    <>
+                      <option value="OPERATING_EXPENSE">Operating Expense</option>
+                      <option value="COST_OF_GOODS_SOLD">Cost of Goods Sold (COGS)</option>
+                      <option value="OTHER_EXPENSE">Other Expense</option>
+                    </>
+                  )}
                 </select>
               </div>
 

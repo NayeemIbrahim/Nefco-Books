@@ -38,6 +38,8 @@ export function Sidebar({ isOpen, onClose }) {
 
   const [salesOpen, setSalesOpen] = useState(true);
   const [purchasesOpen, setPurchasesOpen] = useState(true);
+  const isReportsActive = url.startsWith("/reports") || url.startsWith("/banking");
+  const [reportsOpen, setReportsOpen] = useState(true);
 
   const renderNavContent = () => (
     <div className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
@@ -236,37 +238,63 @@ export function Sidebar({ isOpen, onClose }) {
         )}
       </div>
 
-      {/* 6. Banking & General Ledger */}
+      {/* 6. Reports Module (Group with Suboptions) */}
       <div className="pt-2">
-        <Link
-          href="/banking"
-          onClick={onClose}
+        <button
+          type="button"
+          onClick={() => setReportsOpen(!reportsOpen)}
           className={cn(
-            "flex items-center gap-3 px-3 py-2 text-xs font-medium rounded-md transition-all duration-150",
-            url.startsWith("/banking")
-              ? "bg-amber-600 text-white shadow-sm font-semibold"
+            "w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-md transition-all duration-150",
+            isReportsActive
+              ? "text-amber-400 bg-slate-800/80"
               : "text-slate-300 hover:bg-slate-800 hover:text-white"
           )}
         >
-          <Landmark className={cn("h-4 w-4 shrink-0", url.startsWith("/banking") ? "text-white" : "text-slate-400")} />
-          <span>Banking & Ledger</span>
-        </Link>
-      </div>
+          <div className="flex items-center gap-2.5">
+            <BarChart3 className="h-4 w-4 text-amber-500" />
+            <span>Reports</span>
+          </div>
+          {reportsOpen ? (
+            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+          )}
+        </button>
 
-      {/* 7. Financial Reports */}
-      <Link
-        href="/reports"
-        onClick={onClose}
-        className={cn(
-          "flex items-center gap-3 px-3 py-2 text-xs font-medium rounded-md transition-all duration-150",
-          url.startsWith("/reports")
-            ? "bg-amber-600 text-white shadow-sm font-semibold"
-            : "text-slate-300 hover:bg-slate-800 hover:text-white"
+        {reportsOpen && (
+          <div className="mt-1 ml-4 pl-2 border-l border-slate-800 space-y-0.5">
+            {/* Reports Center */}
+            <Link
+              href="/reports"
+              onClick={onClose}
+              className={cn(
+                "flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition",
+                url === "/reports" || (url.startsWith("/reports") && !url.startsWith("/banking"))
+                  ? "bg-amber-600 text-white font-semibold"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              )}
+            >
+              <BarChart3 className="h-3.5 w-3.5 shrink-0" />
+              <span>Reports Center</span>
+            </Link>
+
+            {/* Banking & General Ledger */}
+            <Link
+              href="/banking"
+              onClick={onClose}
+              className={cn(
+                "flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition",
+                url.startsWith("/banking")
+                  ? "bg-amber-600 text-white font-semibold"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              )}
+            >
+              <Landmark className="h-3.5 w-3.5 shrink-0" />
+              <span>Banking & Ledger</span>
+            </Link>
+          </div>
         )}
-      >
-        <BarChart3 className={cn("h-4 w-4 shrink-0", url.startsWith("/reports") ? "text-white" : "text-slate-400")} />
-        <span>Financial Reports</span>
-      </Link>
+      </div>
 
       {/* 8. Settings */}
       <Link

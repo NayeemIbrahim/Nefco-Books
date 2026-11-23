@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import ReportLayout from "@/Components/Reports/ReportLayout";
 import { formatBDT } from "@/lib/utils";
-import { router } from "@inertiajs/react";
+import { router, Link } from "@inertiajs/react";
 
 export default function CustomerStatement({
   contact,
@@ -98,7 +98,19 @@ export default function CustomerStatement({
                         {entry.type}
                       </span>
                     </td>
-                    <td className="py-2 px-3 font-mono font-semibold text-slate-800">{entry.reference}</td>
+                    <td className="py-2 px-3 font-mono font-semibold">
+                      {entry.type === "INVOICE" ? (
+                        <Link href="/sales/invoices" className="text-blue-600 hover:text-blue-800 hover:underline">
+                          {entry.reference}
+                        </Link>
+                      ) : entry.type === "PAYMENT" ? (
+                        <Link href="/sales/payments-received" className="text-emerald-700 hover:text-emerald-900 hover:underline">
+                          {entry.reference}
+                        </Link>
+                      ) : (
+                        <span className="text-slate-800">{entry.reference}</span>
+                      )}
+                    </td>
                     <td className="py-2 px-3 text-slate-600 text-[11px]">{entry.description}</td>
                     <td className="py-2 px-3 text-right font-mono text-slate-900">
                       {entry.debit > 0 ? formatBDT(entry.debit) : "-"}

@@ -41,7 +41,15 @@ export default function VendorBalanceSummary({
               ) : (
                 vendors.map((v) => (
                   <tr key={v.id} className="hover:bg-slate-50 transition">
-                    <td className="py-2 px-3 font-semibold text-slate-800">{v.name}</td>
+                    <td className="py-2 px-3 font-semibold">
+                      <Link
+                        href={`/reports/vendor-statement?contact_id=${v.id}`}
+                        className="text-amber-700 hover:text-amber-900 hover:underline"
+                        title="View Vendor Statement"
+                      >
+                        {v.name}
+                      </Link>
+                    </td>
                     <td className="py-2 px-3 font-mono text-slate-500">{v.phone || "-"}</td>
                     <td className="py-2 px-3 text-right font-mono text-slate-700">
                       {formatBDT(v.opening_balance)}

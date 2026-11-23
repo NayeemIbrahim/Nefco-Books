@@ -1,6 +1,7 @@
 import React from "react";
 import ReportLayout from "@/Components/Reports/ReportLayout";
 import { formatBDT } from "@/lib/utils";
+import { Link } from "@inertiajs/react";
 
 export default function BillDetails({
   bills = [],
@@ -34,10 +35,26 @@ export default function BillDetails({
               ) : (
                 bills.map((b) => (
                   <tr key={b.id} className="hover:bg-slate-50 transition">
-                    <td className="py-2 px-3 font-mono font-bold text-amber-700">{b.bill_number}</td>
+                    <td className="py-2 px-3 font-mono font-bold">
+                      <Link href="/purchases/bills" className="text-amber-700 hover:text-amber-900 hover:underline">
+                        {b.bill_number}
+                      </Link>
+                    </td>
                     <td className="py-2 px-3 font-mono text-slate-500 whitespace-nowrap">{b.issue_date}</td>
                     <td className="py-2 px-3 font-mono text-slate-500 whitespace-nowrap">{b.due_date || "-"}</td>
-                    <td className="py-2 px-3 font-semibold text-slate-800">{b.vendor_name}</td>
+                    <td className="py-2 px-3 font-semibold">
+                      {b.contact_id ? (
+                        <Link
+                          href={`/reports/vendor-statement?contact_id=${b.contact_id}`}
+                          className="text-slate-800 hover:text-amber-700 hover:underline"
+                          title="View Vendor Statement"
+                        >
+                          {b.vendor_name}
+                        </Link>
+                      ) : (
+                        <span className="text-slate-800">{b.vendor_name}</span>
+                      )}
+                    </td>
                     <td className="py-2 px-3">
                       <span
                         className={`text-[9px] font-bold px-2 py-0.5 rounded ${

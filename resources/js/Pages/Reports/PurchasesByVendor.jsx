@@ -1,6 +1,7 @@
 import React from "react";
 import ReportLayout from "@/Components/Reports/ReportLayout";
 import { formatBDT } from "@/lib/utils";
+import { Link } from "@inertiajs/react";
 
 export default function PurchasesByVendor({
   vendors = [],
@@ -32,7 +33,15 @@ export default function PurchasesByVendor({
               ) : (
                 vendors.map((v) => (
                   <tr key={v.id} className="hover:bg-slate-50 transition">
-                    <td className="py-2 px-3 font-semibold text-slate-800">{v.name}</td>
+                    <td className="py-2 px-3 font-semibold">
+                      <Link
+                        href={`/reports/vendor-statement?contact_id=${v.id}`}
+                        className="text-amber-700 hover:text-amber-900 hover:underline flex items-center gap-1"
+                        title="View Vendor Statement"
+                      >
+                        {v.name}
+                      </Link>
+                    </td>
                     <td className="py-2 px-3 font-mono text-slate-500">{v.phone || "-"}</td>
                     <td className="py-2 px-3 text-center font-bold text-slate-700">{v.billCount}</td>
                     <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">{formatBDT(v.totalAmount)}</td>

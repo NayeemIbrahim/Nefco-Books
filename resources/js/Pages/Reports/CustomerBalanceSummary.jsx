@@ -41,7 +41,15 @@ export default function CustomerBalanceSummary({
               ) : (
                 customers.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-50 transition">
-                    <td className="py-2 px-3 font-semibold text-slate-800">{c.name}</td>
+                    <td className="py-2 px-3 font-semibold">
+                      <Link
+                        href={`/reports/customer-statement?contact_id=${c.id}`}
+                        className="text-blue-600 hover:text-blue-800 hover:underline"
+                        title="View Customer Statement"
+                      >
+                        {c.name}
+                      </Link>
+                    </td>
                     <td className="py-2 px-3 font-mono text-slate-500">{c.phone || "-"}</td>
                     <td className="py-2 px-3 text-right font-mono text-slate-700">
                       {formatBDT(c.opening_balance)}

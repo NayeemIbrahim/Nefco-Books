@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import ReportLayout from "@/Components/Reports/ReportLayout";
 import { formatBDT } from "@/lib/utils";
-import { router } from "@inertiajs/react";
+import { router, Link } from "@inertiajs/react";
 
 export default function VendorStatement({
   contact,
@@ -96,7 +96,19 @@ export default function VendorStatement({
                         {entry.type}
                       </span>
                     </td>
-                    <td className="py-2 px-3 font-mono font-semibold text-slate-800">{entry.reference}</td>
+                    <td className="py-2 px-3 font-mono font-semibold">
+                      {entry.type === "BILL" ? (
+                        <Link href="/purchases/bills" className="text-amber-700 hover:text-amber-900 hover:underline">
+                          {entry.reference}
+                        </Link>
+                      ) : entry.type === "PAYMENT" ? (
+                        <Link href="/purchases/payments-made" className="text-emerald-700 hover:text-emerald-900 hover:underline">
+                          {entry.reference}
+                        </Link>
+                      ) : (
+                        <span className="text-slate-800">{entry.reference}</span>
+                      )}
+                    </td>
                     <td className="py-2 px-3 text-slate-600 text-[11px]">{entry.description}</td>
                     <td className="py-2 px-3 text-right font-mono text-slate-900">
                       {entry.debit > 0 ? formatBDT(entry.debit) : "-"}

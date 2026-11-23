@@ -1,6 +1,7 @@
 import React from "react";
 import ReportLayout from "@/Components/Reports/ReportLayout";
 import { formatBDT } from "@/lib/utils";
+import { Link } from "@inertiajs/react";
 
 export default function SalesByCustomer({
   customers = [],
@@ -32,7 +33,15 @@ export default function SalesByCustomer({
               ) : (
                 customers.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-50 transition">
-                    <td className="py-2 px-3 font-semibold text-slate-800">{c.name}</td>
+                    <td className="py-2 px-3 font-semibold">
+                      <Link
+                        href={`/reports/customer-statement?contact_id=${c.id}`}
+                        className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                        title="View Customer Statement"
+                      >
+                        {c.name}
+                      </Link>
+                    </td>
                     <td className="py-2 px-3 font-mono text-slate-500">{c.phone || "-"}</td>
                     <td className="py-2 px-3 text-center font-bold text-slate-700">{c.invCount}</td>
                     <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">{formatBDT(c.totalSales)}</td>

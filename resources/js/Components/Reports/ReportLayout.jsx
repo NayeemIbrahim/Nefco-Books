@@ -15,6 +15,7 @@ export default function ReportLayout({
   const [selectedPreset, setSelectedPreset] = React.useState(filters.preset || "THIS_MONTH");
   const [startDate, setStartDate] = React.useState(filters.start_date || "");
   const [endDate, setEndDate] = React.useState(filters.end_date || "");
+  const [sortOrder, setSortOrder] = React.useState(filters.sort || "DESC");
 
   // Update dates when preset changes
   const applyPreset = (preset) => {
@@ -62,25 +63,38 @@ export default function ReportLayout({
       setStartDate(start);
       setEndDate(end);
       if (onFilterChange) {
-        onFilterChange({ ...filters, preset, start_date: start, end_date: end });
+        onFilterChange({ ...filters, preset, start_date: start, end_date: end, sort: sortOrder });
       } else {
         router.get(
           window.location.pathname,
-          { ...filters, preset, start_date: start, end_date: end },
+          { ...filters, preset, start_date: start, end_date: end, sort: sortOrder },
           { preserveState: true, replace: true }
         );
       }
     }
   };
 
-  const handleCustomApply = (e) => {
-    e.preventDefault();
+  const handleSortChange = (newSort) => {
+    setSortOrder(newSort);
     if (onFilterChange) {
-      onFilterChange({ ...filters, preset: "CUSTOM", start_date: startDate, end_date: endDate });
+      onFilterChange({ ...filters, preset: selectedPreset, start_date: startDate, end_date: endDate, sort: newSort });
     } else {
       router.get(
         window.location.pathname,
-        { ...filters, preset: "CUSTOM", start_date: startDate, end_date: endDate },
+        { ...filters, preset: selectedPreset, start_date: startDate, end_date: endDate, sort: newSort },
+        { preserveState: true, replace: true }
+      );
+    }
+  };
+
+  const handleCustomApply = (e) => {
+    e.preventDefault();
+    if (onFilterChange) {
+      onFilterChange({ ...filters, preset: "CUSTOM", start_date: startDate, end_date: endDate, sort: sortOrder });
+    } else {
+      router.get(
+        window.location.pathname,
+        { ...filters, preset: "CUSTOM", start_date: startDate, end_date: endDate, sort: sortOrder },
         { preserveState: true, replace: true }
       );
     }
@@ -125,33 +139,41 @@ export default function ReportLayout({
         {!hideDateFilter && (
           <div className="print:hidden bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-              {/* Date Presets */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mr-1 flex items-center gap-1">
-                  <Calendar className="h-3 w-3" /> Date:
-                </span>
-                {[
-                  { id: "TODAY", label: "Today" },
-                  { id: "THIS_WEEK", label: "This Week" },
-                  { id: "THIS_MONTH", label: "This Month" },
-                  { id: "THIS_QUARTER", label: "This Quarter" },
-                  { id: "THIS_YEAR", label: "This Year" },
-                  { id: "ALL_TIME", label: "All Time" },
-                  { id: "CUSTOM", label: "Custom Range" },
-                ].map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => applyPreset(p.id)}
-                    className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition ${
-                      selectedPreset === p.id
-                        ? "bg-blue-600 text-white font-semibold shadow-xs"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
+              {/* Date Presets Dropdown */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5 text-slate-400" /> Date Range:
+                  </span>
+                  <select
+                    value={selectedPreset}
+                    onChange={(e) => applyPreset(e.target.value)}
+                    className="text-xs font-semibold py-1.5 px-3 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white text-slate-800 cursor-pointer shadow-xs"
                   >
-                    {p.label}
-                  </button>
-                ))}
+                    <option value="THIS_MONTH">This Month (Default)</option>
+                    <option value="TODAY">Today</option>
+                    <option value="THIS_WEEK">This Week</option>
+                    <option value="THIS_QUARTER">This Quarter</option>
+                    <option value="THIS_YEAR">This Year</option>
+                    <option value="ALL_TIME">All Time</option>
+                    <option value="CUSTOM">Custom Date Range...</option>
+                  </select>
+                </div>
+
+                {/* Date Sorting Dropdown */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                    Sort:
+                  </span>
+                  <select
+                    value={sortOrder}
+                    onChange={(e) => handleSortChange(e.target.value)}
+                    className="text-xs font-medium py-1.5 px-2.5 bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white text-slate-700 cursor-pointer shadow-xs"
+                  >
+                    <option value="DESC">Newest First (Desc)</option>
+                    <option value="ASC">Oldest First (Asc)</option>
+                  </select>
+                </div>
               </div>
 
               {/* Custom Date Form */}
@@ -161,22 +183,22 @@ export default function ReportLayout({
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="text-xs py-1 px-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                    className="text-xs py-1.5 px-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:outline-none shadow-xs font-mono"
                     placeholder="From"
                   />
-                  <span className="text-slate-400 text-xs">to</span>
+                  <span className="text-slate-400 text-xs font-medium">to</span>
                   <input
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="text-xs py-1 px-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                    className="text-xs py-1.5 px-2.5 border border-slate-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:outline-none shadow-xs font-mono"
                     placeholder="To"
                   />
                   <button
                     type="submit"
-                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-md shadow-xs transition"
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-xs transition"
                   >
-                    Apply
+                    Apply Filter
                   </button>
                 </form>
               )}

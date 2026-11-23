@@ -180,14 +180,26 @@ class SettingsController extends Controller
             'code'        => 'required|string|max:20|unique:accounts,code',
             'name'        => 'required|string|max:255',
             'type'        => 'required|in:ASSET,LIABILITY,EQUITY,REVENUE,EXPENSE',
+            'sub_type'    => 'nullable|string',
             'balance'     => 'nullable|numeric',
             'description' => 'nullable|string',
         ]);
+
+        $defaultSubTypes = [
+            'ASSET'     => 'OTHER_CURRENT_ASSET',
+            'LIABILITY' => 'OTHER_CURRENT_LIABILITY',
+            'EQUITY'    => 'EQUITY',
+            'REVENUE'   => 'OPERATING_REVENUE',
+            'EXPENSE'   => 'OPERATING_EXPENSE',
+        ];
+
+        $subType = ! empty($validated['sub_type']) ? $validated['sub_type'] : ($defaultSubTypes[$validated['type']] ?? 'OTHER_CURRENT_ASSET');
 
         Account::create([
             'code'        => $validated['code'],
             'name'        => $validated['name'],
             'type'        => $validated['type'],
+            'sub_type'    => $subType,
             'description' => $validated['description'] ?? null,
             'balance'     => (float)($validated['balance'] ?? 0.00),
             'is_system'   => false,
@@ -201,6 +213,7 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'name'        => 'required|string|max:255',
             'type'        => 'required|in:ASSET,LIABILITY,EQUITY,REVENUE,EXPENSE',
+            'sub_type'    => 'nullable|string',
             'balance'     => 'nullable|numeric',
             'description' => 'nullable|string',
         ]);
@@ -208,6 +221,7 @@ class SettingsController extends Controller
         $account->update([
             'name'        => $validated['name'],
             'type'        => $validated['type'],
+            'sub_type'    => ! empty($validated['sub_type']) ? $validated['sub_type'] : $account->sub_type,
             'balance'     => isset($validated['balance']) ? (float)$validated['balance'] : $account->balance,
             'description' => $validated['description'] ?? null,
         ]);

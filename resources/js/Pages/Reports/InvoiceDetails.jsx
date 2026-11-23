@@ -1,6 +1,7 @@
 import React from "react";
 import ReportLayout from "@/Components/Reports/ReportLayout";
 import { formatBDT } from "@/lib/utils";
+import { Link } from "@inertiajs/react";
 
 export default function InvoiceDetails({
   invoices = [],
@@ -34,10 +35,26 @@ export default function InvoiceDetails({
               ) : (
                 invoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-50 transition">
-                    <td className="py-2 px-3 font-mono font-bold text-blue-600">{inv.invoice_number}</td>
+                    <td className="py-2 px-3 font-mono font-bold">
+                      <Link href="/sales/invoices" className="text-blue-600 hover:text-blue-800 hover:underline">
+                        {inv.invoice_number}
+                      </Link>
+                    </td>
                     <td className="py-2 px-3 font-mono text-slate-500 whitespace-nowrap">{inv.issue_date}</td>
                     <td className="py-2 px-3 font-mono text-slate-500 whitespace-nowrap">{inv.due_date || "-"}</td>
-                    <td className="py-2 px-3 font-semibold text-slate-800">{inv.customer_name}</td>
+                    <td className="py-2 px-3 font-semibold">
+                      {inv.contact_id ? (
+                        <Link
+                          href={`/reports/customer-statement?contact_id=${inv.contact_id}`}
+                          className="text-slate-800 hover:text-blue-600 hover:underline"
+                          title="View Customer Statement"
+                        >
+                          {inv.customer_name}
+                        </Link>
+                      ) : (
+                        <span className="text-slate-800">{inv.customer_name}</span>
+                      )}
+                    </td>
                     <td className="py-2 px-3">
                       <span
                         className={`text-[9px] font-bold px-2 py-0.5 rounded ${

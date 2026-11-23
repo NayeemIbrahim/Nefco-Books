@@ -1,6 +1,7 @@
 import React from "react";
 import ReportLayout from "@/Components/Reports/ReportLayout";
 import { formatBDT } from "@/lib/utils";
+import { Link } from "@inertiajs/react";
 
 export default function ARAgingSummary({
   buckets = { current: 0, "1_30": 0, "31_60": 0, "61_90": 0, "90_plus": 0 },
@@ -64,7 +65,15 @@ export default function ARAgingSummary({
               ) : (
                 customerBreakdown.map((row, idx) => (
                   <tr key={idx} className="hover:bg-slate-50 transition">
-                    <td className="py-2 px-3 font-semibold text-slate-800">{row.name}</td>
+                    <td className="py-2 px-3 font-semibold">
+                      <Link
+                        href={`/reports/customer-statement?contact_id=${row.contact_id}`}
+                        className="text-blue-600 hover:text-blue-800 hover:underline"
+                        title="View Customer Statement"
+                      >
+                        {row.name}
+                      </Link>
+                    </td>
                     <td className="py-2 px-3 text-right font-mono text-slate-700">{row.current > 0 ? formatBDT(row.current) : "-"}</td>
                     <td className="py-2 px-3 text-right font-mono text-slate-700">{row["1_30"] > 0 ? formatBDT(row["1_30"]) : "-"}</td>
                     <td className="py-2 px-3 text-right font-mono text-amber-700">{row["31_60"] > 0 ? formatBDT(row["31_60"]) : "-"}</td>

@@ -583,6 +583,7 @@ class ReportService
                 'booking_number' => $b->booking_number,
                 'order_number'   => $b->order_number,
                 'invoice_number' => $b->invoice_number,
+                'contact_id'     => $b->contact_id,
                 'customer_name'  => $b->contact ? $b->contact->name : 'N/A',
                 'booking_date'   => $b->booking_date ? Carbon::parse($b->booking_date)->format('Y-m-d') : '',
                 'service_date'   => $b->service_date ? Carbon::parse($b->service_date)->format('Y-m-d') : '',
@@ -628,13 +629,14 @@ class ReportService
 
             if (! isset($customerBreakdown[$cid])) {
                 $customerBreakdown[$cid] = [
-                    'name'    => $cname,
-                    'current' => 0.00,
-                    '1_30'    => 0.00,
-                    '31_60'   => 0.00,
-                    '61_90'   => 0.00,
-                    '90_plus' => 0.00,
-                    'total'   => 0.00,
+                    'contact_id' => $cid,
+                    'name'       => $cname,
+                    'current'    => 0.00,
+                    '1_30'       => 0.00,
+                    '31_60'      => 0.00,
+                    '61_90'      => 0.00,
+                    '90_plus'    => 0.00,
+                    'total'      => 0.00,
                 ];
             }
 
@@ -680,6 +682,7 @@ class ReportService
                 return [
                     'id'             => $inv->id,
                     'invoice_number' => $inv->invoice_number,
+                    'contact_id'     => $inv->contact_id,
                     'customer_name'  => $inv->contact ? $inv->contact->name : 'N/A',
                     'issue_date'     => $inv->issue_date ? Carbon::parse($inv->issue_date)->format('Y-m-d') : '',
                     'due_date'       => $inv->due_date ? Carbon::parse($inv->due_date)->format('Y-m-d') : '',
@@ -731,7 +734,9 @@ class ReportService
                 'id'               => $p->id,
                 'payment_number'   => $p->payment_number,
                 'payment_date'     => $p->payment_date ? Carbon::parse($p->payment_date)->format('Y-m-d') : '',
+                'contact_id'       => $p->contact_id,
                 'customer_name'    => $p->contact ? $p->contact->name : 'N/A',
+                'invoice_id'       => $p->invoice_id,
                 'invoice_number'   => $p->invoice ? $p->invoice->invoice_number : 'Direct Receipt',
                 'payment_method'   => $p->payment_method ?: 'Cash',
                 'reference_number' => $p->reference_number ?: '-',
@@ -882,13 +887,14 @@ class ReportService
 
             if (! isset($vendorBreakdown[$cid])) {
                 $vendorBreakdown[$cid] = [
-                    'name'    => $cname,
-                    'current' => 0.00,
-                    '1_30'    => 0.00,
-                    '31_60'   => 0.00,
-                    '61_90'   => 0.00,
-                    '90_plus' => 0.00,
-                    'total'   => 0.00,
+                    'contact_id' => $cid,
+                    'name'       => $cname,
+                    'current'    => 0.00,
+                    '1_30'       => 0.00,
+                    '31_60'      => 0.00,
+                    '61_90'      => 0.00,
+                    '90_plus'    => 0.00,
+                    'total'      => 0.00,
                 ];
             }
 
@@ -934,6 +940,7 @@ class ReportService
                 return [
                     'id'          => $b->id,
                     'bill_number' => $b->bill_number,
+                    'contact_id'  => $b->contact_id,
                     'vendor_name' => $b->contact ? $b->contact->name : 'N/A',
                     'issue_date'  => $b->issue_date ? Carbon::parse($b->issue_date)->format('Y-m-d') : '',
                     'due_date'    => $b->due_date ? Carbon::parse($b->due_date)->format('Y-m-d') : '',
@@ -966,7 +973,9 @@ class ReportService
                 'id'               => $p->id,
                 'payment_number'   => $p->payment_number,
                 'payment_date'     => $p->payment_date ? Carbon::parse($p->payment_date)->format('Y-m-d') : '',
+                'contact_id'       => $p->contact_id,
                 'vendor_name'      => $p->contact ? $p->contact->name : 'N/A',
+                'bill_id'          => $p->bill_id,
                 'bill_number'      => $p->bill ? $p->bill->bill_number : 'Direct Payment',
                 'payment_method'   => $p->payment_method ?: 'Cash',
                 'reference_number' => $p->reference_number ?: '-',
