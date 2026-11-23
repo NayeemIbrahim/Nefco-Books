@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import DateField from "@/Components/DateField";
 import Pagination from "@/Components/Pagination";
-import { formatBDT, formatDate } from "@/lib/utils";
+import { formatBDT, formatDate, getWhatsAppShareUrl } from "@/lib/utils";
 import {
   Plus,
   Search,
@@ -494,17 +494,21 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                           </span>
                         </td>
                         <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                          <button
+                          <a
+                            href={getWhatsAppShareUrl(inv)}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             onClick={() => handleSendWhatsApp(inv.id)}
                             className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded border transition ${
                               inv.whatsapp_sent
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
                                 : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
                             }`}
+                            title="Share invoice on WhatsApp"
                           >
                             <MessageSquare className="h-3 w-3" />
-                            {inv.whatsapp_sent ? "Sent ✓" : "Send Alert"}
-                          </button>
+                            <span>{inv.whatsapp_sent ? "Sent ✓" : "Share"}</span>
+                          </a>
                         </td>
                         <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-1.5">
@@ -1312,13 +1316,17 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                   )}
                 </div>
 
-                <button
+                <a
+                  href={getWhatsAppShareUrl(selectedInvoice)}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   onClick={() => handleSendWhatsApp(selectedInvoice.id)}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition shadow-xs"
+                  title="Open WhatsApp to share this invoice"
                 >
                   <MessageSquare className="h-3.5 w-3.5" />
-                  <span>Send via WhatsApp</span>
-                </button>
+                  <span>Share on WhatsApp</span>
+                </a>
               </div>
             </div>
           </div>

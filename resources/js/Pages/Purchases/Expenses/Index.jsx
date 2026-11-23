@@ -42,7 +42,7 @@ export default function ExpensesIndex({
   const [formPaidThroughAccountId, setFormPaidThroughAccountId] = useState(paid_through_accounts?.[0]?.id || "");
   const [formAmount, setFormAmount] = useState("");
   const [formContactId, setFormContactId] = useState("");
-  const [formCategory, setFormCategory] = useState(categories?.[0] || "Office Supplies & Stationery");
+  const [formCategory, setFormCategory] = useState(categories?.[0] || "");
   const [formCustomCategory, setFormCustomCategory] = useState("");
   const [formReferenceNumber, setFormReferenceNumber] = useState("");
   const [formNotes, setFormNotes] = useState("");
@@ -61,7 +61,7 @@ export default function ExpensesIndex({
     setFormPaidThroughAccountId(paid_through_accounts?.[0]?.id || "");
     setFormAmount("");
     setFormContactId("");
-    setFormCategory(categories?.[0] || "Office Supplies & Stationery");
+    setFormCategory(categories?.[0] || "");
     setFormCustomCategory("");
     setFormReferenceNumber("");
     setFormNotes("");

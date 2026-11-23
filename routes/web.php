@@ -33,6 +33,7 @@ Route::post('contacts/{contact}/restore', [ContactController::class, 'restore'])
 Route::get('contacts/{contact}/ledger', [ContactController::class, 'ledger'])->name('contacts.ledger');
 
 // 3. Items & Inventory
+Route::post('items/quick-sell', [ItemController::class, 'quickSell'])->name('items.quick-sell');
 Route::resource('items', ItemController::class);
 Route::post('items/{item}', [ItemController::class, 'update'])->name('items.update');
 
@@ -156,6 +157,9 @@ Route::post('settings/accounts', [SettingsController::class, 'storeAccount'])->n
 Route::post('settings/accounts/{account}', [SettingsController::class, 'updateAccount'])->name('settings.accounts.update');
 Route::post('settings/accounts/{account}/balance', [SettingsController::class, 'updateBalance'])->name('settings.accounts.balance');
 Route::post('accounts/{account}/balance', [SettingsController::class, 'updateBalance']);
+Route::post('settings/categories', [SettingsController::class, 'storeCategory'])->name('settings.categories.store');
+Route::post('settings/categories/{category}', [SettingsController::class, 'updateCategory'])->name('settings.categories.update');
+Route::delete('settings/categories/{category}', [SettingsController::class, 'destroyCategory'])->name('settings.categories.destroy');
 Route::post('settings/users/{user}/approve', [SettingsController::class, 'approveUser'])->name('settings.users.approve');
 Route::post('settings/users/{user}/reject', [SettingsController::class, 'rejectUser'])->name('settings.users.reject');
 Route::post('settings/users/{user}/toggle-role', [SettingsController::class, 'toggleRole'])->name('settings.users.toggle-role');

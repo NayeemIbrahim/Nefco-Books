@@ -13,10 +13,22 @@ import {
   Plus,
   Edit,
   MessageSquare,
+  Tags,
+  Trash2,
+  Package,
+  Layers,
+  FolderPlus,
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
-export default function SettingsIndex({ profile, company, users, accounts }) {
+export default function SettingsIndex({
+  profile,
+  company,
+  users,
+  accounts,
+  item_categories = [],
+  expense_categories = [],
+}) {
   const { flash } = usePage().props;
   const [activeTab, setActiveTab] = useState("profile");
   const [notification, setNotification] = useState(flash?.success || null);
@@ -34,8 +46,16 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
   const [currencySymbol, setCurrencySymbol] = useState(company?.currency_symbol || "৳");
   const [currencyCode, setCurrencyCode] = useState(company?.currency_code || "BDT");
   const [defaultUom, setDefaultUom] = useState(company?.default_uom || "Pcs");
+  const [enableStock, setEnableStock] = useState(Boolean(company?.enable_stock));
   const [whatsappPhoneId, setWhatsappPhoneId] = useState(company?.whatsapp_phone_number_id || "");
   const [whatsappToken, setWhatsappToken] = useState(company?.whatsapp_access_token || "");
+
+  // Categories & Stock state
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [categoryType, setCategoryType] = useState("ITEM");
+  const [categoryName, setCategoryName] = useState("");
+  const [categoryDescription, setCategoryDescription] = useState("");
 
   // Chart of Accounts state
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
@@ -66,7 +86,7 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
   };
 
   const handleUpdateCompany = (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     router.post(
       "/settings/company",
       {
@@ -77,13 +97,100 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
         currency_symbol: currencySymbol,
         currency_code: currencyCode,
         default_uom: defaultUom,
+        enable_stock: enableStock,
         whatsapp_phone_number_id: whatsappPhoneId,
         whatsapp_access_token: whatsappToken,
       },
       {
+        preserveScroll: true,
         onSuccess: () => setNotification("✅ Organization and business preferences saved!"),
       }
     );
+  };
+
+  const handleToggleStock = (newVal) => {
+    setEnableStock(newVal);
+    router.post(
+      "/settings/company",
+      {
+        company_name: companyName,
+        company_address: companyAddress,
+        bin_number: binNumber,
+        phone: phone,
+        currency_symbol: currencySymbol,
+        currency_code: currencyCode,
+        default_uom: defaultUom,
+        enable_stock: newVal,
+        whatsapp_phone_number_id: whatsappPhoneId,
+        whatsapp_access_token: whatsappToken,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () =>
+          setNotification(`✅ Stock Tracking ${newVal ? "ENABLED" : "DISABLED"}! Items page updated.`),
+      }
+    );
+  };
+
+  const handleOpenAddCategory = (type) => {
+    setEditingCategory(null);
+    setCategoryType(type);
+    setCategoryName("");
+    setCategoryDescription("");
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleOpenEditCategory = (cat) => {
+    setEditingCategory(cat);
+    setCategoryType(cat.type);
+    setCategoryName(cat.name);
+    setCategoryDescription(cat.description || "");
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleDeleteCategory = (cat) => {
+    if (confirm(`Are you sure you want to delete category "${cat.name}"?`)) {
+      router.delete(`/settings/categories/${cat.id}`, {
+        preserveScroll: true,
+        onSuccess: () => setNotification(`✅ Category "${cat.name}" deleted.`),
+      });
+    }
+  };
+
+  const handleCategorySubmit = (e) => {
+    e.preventDefault();
+    if (editingCategory) {
+      router.post(
+        `/settings/categories/${editingCategory.id}`,
+        {
+          name: categoryName,
+          description: categoryDescription,
+        },
+        {
+          preserveScroll: true,
+          onSuccess: () => {
+            setIsCategoryModalOpen(false);
+            setNotification(`✅ Category "${categoryName}" updated!`);
+          },
+        }
+      );
+    } else {
+      router.post(
+        "/settings/categories",
+        {
+          name: categoryName,
+          type: categoryType,
+          description: categoryDescription,
+        },
+        {
+          preserveScroll: true,
+          onSuccess: () => {
+            setIsCategoryModalOpen(false);
+            setNotification(`✅ Category "${categoryName}" created!`);
+          },
+        }
+      );
+    }
   };
 
   const handleOpenCreateAccount = () => {
@@ -230,6 +337,18 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
             </button>
 
             <button
+              onClick={() => setActiveTab("categories")}
+              className={`flex items-center gap-2 py-2.5 px-4 font-bold border-b-2 transition ${
+                activeTab === "categories"
+                  ? "border-amber-600 text-amber-700 bg-white rounded-t-md"
+                  : "border-transparent text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Tags className="h-4 w-4" />
+              <span>Categories & Stock</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab("currency")}
               className={`flex items-center gap-2 py-2.5 px-4 font-bold border-b-2 transition ${
                 activeTab === "currency"
@@ -355,31 +474,14 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 space-y-3">
-                  <h3 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                    <MessageSquare className="h-4 w-4 text-emerald-600" />
-                    <span>Meta WhatsApp Cloud API Integration Keys</span>
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">WhatsApp Phone Number ID</label>
-                      <input
-                        type="text"
-                        value={whatsappPhoneId}
-                        onChange={(e) => setWhatsappPhoneId(e.target.value)}
-                        placeholder="10928374659102"
-                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Permanent Access Token</label>
-                      <input
-                        type="password"
-                        value={whatsappToken}
-                        onChange={(e) => setWhatsappToken(e.target.value)}
-                        placeholder="EAAB..."
-                        className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500"
-                      />
+                <div className="pt-3 border-t border-slate-100">
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-md flex items-start gap-3">
+                    <MessageSquare className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                      <h4 className="font-bold text-slate-800 text-xs">Direct WhatsApp Messaging (No Meta API required)</h4>
+                      <p className="text-[11px] text-slate-600">
+                        Invoices and receipts can be shared directly via your device's native WhatsApp or WhatsApp Business mobile app and WhatsApp Web (<span className="font-mono text-emerald-700">wa.me</span>). No Cloud API tokens, app verification, or per-message Meta fees are needed.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -460,6 +562,196 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: Categories & Stock */}
+            {activeTab === "categories" && (
+              <div className="space-y-6 text-xs">
+                {/* 1. Inventory & Stock Tracking Toggle */}
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Package className="h-4 w-4 text-amber-600" />
+                        <h3 className="font-bold text-slate-900 text-sm">
+                          Inventory & Stock Tracking Feature
+                        </h3>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            enableStock
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-slate-200 text-slate-700"
+                          }`}
+                        >
+                          {enableStock ? "Enabled" : "Disabled (Default)"}
+                        </span>
+                      </div>
+                      <p className="text-slate-500 max-w-2xl text-[11px] leading-relaxed">
+                        By default, stock tracking is disabled for simplified service and retail workflows.
+                        When enabled, <strong>Stock Available</strong> columns, inventory counts, and stock
+                        adjustments become visible on the Items & Inventory page and forms.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStock(!enableStock)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                          enableStock ? "bg-emerald-600" : "bg-slate-300"
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            enableStock ? "translate-x-6" : "translate-x-1"
+                          }`}
+                        />
+                      </button>
+                      <span className="font-semibold text-xs text-slate-700">
+                        {enableStock ? "Track Stock" : "No Stock Tracking"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Item Categories */}
+                <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-4 w-4 text-blue-600" />
+                        <h3 className="font-bold text-slate-900 text-sm">Item & Inventory Categories</h3>
+                      </div>
+                      <p className="text-slate-500 text-[11px]">
+                        Organize your products, materials, and services into custom categories rather than simple types.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAddCategory("ITEM")}
+                      className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded-md shadow-xs text-xs"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Add Item Category</span>
+                    </button>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 uppercase text-[10px] text-slate-500 font-bold border-b border-slate-200">
+                        <tr>
+                          <th className="py-2.5 px-4">Category Name</th>
+                          <th className="py-2.5 px-4">Description</th>
+                          <th className="py-2.5 px-4 text-center w-28">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {item_categories.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} className="py-4 text-center text-slate-400">
+                              No item categories created yet. Click "+ Add Item Category" to create one.
+                            </td>
+                          </tr>
+                        ) : (
+                          item_categories.map((cat) => (
+                            <tr key={cat.id} className="hover:bg-slate-50/60">
+                              <td className="py-2.5 px-4 font-semibold text-slate-900">{cat.name}</td>
+                              <td className="py-2.5 px-4 text-slate-500">{cat.description || "—"}</td>
+                              <td className="py-2.5 px-4 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => handleOpenEditCategory(cat)}
+                                    className="p-1 text-slate-400 hover:text-blue-600 rounded transition"
+                                    title="Edit Category"
+                                  >
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteCategory(cat)}
+                                    className="p-1 text-slate-400 hover:text-red-600 rounded transition"
+                                    title="Delete Category"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 3. Expense Categories */}
+                <div className="bg-white border border-slate-200 rounded-lg p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Tags className="h-4 w-4 text-amber-600" />
+                        <h3 className="font-bold text-slate-900 text-sm">Operating Expense Categories</h3>
+                      </div>
+                      <p className="text-slate-500 text-[11px]">
+                        Dynamic expense categories for purchases and company expenditures. These appear in the Expenses dropdown.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAddCategory("EXPENSE")}
+                      className="inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold px-3 py-1.5 rounded-md shadow-xs text-xs"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>Add Expense Category</span>
+                    </button>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 uppercase text-[10px] text-slate-500 font-bold border-b border-slate-200">
+                        <tr>
+                          <th className="py-2.5 px-4">Category Name</th>
+                          <th className="py-2.5 px-4">Description</th>
+                          <th className="py-2.5 px-4 text-center w-28">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {expense_categories.length === 0 ? (
+                          <tr>
+                            <td colSpan={3} className="py-4 text-center text-slate-400">
+                              No expense categories defined yet. Click "+ Add Expense Category".
+                            </td>
+                          </tr>
+                        ) : (
+                          expense_categories.map((cat) => (
+                            <tr key={cat.id} className="hover:bg-slate-50/60">
+                              <td className="py-2.5 px-4 font-semibold text-slate-900">{cat.name}</td>
+                              <td className="py-2.5 px-4 text-slate-500">{cat.description || "—"}</td>
+                              <td className="py-2.5 px-4 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => handleOpenEditCategory(cat)}
+                                    className="p-1 text-slate-400 hover:text-amber-600 rounded transition"
+                                    title="Edit Category"
+                                  >
+                                    <Edit className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteCategory(cat)}
+                                    className="p-1 text-slate-400 hover:text-red-600 rounded transition"
+                                    title="Delete Category"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             )}
@@ -755,6 +1047,78 @@ export default function SettingsIndex({ profile, company, users, accounts }) {
                   className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-bold shadow-xs"
                 >
                   {editingAccountId ? "Save Changes" : "Create Account"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Category Modal (Add / Edit) */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden border border-slate-200">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50">
+              <h3 className="font-bold text-slate-900 text-sm">
+                {editingCategory
+                  ? `Edit ${categoryType === "EXPENSE" ? "Expense" : "Item"} Category`
+                  : `Create New ${categoryType === "EXPENSE" ? "Expense" : "Item"} Category`}
+              </h3>
+              <button
+                onClick={() => setIsCategoryModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCategorySubmit} className="p-4 space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Category Type</label>
+                <div className="p-2 bg-slate-100 rounded-md font-bold text-slate-700">
+                  {categoryType === "EXPENSE" ? "Operating Expense Category" : "Item & Inventory Category"}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Category Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={categoryName}
+                  onChange={(e) => setCategoryName(e.target.value)}
+                  placeholder={
+                    categoryType === "EXPENSE"
+                      ? "e.g. Office Supplies, Warehouse Rent..."
+                      : "e.g. Raw Materials, Finished Goods, Services..."
+                  }
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Description (Optional)</label>
+                <textarea
+                  rows={2}
+                  value={categoryDescription}
+                  onChange={(e) => setCategoryDescription(e.target.value)}
+                  placeholder="Optional notes or details..."
+                  className="w-full text-xs px-3 py-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(false)}
+                  className="px-4 py-2 border border-slate-300 rounded-md text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-bold shadow-xs"
+                >
+                  {editingCategory ? "Save Changes" : "Create Category"}
                 </button>
               </div>
             </form>

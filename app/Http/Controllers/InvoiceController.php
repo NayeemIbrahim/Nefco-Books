@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\SendWhatsAppInvoiceJob;
 use App\Models\Account;
 use App\Models\Booking;
 use App\Models\Contact;
@@ -266,10 +265,6 @@ class InvoiceController extends Controller
             return $invoice;
         });
 
-        if ($invoice->status !== 'DRAFT') {
-            SendWhatsAppInvoiceJob::dispatch($invoice);
-        }
-
         $msg = $invoice->status === 'DRAFT'
             ? "Draft Invoice #{$invoice->invoice_number} saved (available under Orders & Bookings)!"
             : "Invoice #{$invoice->invoice_number} generated & posted to ledger!";
@@ -369,9 +364,9 @@ class InvoiceController extends Controller
 
     public function sendWhatsApp(Invoice $invoice): RedirectResponse
     {
-        SendWhatsAppInvoiceJob::dispatch($invoice);
+        $invoice->update(['whatsapp_sent' => true]);
 
-        return back()->with('success', "WhatsApp notification dispatched to {$invoice->contact->name}.");
+        return back()->with('success', "WhatsApp status recorded for {$invoice->contact->name}.");
     }
 
     public function markAsPaid(Invoice $invoice): RedirectResponse
@@ -398,8 +393,6 @@ class InvoiceController extends Controller
                 $invoice->update(['status' => $newStatus]);
                 $this->accountingService->postInvoice($invoice);
             });
-
-            SendWhatsAppInvoiceJob::dispatch($invoice);
 
             return back()->with('success', "Draft Invoice #{$invoice->invoice_number} has been issued and posted to General Ledger!");
         }

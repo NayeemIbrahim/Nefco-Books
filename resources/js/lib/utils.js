@@ -6,15 +6,21 @@ export function cn(...inputs) {
 }
 
 export function formatBDT(amount) {
-  const num = typeof amount === "string" ? parseFloat(amount) : amount;
-  return new Intl.NumberFormat("en-BD", {
-    style: "currency",
-    currency: "BDT",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-    .format(isNaN(num) ? 0 : num)
-    .replace("BDT", "৳");
+  try {
+    const num = typeof amount === "string" ? parseFloat(amount) : (amount ?? 0);
+    const validNum = isNaN(num) ? 0 : num;
+    return new Intl.NumberFormat("en-BD", {
+      style: "currency",
+      currency: "BDT",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+      .format(validNum)
+      .replace("BDT", "৳");
+  } catch (e) {
+    const n = parseFloat(amount) || 0;
+    return `৳${n.toFixed(2)}`;
+  }
 }
 
 const MONTH_NAMES = [
@@ -57,4 +63,38 @@ export function formatDate(dateVal) {
   const month = MONTH_NAMES[d.getMonth()];
   const year = d.getFullYear();
   return `${day} ${month} ${year}`;
+}
+
+/**
+ * Generate a direct WhatsApp Action URL to open WhatsApp Web or the WhatsApp Business app.
+ * Opens directly to the selected customer's phone number with a pre-filled invoice message.
+ */
+export function getWhatsAppShareUrl(invoice, companyName = "Nefco Books") {
+  if (!invoice) return "#";
+  const rawPhone = invoice.contact?.whatsapp_number || invoice.contact?.phone || "";
+  let cleanPhone = rawPhone.replace(/\D/g, "");
+  if (cleanPhone.startsWith("01") && cleanPhone.length === 11) {
+    cleanPhone = "88" + cleanPhone;
+  }
+
+  const customerName = invoice.contact?.name || "Valued Customer";
+  const invNumber = invoice.invoice_number || "Invoice";
+  const total = Number(invoice.total_amount || 0).toLocaleString("en-BD", { minimumFractionDigits: 2 });
+  const paid = Number(invoice.paid_amount || 0).toLocaleString("en-BD", { minimumFractionDigits: 2 });
+  const due = Number(Math.max(0, (invoice.total_amount || 0) - (invoice.paid_amount || 0))).toLocaleString("en-BD", { minimumFractionDigits: 2 });
+  const status = invoice.status || "UNPAID";
+
+  const message = `*Invoice #${invNumber}*\n` +
+    `Dear ${customerName},\n` +
+    `Thank you for doing business with ${companyName}.\n\n` +
+    `*Invoice Details:*\n` +
+    `• Total Amount: ৳${total}\n` +
+    `• Amount Paid: ৳${paid}\n` +
+    `• Balance Due: ৳${due}\n` +
+    `• Status: ${status}\n\n` +
+    `For any inquiries, please contact us.\n` +
+    `_${companyName}_`;
+
+  const encoded = encodeURIComponent(message);
+  return cleanPhone ? `https://wa.me/${cleanPhone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
 }

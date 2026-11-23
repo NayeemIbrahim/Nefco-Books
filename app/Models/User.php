@@ -23,6 +23,7 @@ class User extends Authenticatable
         'currency_symbol',
         'currency_code',
         'default_uom',
+        'enable_stock',
         'whatsapp_phone_number_id',
         'whatsapp_access_token',
     ];
@@ -37,6 +38,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password'          => 'hashed',
+            'enable_stock'      => 'boolean',
         ];
     }
 

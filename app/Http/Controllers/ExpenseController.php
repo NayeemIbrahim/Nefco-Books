@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Account;
+use App\Models\Category;
 use App\Models\Contact;
 use App\Models\Expense;
 use App\Models\JournalEntry;
@@ -13,12 +14,21 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * Class ExpenseController
+ *
+ * Handles recording, double-entry posting, and categorizing business operating expenses.
+ * Categories are managed dynamically via Settings & Setup.
+ */
 class ExpenseController extends Controller
 {
     public function __construct(protected AccountingService $accountingService)
     {
     }
 
+    /**
+     * Display a listing of operational expenses with dynamic category filters.
+     */
     public function index(Request $request): Response
     {
         $query = Expense::with(['contact', 'expenseAccount', 'paidThroughAccount']);
@@ -53,21 +63,14 @@ class ExpenseController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'phone']);
 
-        $categories = [
-            'Office Rent',
-            'Utilities (Electricity/Water/Gas)',
-            'Internet & Telecom',
-            'Salaries & Staff Wages',
-            'Office Supplies & Stationery',
-            'Repairs & Maintenance',
-            'Advertising & Marketing',
-            'Travel, Fuel & Conveyance',
-            'Software, Hosting & IT Subscriptions',
-            'Food, Entertainment & Refreshments',
-            'Legal & Professional Fees',
-            'Bank Charges & Fees',
-            'General & Miscellaneous Operating Costs',
-        ];
+        $categories = Category::where('type', 'EXPENSE')
+            ->orderBy('name')
+            ->pluck('name')
+            ->toArray();
+
+        if (empty($categories)) {
+            $categories = ['General & Miscellaneous'];
+        }
 
         $totalExpenses = Expense::sum('amount');
         $thisMonthExpenses = Expense::whereYear('expense_date', now()->year)
@@ -124,6 +127,13 @@ class ExpenseController extends Controller
                     'size' => $file->getSize(),
                 ];
             }
+        }
+
+        if (! empty($validated['category'])) {
+            Category::firstOrCreate(
+                ['name' => $validated['category'], 'type' => 'EXPENSE'],
+                ['description' => 'User created expense category']
+            );
         }
 
         DB::transaction(function () use ($validated, $expNumber, $savedAttachments) {

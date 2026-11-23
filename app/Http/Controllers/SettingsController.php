@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Account;
+use App\Models\Category;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,6 +14,12 @@ use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Inertia\Response;
 
+/**
+ * Class SettingsController
+ *
+ * Manages organization setup, profile credentials, Chart of Accounts,
+ * Category definitions (Item & Expense), and opt-in stock tracking settings.
+ */
 class SettingsController extends Controller
 {
     private function resolveUser(): ?User
@@ -88,6 +95,18 @@ class SettingsController extends Controller
             $accounts = collect();
         }
 
+        $itemCategories = collect();
+        $expenseCategories = collect();
+        try {
+            if (Schema::hasTable('categories')) {
+                $itemCategories = Category::where('type', 'ITEM')->orderBy('name')->get();
+                $expenseCategories = Category::where('type', 'EXPENSE')->orderBy('name')->get();
+            }
+        } catch (\Throwable $e) {
+            $itemCategories = collect();
+            $expenseCategories = collect();
+        }
+
         return Inertia::render('Settings/Index', [
             'profile' => [
                 'name'  => $user->name ?? 'Admin User',
@@ -102,11 +121,14 @@ class SettingsController extends Controller
                 'currency_symbol'        => $user->currency_symbol ?? '৳',
                 'currency_code'          => $user->currency_code ?? 'BDT',
                 'default_uom'            => $user->default_uom ?? 'Pcs',
+                'enable_stock'           => (bool)($user->enable_stock ?? false),
                 'whatsapp_phone_number_id'=> $user->whatsapp_phone_number_id ?? '',
                 'whatsapp_access_token'  => $user->whatsapp_access_token ?? '',
             ],
-            'users'    => $users,
-            'accounts' => $accounts,
+            'users'              => $users,
+            'accounts'           => $accounts,
+            'item_categories'    => $itemCategories,
+            'expense_categories' => $expenseCategories,
         ]);
     }
 
@@ -151,9 +173,14 @@ class SettingsController extends Controller
             'currency_symbol'        => 'required|string|max:10',
             'currency_code'          => 'required|string|max:10',
             'default_uom'            => 'nullable|string|max:20',
+            'enable_stock'           => 'nullable|boolean',
             'whatsapp_phone_number_id'=> 'nullable|string',
             'whatsapp_access_token'  => 'nullable|string',
         ]);
+
+        if ($request->has('enable_stock')) {
+            $validated['enable_stock'] = $request->boolean('enable_stock');
+        }
 
         try {
             if (Schema::hasTable('users')) {
@@ -263,5 +290,46 @@ class SettingsController extends Controller
         $user->update(['role' => $newRole]);
 
         return back()->with('success', "Updated {$user->name}'s role to " . strtoupper($newRole));
+    }
+
+    public function storeCategory(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name'        => 'required|string|max:100',
+            'type'        => 'required|in:ITEM,EXPENSE',
+            'description' => 'nullable|string|max:255',
+        ]);
+
+        $category = Category::create($validated);
+
+        $typeLabel = $validated['type'] === 'EXPENSE' ? 'Expense' : 'Item';
+        return back()->with('success', "{$typeLabel} Category '{$category->name}' created successfully!");
+    }
+
+    public function updateCategory(Request $request, Category $category): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name'        => 'required|string|max:100',
+            'description' => 'nullable|string|max:255',
+        ]);
+
+        $category->update($validated);
+
+        return back()->with('success', "Category '{$category->name}' updated successfully!");
+    }
+
+    public function destroyCategory(Category $category): RedirectResponse
+    {
+        $name = $category->name;
+        $typeLabel = $category->type === 'EXPENSE' ? 'Expense' : 'Item';
+
+        // Detach items if item category
+        if ($category->type === 'ITEM') {
+            \App\Models\Item::where('category_id', $category->id)->update(['category_id' => null]);
+        }
+
+        $category->delete();
+
+        return back()->with('success', "{$typeLabel} Category '{$name}' deleted successfully!");
     }
 }
