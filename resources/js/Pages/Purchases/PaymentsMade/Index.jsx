@@ -28,6 +28,7 @@ export default function PaymentsMadeIndex({
   filters,
 }) {
   const { flash } = usePage().props;
+  const todayStr = new Date().toISOString().split("T")[0];
   const [activeTab, setActiveTab] = useState("UNPAID_BILLS"); // 'UNPAID_BILLS' | 'HISTORY'
   const [notification, setNotification] = useState(flash?.success || null);
   const [search, setSearch] = useState(filters?.search || "");
@@ -90,7 +91,6 @@ export default function PaymentsMadeIndex({
   const [inlineMethods, setInlineMethods] = useState({});
 
   // Form State for Drawer
-  const todayStr = new Date().toISOString().split("T")[0];
   const [formPaymentNumber, setFormPaymentNumber] = useState(next_payment_number || "");
   const [formVendorId, setFormVendorId] = useState("");
   const [formBillId, setFormBillId] = useState("");

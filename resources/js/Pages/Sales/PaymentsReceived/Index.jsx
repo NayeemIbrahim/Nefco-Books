@@ -28,6 +28,7 @@ export default function PaymentsReceivedIndex({
   filters,
 }) {
   const { flash } = usePage().props;
+  const todayStr = new Date().toISOString().split("T")[0];
   const [activeTab, setActiveTab] = useState("UNPAID_INVOICES"); // 'UNPAID_INVOICES' | 'HISTORY'
   const [notification, setNotification] = useState(flash?.success || null);
   const [search, setSearch] = useState(filters?.search || "");
@@ -90,7 +91,6 @@ export default function PaymentsReceivedIndex({
   const [inlineMethods, setInlineMethods] = useState({});
 
   // Form State for Drawer
-  const todayStr = new Date().toISOString().split("T")[0];
   const [formPaymentNumber, setFormPaymentNumber] = useState(next_payment_number || "");
   const [formCustomerId, setFormCustomerId] = useState("");
   const [formInvoiceId, setFormInvoiceId] = useState("");
