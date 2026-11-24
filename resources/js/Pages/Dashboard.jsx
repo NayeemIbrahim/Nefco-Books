@@ -13,9 +13,10 @@ import {
   CreditCard,
   Send,
 } from "lucide-react";
-import { Head, Link } from "@inertiajs/react";
+import { Head, Link, usePage } from "@inertiajs/react";
 
 export default function Dashboard({ receivables, payables, recentBookings }) {
+  const { company } = usePage().props;
   const recTotal = receivables?.total ?? 0;
   const payTotal = payables?.total ?? 0;
 
@@ -25,7 +26,7 @@ export default function Dashboard({ receivables, payables, recentBookings }) {
 
   return (
     <AuthenticatedLayout>
-      <Head title="Business Overview - Nefco Books" />
+      <Head title={`Business Overview - ${company?.company_name || "Nefco Books"}`} />
 
       <div className="space-y-6">
         {/* Top Header Title */}
@@ -48,6 +49,59 @@ export default function Dashboard({ receivables, payables, recentBookings }) {
             >
               <ArrowUpRight className="h-3.5 w-3.5" />
               <span>Payments Made</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Quick Accounting Actions Top Section */}
+        <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-amber-500"></span>
+              <span>Quick Accounting Actions</span>
+            </h3>
+            <p className="text-xs text-slate-500">Fast shortcuts for daily transactions</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/sales/bookings"
+              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-xs font-semibold shadow-xs flex items-center gap-1.5 transition"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>New Booking / Deal</span>
+            </Link>
+            <Link
+              href="/sales/invoices"
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold shadow-xs flex items-center gap-1.5 transition"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Create Invoice</span>
+            </Link>
+            <Link
+              href="/purchases/bills"
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-semibold shadow-xs flex items-center gap-1.5 transition"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>New Bill</span>
+            </Link>
+            <Link
+              href="/sales/payments-received"
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold border border-slate-200 transition"
+            >
+              Receive Payment
+            </Link>
+            <Link
+              href="/purchases/payments-made"
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold border border-slate-200 transition"
+            >
+              Make Payment
+            </Link>
+            <Link
+              href="/purchases/expenses"
+              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold border border-slate-200 transition"
+            >
+              Record Expense
             </Link>
           </div>
         </div>
@@ -315,42 +369,6 @@ export default function Dashboard({ receivables, payables, recentBookings }) {
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
-
-        {/* Quick Actions Footer */}
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-bold text-slate-800">Quick Accounting Actions</h3>
-            <p className="text-xs text-slate-500">Fast shortcuts for daily transactions</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/sales/invoices"
-              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold shadow-xs flex items-center gap-1.5 transition"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Create Invoice</span>
-            </Link>
-            <Link
-              href="/purchases/bills"
-              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-md text-xs font-semibold shadow-xs flex items-center gap-1.5 transition"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>New Bill</span>
-            </Link>
-            <Link
-              href="/sales/payments-received"
-              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold border border-slate-200 transition"
-            >
-              Receive Payment
-            </Link>
-            <Link
-              href="/purchases/payments-made"
-              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-xs font-semibold border border-slate-200 transition"
-            >
-              Make Payment
-            </Link>
           </div>
         </div>
       </div>

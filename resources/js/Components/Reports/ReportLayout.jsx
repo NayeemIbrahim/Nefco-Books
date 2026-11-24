@@ -1,6 +1,6 @@
 import React from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
-import { Head, Link, router } from "@inertiajs/react";
+import { Head, Link, router, usePage } from "@inertiajs/react";
 import { ArrowLeft, Printer, Calendar, RefreshCw } from "lucide-react";
 
 export default function ReportLayout({
@@ -12,6 +12,7 @@ export default function ReportLayout({
   extraFilters,
   hideDateFilter = false,
 }) {
+  const { company } = usePage().props;
   const safeFilters = (filters && typeof filters === "object" && !Array.isArray(filters)) ? filters : {};
   const [selectedPreset, setSelectedPreset] = React.useState(safeFilters.preset || "THIS_MONTH");
   const [startDate, setStartDate] = React.useState(safeFilters.start_date || "");
@@ -220,10 +221,26 @@ export default function ReportLayout({
         <div className="bg-white p-6 sm:p-8 rounded-xl border border-slate-200 shadow-sm print:border-none print:shadow-none print:p-0 space-y-6">
           {/* Official Letterhead & Title */}
           <div className="border-b border-slate-200 pb-5 text-center space-y-1">
+            {company?.company_logo && (
+              <div className="flex justify-center mb-2">
+                <img
+                  src={company.company_logo}
+                  alt={company.company_name || "Company Logo"}
+                  className="h-10 sm:h-12 max-w-[180px] object-contain"
+                />
+              </div>
+            )}
             <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight uppercase">
               {title}
             </h1>
-            <div className="text-xs font-bold text-blue-600">Nefco Books Organization</div>
+            <div className="text-xs font-bold text-blue-600 tracking-wide">
+              {company?.company_name || "Company Profile"}
+            </div>
+            {company?.company_address && (
+              <p className="text-[11px] text-slate-500 font-medium">
+                {company.company_address}
+              </p>
+            )}
             <p className="text-[11px] text-slate-500">
               {subtitle || (
                 startDate && endDate
@@ -238,7 +255,7 @@ export default function ReportLayout({
 
           {/* Footer note for print */}
           <div className="pt-6 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
-            <span>Generated in real time by Nefco Books</span>
+            <span>Generated in real time by {company?.company_name || "Nefco Books"}</span>
             <span>Date: {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
           </div>
         </div>

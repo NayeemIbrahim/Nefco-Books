@@ -13,8 +13,12 @@ use App\Http\Controllers\ItemController;
 use App\Http\Controllers\PaymentMadeController;
 use App\Http\Controllers\PaymentReceivedController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SettingsController;
 use Illuminate\Support\Facades\Route;
+
+// Global Live Search API
+Route::get('api/search', [SearchController::class, 'search'])->name('api.search');
 
 // Authentication Routes
 Route::get('login', [LoginController::class, 'create'])->name('login');

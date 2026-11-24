@@ -517,7 +517,8 @@ class ReportService
         }
 
         // 2. Invoices
-        $invoices = Invoice::where('contact_id', $contact->id)
+        $invoices = Invoice::with(['lineItems', 'contact'])
+            ->where('contact_id', $contact->id)
             ->when($startDate, fn($q) => $q->where('issue_date', '>=', $startDate))
             ->when($endDate,   fn($q) => $q->where('issue_date', '<=', $endDate))
             ->get();
@@ -526,10 +527,12 @@ class ReportService
             $entries->push([
                 'date'        => Carbon::parse($inv->issue_date)->format('Y-m-d'),
                 'type'        => 'INVOICE',
+                'id'          => $inv->id,
                 'reference'   => $inv->invoice_number,
                 'description' => "Invoice #{$inv->invoice_number} (Status: {$inv->status})",
                 'debit'       => (float) $inv->total_amount,
                 'credit'      => 0.00,
+                'invoice'     => $inv,
             ]);
         }
 
@@ -804,7 +807,8 @@ class ReportService
         }
 
         // 2. Bills
-        $bills = Bill::where('contact_id', $contact->id)
+        $bills = Bill::with(['lineItems', 'contact'])
+            ->where('contact_id', $contact->id)
             ->when($startDate, fn($q) => $q->where('issue_date', '>=', $startDate))
             ->when($endDate,   fn($q) => $q->where('issue_date', '<=', $endDate))
             ->get();
@@ -813,10 +817,12 @@ class ReportService
             $entries->push([
                 'date'        => Carbon::parse($bill->issue_date)->format('Y-m-d'),
                 'type'        => 'BILL',
+                'id'          => $bill->id,
                 'reference'   => $bill->bill_number,
                 'description' => "Bill #{$bill->bill_number} (Status: {$bill->status})",
                 'debit'       => 0.00,
                 'credit'      => (float) $bill->total_amount,
+                'bill'        => $bill,
             ]);
         }
 

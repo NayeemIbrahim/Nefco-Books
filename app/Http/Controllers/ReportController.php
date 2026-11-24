@@ -116,7 +116,13 @@ class ReportController extends Controller
             ? $this->reportService->getCustomerStatement((int)$contactId, $filters)
             : ['contact' => null, 'current_balance' => 0, 'entries' => [], 'allCustomers' => Contact::whereIn('type', ['CUSTOMER', 'BOTH'])->get(['id', 'name'])];
 
+        $accounts = \App\Models\Account::whereIn('code', ['1000', '1010', '1020'])->get(['id', 'name', 'code']);
+        if ($accounts->isEmpty()) {
+            $accounts = \App\Models\Account::where('type', 'ASSET')->limit(5)->get(['id', 'name', 'code']);
+        }
+
         return Inertia::render('Reports/CustomerStatement', array_merge($data, [
+            'deposit_accounts' => $accounts,
             'filters' => array_merge($filters, ['contact_id' => $contactId]),
         ]));
     }
@@ -203,7 +209,13 @@ class ReportController extends Controller
             ? $this->reportService->getVendorStatement((int)$contactId, $filters)
             : ['contact' => null, 'current_balance' => 0, 'entries' => [], 'allVendors' => Contact::where('type', 'VENDOR')->get(['id', 'name'])];
 
+        $accounts = \App\Models\Account::whereIn('code', ['1000', '1010', '1020'])->get(['id', 'name', 'code']);
+        if ($accounts->isEmpty()) {
+            $accounts = \App\Models\Account::where('type', 'ASSET')->limit(5)->get(['id', 'name', 'code']);
+        }
+
         return Inertia::render('Reports/VendorStatement', array_merge($data, [
+            'paid_from_accounts' => $accounts,
             'filters' => array_merge($filters, ['contact_id' => $contactId]),
         ]));
     }
