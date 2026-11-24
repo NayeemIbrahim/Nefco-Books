@@ -67,8 +67,28 @@ class BillController extends Controller
             }
         }
 
+        $bills = $query->latest()->paginate(15)->withQueryString();
+        $bills->getCollection()->transform(function ($bill) {
+            if ($bill->contact_id) {
+                $otherDue = (float)Bill::where('contact_id', $bill->contact_id)
+                    ->where('id', '!=', $bill->id)
+                    ->whereNotIn('status', ['VOID'])
+                    ->selectRaw('COALESCE(SUM(total_amount - COALESCE(paid_amount, 0)), 0) as due')
+                    ->value('due');
+
+                $ob = (float)($bill->contact->opening_balance ?? 0);
+                $obType = strtoupper($bill->contact->opening_balance_type ?: 'TO_PAY');
+                $obDue = ($obType === 'TO_PAY') ? $ob : -$ob;
+
+                $bill->previous_due = round(max(0, $otherDue + $obDue), 2);
+            } else {
+                $bill->previous_due = 0.00;
+            }
+            return $bill;
+        });
+
         return Inertia::render('Bills/Index', [
-            'bills'   => $query->latest()->paginate(15)->withQueryString(),
+            'bills'   => $bills,
             'vendors' => Contact::active()->whereIn('type', ['VENDOR', 'BOTH'])->get(['id', 'name', 'phone', 'whatsapp_number']),
             'items'   => Item::all(),
             'deposit_accounts' => Account::whereIn('code', ['1000', '1010', '1020'])->get(['id', 'name', 'code']),

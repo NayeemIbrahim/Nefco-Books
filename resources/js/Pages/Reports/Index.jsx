@@ -327,7 +327,10 @@ export default function ReportsIndex() {
       if (activeCategory === "FAVORITES" && !favorites.includes(r.id)) {
         return false;
       }
-      if (activeCategory !== "ALL" && activeCategory !== "FAVORITES" && r.category !== activeCategory) {
+      if (activeCategory === "STATEMENTS" && !(r.id.includes("statement") || r.title.toLowerCase().includes("statement"))) {
+        return false;
+      }
+      if (activeCategory !== "ALL" && activeCategory !== "FAVORITES" && activeCategory !== "STATEMENTS" && r.category !== activeCategory) {
         return false;
       }
 
@@ -446,6 +449,28 @@ export default function ReportsIndex() {
                 }`}
               >
                 {favorites.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveCategory("STATEMENTS")}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+                activeCategory === "STATEMENTS"
+                  ? "bg-sky-600 text-white font-semibold shadow-xs"
+                  : "text-slate-700 hover:bg-slate-100"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-sky-500" />
+                <span>Statements</span>
+              </div>
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
+                  activeCategory === "STATEMENTS" ? "bg-white/20 text-white" : "bg-sky-100 text-sky-800"
+                }`}
+              >
+                {reports.filter((r) => r.id.includes("statement") || r.title.toLowerCase().includes("statement")).length}
               </span>
             </button>
 

@@ -18,6 +18,9 @@ import {
   Package,
   Layers,
   FolderPlus,
+  Image,
+  Upload,
+  RotateCcw,
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
@@ -48,9 +51,44 @@ export default function SettingsIndex({
   const [defaultUom, setDefaultUom] = useState(company?.default_uom || "Pcs");
   const [enableStock, setEnableStock] = useState(Boolean(company?.enable_stock));
 
+  const [companyLogo, setCompanyLogo] = useState(company?.company_logo || "");
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(company?.company_logo || null);
+
+  const [companyIcon, setCompanyIcon] = useState(company?.company_icon || "");
+  const [iconFile, setIconFile] = useState(null);
+  const [iconPreview, setIconPreview] = useState(company?.company_icon || null);
+
+  const DEFAULT_WHATSAPP_TEMPLATE = `*{company_name}*
+Invoice #{invoice_number}
+
+Dear {customer_name},
+Thank you for doing business with {company_name}. Here is the breakdown of your invoice:
+
+*Items Purchased:*
+{items}
+
+*Payment & Due Summary:*
+• Invoice Total: ৳{total_amount}
+• Paid Amount: ৳{paid_amount}
+• Invoice Due: ৳{due_amount}
+• Previous Due: ৳{previous_due}
+━━━━━━━━━━━━━━━━━━
+*Total Outstanding Due: ৳{grand_total_due}*
+
+For any inquiries, please contact us.
+_{company_name}_`;
+
+  const [whatsappTemplate, setWhatsappTemplate] = useState(
+    company?.whatsapp_template || DEFAULT_WHATSAPP_TEMPLATE
+  );
+
   useEffect(() => {
     setEnableStock(Boolean(company?.enable_stock));
-  }, [company?.enable_stock]);
+    if (company?.company_logo) setLogoPreview(company.company_logo);
+    if (company?.company_icon) setIconPreview(company.company_icon);
+    if (company?.whatsapp_template) setWhatsappTemplate(company.whatsapp_template);
+  }, [company]);
   const [whatsappPhoneId, setWhatsappPhoneId] = useState(company?.whatsapp_phone_number_id || "");
   const [whatsappToken, setWhatsappToken] = useState(company?.whatsapp_access_token || "");
 
@@ -91,23 +129,32 @@ export default function SettingsIndex({
 
   const handleUpdateCompany = (e) => {
     if (e) e.preventDefault();
+    const data = new FormData();
+    data.append("company_name", companyName);
+    data.append("company_address", companyAddress);
+    data.append("bin_number", binNumber);
+    data.append("phone", phone);
+    data.append("currency_symbol", currencySymbol);
+    data.append("currency_code", currencyCode);
+    data.append("default_uom", defaultUom);
+    data.append("enable_stock", enableStock ? "1" : "0");
+    data.append("company_logo", companyLogo || "");
+    data.append("company_icon", companyIcon || "");
+    data.append("whatsapp_template", whatsappTemplate || "");
+    if (logoFile) {
+      data.append("logo", logoFile);
+    }
+    if (iconFile) {
+      data.append("icon", iconFile);
+    }
+
     router.post(
       "/settings/company",
-      {
-        company_name: companyName,
-        company_address: companyAddress,
-        bin_number: binNumber,
-        phone: phone,
-        currency_symbol: currencySymbol,
-        currency_code: currencyCode,
-        default_uom: defaultUom,
-        enable_stock: enableStock,
-        whatsapp_phone_number_id: whatsappPhoneId,
-        whatsapp_access_token: whatsappToken,
-      },
+      data,
       {
         preserveScroll: true,
-        onSuccess: () => setNotification("✅ Organization and business preferences saved!"),
+        forceFormData: true,
+        onSuccess: () => setNotification("✅ Organization profile, branding & WhatsApp template saved!"),
       }
     );
   };
@@ -430,6 +477,113 @@ export default function SettingsIndex({
             {/* TAB 2: Business Info */}
             {activeTab === "company" && (
               <form onSubmit={handleUpdateCompany} className="max-w-2xl space-y-4 text-xs">
+                {/* Branding: Logo and Favicon / Icon */}
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-3">
+                  <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                    <Image className="h-4 w-4 text-amber-600" />
+                    <span>Company Logo & Browser Favicon</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Company Logo */}
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Company Logo (Invoices & Header)</label>
+                      <div className="flex items-center gap-3">
+                        {logoPreview ? (
+                          <div className="relative group shrink-0">
+                            <img
+                              src={logoPreview}
+                              alt="Company Logo"
+                              className="h-12 w-28 object-contain bg-white border border-slate-300 rounded p-1 shadow-xs"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLogoFile(null);
+                                setLogoPreview(null);
+                                setCompanyLogo("");
+                              }}
+                              className="absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full p-0.5 hover:bg-red-700 shadow-xs"
+                              title="Remove logo"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="h-12 w-28 border border-dashed border-slate-300 rounded flex items-center justify-center text-slate-400 bg-white text-[10px] shrink-0">
+                            No Logo
+                          </div>
+                        )}
+                        <label className="cursor-pointer bg-white border border-slate-300 hover:border-amber-500 hover:text-amber-600 px-3 py-1.5 rounded text-xs font-semibold shadow-xs flex items-center gap-1.5">
+                          <Upload className="h-3.5 w-3.5" />
+                          <span>Upload Logo</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) {
+                                setLogoFile(f);
+                                setLogoPreview(URL.createObjectURL(f));
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">Recommended: PNG or SVG with transparent background (max 5MB)</p>
+                    </div>
+
+                    {/* Company Icon / Favicon */}
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Browser Favicon / App Icon</label>
+                      <div className="flex items-center gap-3">
+                        {iconPreview ? (
+                          <div className="relative group shrink-0">
+                            <img
+                              src={iconPreview}
+                              alt="Company Icon"
+                              className="h-10 w-10 object-contain bg-white border border-slate-300 rounded p-1 shadow-xs"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIconFile(null);
+                                setIconPreview(null);
+                                setCompanyIcon("");
+                              }}
+                              className="absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full p-0.5 hover:bg-red-700 shadow-xs"
+                              title="Remove icon"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="h-10 w-10 border border-dashed border-slate-300 rounded flex items-center justify-center text-slate-400 bg-white text-[10px] shrink-0">
+                            Icon
+                          </div>
+                        )}
+                        <label className="cursor-pointer bg-white border border-slate-300 hover:border-amber-500 hover:text-amber-600 px-3 py-1.5 rounded text-xs font-semibold shadow-xs flex items-center gap-1.5">
+                          <Upload className="h-3.5 w-3.5" />
+                          <span>Upload Icon</span>
+                          <input
+                            type="file"
+                            accept="image/png,image/x-icon,image/svg+xml,image/jpeg"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) {
+                                setIconFile(f);
+                                setIconPreview(URL.createObjectURL(f));
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1">Square image (1:1 ratio, 32x32px or 64x64px)</p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">Organization / Company Name *</label>
@@ -473,15 +627,60 @@ export default function SettingsIndex({
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100">
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-md flex items-start gap-3">
-                    <MessageSquare className="h-5 w-5 text-emerald-600 mt-0.5 shrink-0" />
-                    <div className="space-y-1">
-                      <h4 className="font-bold text-slate-800 text-xs">Direct WhatsApp Messaging (No Meta API required)</h4>
-                      <p className="text-[11px] text-slate-600">
-                        Invoices and receipts can be shared directly via your device's native WhatsApp or WhatsApp Business mobile app and WhatsApp Web (<span className="font-mono text-emerald-700">wa.me</span>). No Cloud API tokens, app verification, or per-message Meta fees are needed.
-                      </p>
+                {/* WhatsApp Message Template Customization */}
+                <div className="pt-3 border-t border-slate-100 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <MessageSquare className="h-4 w-4 text-emerald-600" />
+                      <h4 className="font-bold text-slate-800 text-xs">Custom WhatsApp Message Template</h4>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setWhatsappTemplate(DEFAULT_WHATSAPP_TEMPLATE)}
+                      className="flex items-center gap-1 text-[11px] text-amber-700 hover:text-amber-900 font-semibold"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span>Reset to Default Template</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Customize the pre-filled message text sent via WhatsApp / WhatsApp Business. Click any placeholder below to insert it at your cursor:
+                  </p>
+
+                  {/* Placeholder Chips */}
+                  <div className="flex flex-wrap gap-1.5 text-[10px]">
+                    {[
+                      { tag: "{company_name}", label: "🏢 Company Name" },
+                      { tag: "{customer_name}", label: "👤 Customer Name" },
+                      { tag: "{invoice_number}", label: "🔢 Invoice #" },
+                      { tag: "{items}", label: "📦 Product Items" },
+                      { tag: "{total_amount}", label: "💰 Invoice Total" },
+                      { tag: "{paid_amount}", label: "💵 Paid Amount" },
+                      { tag: "{due_amount}", label: "⏳ Invoice Due" },
+                      { tag: "{previous_due}", label: "📊 Previous Due" },
+                      { tag: "{grand_total_due}", label: "🔴 Total Due" },
+                    ].map((chip) => (
+                      <button
+                        key={chip.tag}
+                        type="button"
+                        onClick={() => setWhatsappTemplate((prev) => prev + " " + chip.tag)}
+                        className="px-2 py-0.5 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-800 text-slate-700 font-mono rounded border border-slate-200 transition"
+                      >
+                        {chip.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <textarea
+                    rows={8}
+                    value={whatsappTemplate}
+                    onChange={(e) => setWhatsappTemplate(e.target.value)}
+                    placeholder="Enter custom WhatsApp template..."
+                    className="w-full text-xs font-mono p-3 border border-slate-300 rounded-md focus:ring-1 focus:ring-emerald-500 bg-white"
+                  />
+                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded text-[11px] text-emerald-800 flex items-center gap-2">
+                    <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    <span>WhatsApp messages will automatically use your Company Profile Name and include product items with quantities, prices, previous due, and total outstanding due.</span>
                   </div>
                 </div>
 
@@ -490,7 +689,7 @@ export default function SettingsIndex({
                   className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-md shadow-xs transition"
                 >
                   <Save className="h-4 w-4" />
-                  <span>Save Organization Details</span>
+                  <span>Save Organization & Branding Details</span>
                 </button>
               </form>
             )}

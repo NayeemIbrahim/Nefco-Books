@@ -21,7 +21,7 @@ import {
 import { Head, router, usePage } from "@inertiajs/react";
 
 export default function InvoicesIndex({ invoices, contacts, items, filters, next_invoice_number, next_order_number, deposit_accounts }) {
-  const { flash } = usePage().props;
+  const { flash, company } = usePage().props;
   const [search, setSearch] = useState(filters?.search || "");
   const [statusFilter, setStatusFilter] = useState(filters?.status || "ALL");
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -181,8 +181,14 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
   const handleSelectContact = (name) => {
     setFormContactName(name);
     const matched = contactList.find((c) => c.name.toLowerCase() === name.toLowerCase());
-    if (matched && (matched.whatsapp_number || matched.phone)) {
-      setFormWhatsapp(matched.whatsapp_number || matched.phone);
+    if (matched) {
+      if (matched.whatsapp_number || matched.phone) {
+        setFormWhatsapp(matched.whatsapp_number || matched.phone);
+      }
+      if (!editingInvoiceId) {
+        const nextCustOrder = (matched.invoices_count || 0) + 1;
+        setFormOrderNumber(`ORD-${String(nextCustOrder).padStart(4, "0")}`);
+      }
     }
   };
 
@@ -440,7 +446,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                         <td className="py-3 px-4 font-mono font-bold text-blue-600">
                           <div>{inv.invoice_number}</div>
                           {inv.order_number && (
-                            <div className="text-[10px] text-slate-400 font-normal">Ord: {inv.order_number}</div>
+                            <div className="text-[10px] text-slate-400 font-normal hidden sm:block">Ord: {inv.order_number}</div>
                           )}
                           {inv.attachments && inv.attachments.length > 0 && (
                             <div className="text-[10px] text-emerald-600 font-normal flex items-center gap-0.5 mt-0.5">
@@ -495,7 +501,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                         </td>
                         <td className="py-3 px-4 text-center" onClick={(e) => e.stopPropagation()}>
                           <a
-                            href={getWhatsAppShareUrl(inv)}
+                            href={getWhatsAppShareUrl(inv, { company })}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={() => handleSendWhatsApp(inv.id)}
@@ -1317,7 +1323,7 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                 </div>
 
                 <a
-                  href={getWhatsAppShareUrl(selectedInvoice)}
+                  href={getWhatsAppShareUrl(selectedInvoice, { company })}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => handleSendWhatsApp(selectedInvoice.id)}

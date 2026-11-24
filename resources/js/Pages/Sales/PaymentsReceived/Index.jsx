@@ -37,6 +37,7 @@ export default function PaymentsReceivedIndex({
 
   // Modal Invoice Settlement State inside Popup
   const [modalPayAmount, setModalPayAmount] = useState("");
+  const [modalPayDate, setModalPayDate] = useState(todayStr);
   const [modalPayAccount, setModalPayAccount] = useState(deposit_accounts?.[0]?.id || "");
   const [modalPayMethod, setModalPayMethod] = useState("CASH");
   const [modalPayRef, setModalPayRef] = useState("");
@@ -48,6 +49,7 @@ export default function PaymentsReceivedIndex({
       const isPaid = inv.status === "PAID" || (parseFloat(inv.paid_amount) || 0) >= (parseFloat(inv.total_amount) || 0);
       const due = isPaid ? 0 : Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
       setModalPayAmount(due > 0 ? due : "");
+      setModalPayDate(todayStr);
       setModalPayAccount(deposit_accounts?.[0]?.id || "");
       setModalPayMethod("CASH");
       setModalPayRef("");
@@ -65,7 +67,7 @@ export default function PaymentsReceivedIndex({
         invoice_id: selectedInvoice.id,
         amount: parseFloat(modalPayAmount),
         account_id: modalPayAccount || deposit_accounts?.[0]?.id,
-        payment_date: todayStr,
+        payment_date: modalPayDate || todayStr,
         payment_method: modalPayMethod,
         reference_number: modalPayRef,
         notes: `Payment received for invoice ${selectedInvoice.invoice_number}`,
@@ -816,7 +818,7 @@ export default function PaymentsReceivedIndex({
                       {selectedInvoice.status || "CONFIRMED"}
                     </span>
                     <p className="text-[11px] text-slate-500 mt-1">
-                      Date: {formatDate(selectedInvoice.issue_date || selectedInvoice.created_at)}
+                      Transaction Date: <strong>{formatDate(selectedInvoice.issue_date || selectedInvoice.created_at)}</strong>
                     </p>
                     {selectedInvoice.due_date && (
                       <p className="text-[11px] text-slate-500">
@@ -913,9 +915,19 @@ export default function PaymentsReceivedIndex({
                       </div>
 
                       <form onSubmit={handleModalInvoicePayment} className="space-y-3">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                           <div>
-                            <label className="text-[10px] font-bold text-slate-600 uppercase">Receipt Amount (৳)</label>
+                            <label className="text-[10px] font-bold text-slate-600 uppercase">Payment Date *</label>
+                            <input
+                              type="date"
+                              required
+                              value={modalPayDate}
+                              onChange={(e) => setModalPayDate(e.target.value)}
+                              className="w-full mt-0.5 px-2.5 py-1.5 text-xs font-semibold border border-slate-300 rounded bg-white text-slate-900 focus:ring-1 focus:ring-emerald-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 uppercase">Receipt Amount (৳) *</label>
                             <input
                               type="number"
                               step="0.01"

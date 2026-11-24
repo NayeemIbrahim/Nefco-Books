@@ -24,6 +24,9 @@ class User extends Authenticatable
         'currency_code',
         'default_uom',
         'enable_stock',
+        'company_logo',
+        'company_icon',
+        'whatsapp_template',
         'whatsapp_phone_number_id',
         'whatsapp_access_token',
     ];

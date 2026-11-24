@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import DateField from "@/Components/DateField";
 import Pagination from "@/Components/Pagination";
-import { formatBDT, formatDate } from "@/lib/utils";
+import { formatBDT, formatDate, getWhatsAppShareUrl } from "@/lib/utils";
 import {
   Plus,
   Search,
@@ -15,11 +15,12 @@ import {
   Edit,
   Phone,
   Calendar,
+  MessageSquare,
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
 export default function BillsIndex({ bills, vendors, items, deposit_accounts, filters }) {
-  const { flash } = usePage().props;
+  const { flash, company } = usePage().props;
   const billList = bills?.data || bills || [];
   const vendorList = vendors || [];
   const accountsList = deposit_accounts || [];
@@ -553,6 +554,16 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
                     <Plus className="h-3.5 w-3.5" />
                     <span>Add Item Row</span>
                   </button>
+                  <a
+                    href={getWhatsAppShareUrl(selectedBill, { company, isBill: true })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition shadow-xs"
+                    title="Share bill details on WhatsApp"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    <span>WhatsApp</span>
+                  </a>
                 </div>
 
                 {/* Catalog items datalist */}
@@ -957,6 +968,16 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
                     <Edit className="h-3.5 w-3.5" />
                     <span>Edit Bill</span>
                   </button>
+                  <a
+                    href={getWhatsAppShareUrl(selectedBill, { company, isBill: true })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition shadow-xs"
+                    title="Share bill details on WhatsApp"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    <span>WhatsApp</span>
+                  </a>
                 </div>
 
                 {selectedBill.id && selectedBill.status !== "PAID" && (

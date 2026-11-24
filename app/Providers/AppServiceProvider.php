@@ -45,10 +45,27 @@ class AppServiceProvider extends ServiceProvider
                 });
             }
 
-            if (Schema::hasTable('users') && !Schema::hasColumn('users', 'enable_stock')) {
-                Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
-                    $table->boolean('enable_stock')->default(false);
-                });
+            if (Schema::hasTable('users')) {
+                if (! Schema::hasColumn('users', 'enable_stock')) {
+                    Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+                        $table->boolean('enable_stock')->default(false);
+                    });
+                }
+                if (! Schema::hasColumn('users', 'company_logo')) {
+                    Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+                        $table->string('company_logo', 500)->nullable();
+                    });
+                }
+                if (! Schema::hasColumn('users', 'company_icon')) {
+                    Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+                        $table->string('company_icon', 500)->nullable();
+                    });
+                }
+                if (! Schema::hasColumn('users', 'whatsapp_template')) {
+                    Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+                        $table->text('whatsapp_template')->nullable();
+                    });
+                }
             }
 
             if (Schema::hasTable('items') && !Schema::hasColumn('items', 'category_id')) {

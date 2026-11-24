@@ -122,6 +122,9 @@ class SettingsController extends Controller
                 'currency_code'          => $user->currency_code ?? 'BDT',
                 'default_uom'            => $user->default_uom ?? 'Pcs',
                 'enable_stock'           => (bool)($user->enable_stock ?? false),
+                'company_logo'           => $user->company_logo ?? '',
+                'company_icon'           => $user->company_icon ?? '',
+                'whatsapp_template'      => $user->whatsapp_template ?? '',
                 'whatsapp_phone_number_id'=> $user->whatsapp_phone_number_id ?? '',
                 'whatsapp_access_token'  => $user->whatsapp_access_token ?? '',
             ],
@@ -174,6 +177,11 @@ class SettingsController extends Controller
             'currency_code'          => 'required|string|max:10',
             'default_uom'            => 'nullable|string|max:20',
             'enable_stock'           => 'nullable|boolean',
+            'company_logo'           => 'nullable|string|max:500',
+            'company_icon'           => 'nullable|string|max:500',
+            'logo'                   => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp,ico|max:5120',
+            'icon'                   => 'nullable|file|mimes:jpeg,png,jpg,gif,svg,webp,ico|max:2048',
+            'whatsapp_template'      => 'nullable|string|max:5000',
             'whatsapp_phone_number_id'=> 'nullable|string',
             'whatsapp_access_token'  => 'nullable|string',
         ]);
@@ -189,6 +197,21 @@ class SettingsController extends Controller
                         $table->boolean('enable_stock')->default(false);
                     });
                 }
+                if (! Schema::hasColumn('users', 'company_logo')) {
+                    Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+                        $table->string('company_logo', 500)->nullable();
+                    });
+                }
+                if (! Schema::hasColumn('users', 'company_icon')) {
+                    Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+                        $table->string('company_icon', 500)->nullable();
+                    });
+                }
+                if (! Schema::hasColumn('users', 'whatsapp_template')) {
+                    Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+                        $table->text('whatsapp_template')->nullable();
+                    });
+                }
 
                 $existingColumns = Schema::getColumnListing('users');
                 $dataToUpdate = array_filter(
@@ -196,6 +219,34 @@ class SettingsController extends Controller
                     fn ($key) => in_array($key, $existingColumns),
                     ARRAY_FILTER_USE_KEY
                 );
+
+                // Handle Logo Upload
+                if ($request->hasFile('logo')) {
+                    $logoFile = $request->file('logo');
+                    $logoName = 'logo_' . time() . '.' . $logoFile->getClientOriginalExtension();
+                    $uploadDir = public_path('uploads');
+                    if (! file_exists($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+                    $logoFile->move($uploadDir, $logoName);
+                    $dataToUpdate['company_logo'] = '/uploads/' . $logoName;
+                }
+
+                // Handle Icon / Favicon Upload
+                if ($request->hasFile('icon')) {
+                    $iconFile = $request->file('icon');
+                    $iconName = 'icon_' . time() . '.' . $iconFile->getClientOriginalExtension();
+                    $uploadDir = public_path('uploads');
+                    if (! file_exists($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+                    $iconFile->move($uploadDir, $iconName);
+                    $dataToUpdate['company_icon'] = '/uploads/' . $iconName;
+                }
+
+                if ($request->has('whatsapp_template')) {
+                    $dataToUpdate['whatsapp_template'] = $request->input('whatsapp_template');
+                }
 
                 if (! empty($dataToUpdate)) {
                     $user = $this->resolveUser();

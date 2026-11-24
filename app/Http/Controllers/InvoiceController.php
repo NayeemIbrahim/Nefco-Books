@@ -71,13 +71,35 @@ class InvoiceController extends Controller
         }
 
         $invoices = $query->latest('issue_date')->paginate(15)->withQueryString();
-        $contacts = Contact::active()->whereIn('type', ['CUSTOMER', 'BOTH'])->get(['id', 'name', 'phone', 'whatsapp_number']);
+        $invoices->getCollection()->transform(function ($invoice) {
+            if ($invoice->contact_id) {
+                $otherDue = (float)Invoice::where('contact_id', $invoice->contact_id)
+                    ->where('id', '!=', $invoice->id)
+                    ->whereNotIn('status', ['DRAFT', 'VOID'])
+                    ->selectRaw('COALESCE(SUM(total_amount - COALESCE(paid_amount, 0)), 0) as due')
+                    ->value('due');
+
+                $ob = (float)($invoice->contact->opening_balance ?? 0);
+                $obType = strtoupper($invoice->contact->opening_balance_type ?: 'TO_RECEIVE');
+                $obDue = ($obType === 'TO_RECEIVE') ? $ob : -$ob;
+
+                $invoice->previous_due = round(max(0, $otherDue + $obDue), 2);
+            } else {
+                $invoice->previous_due = 0.00;
+            }
+            return $invoice;
+        });
+
+        $contacts = Contact::active()
+            ->whereIn('type', ['CUSTOMER', 'BOTH'])
+            ->withCount('invoices')
+            ->get(['id', 'name', 'phone', 'whatsapp_number', 'opening_balance', 'opening_balance_type']);
         $items    = Item::get(['id', 'name', 'sku', 'sales_price', 'unit']);
         $depositAccounts = Account::whereIn('code', ['1000', '1010', '1020'])->get(['id', 'name', 'code']);
 
         $nextSeq = (int)Invoice::max('id') + 1;
         $nextInvoiceNumber = 'INV-' . date('Y') . '-' . str_pad((string)$nextSeq, 4, '0', STR_PAD_LEFT);
-        $nextOrderNumber = 'ORD-' . date('Y') . '-' . str_pad((string)$nextSeq, 4, '0', STR_PAD_LEFT);
+        $nextOrderNumber = 'ORD-0001';
 
         return Inertia::render('Invoices/Index', [
             'invoices'            => $invoices,
@@ -185,9 +207,12 @@ class InvoiceController extends Controller
                 ? $validated['invoice_number']
                 : 'INV-' . date('Y') . '-' . str_pad((string)$nextSeq, 4, '0', STR_PAD_LEFT);
 
-            $orderNumber = ! empty($validated['order_number'])
-                ? $validated['order_number']
-                : 'ORD-' . date('Y') . '-' . str_pad((string)$nextSeq, 4, '0', STR_PAD_LEFT);
+            if (! empty($validated['order_number'])) {
+                $orderNumber = $validated['order_number'];
+            } else {
+                $custCount = Invoice::where('contact_id', $contact->id)->count() + 1;
+                $orderNumber = 'ORD-' . str_pad((string)$custCount, 4, '0', STR_PAD_LEFT);
+            }
 
             $issueDate = ! empty($validated['issue_date']) ? $validated['issue_date'] : now();
             $dueDate   = ! empty($validated['due_date']) ? $validated['due_date'] : $issueDate;

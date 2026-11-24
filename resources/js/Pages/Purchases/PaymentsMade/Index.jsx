@@ -37,6 +37,7 @@ export default function PaymentsMadeIndex({
 
   // Modal Bill Settlement State inside Popup
   const [modalPayAmount, setModalPayAmount] = useState("");
+  const [modalPayDate, setModalPayDate] = useState(todayStr);
   const [modalPayAccount, setModalPayAccount] = useState(paid_from_accounts?.[0]?.id || "");
   const [modalPayMethod, setModalPayMethod] = useState("CASH");
   const [modalPayRef, setModalPayRef] = useState("");
@@ -48,6 +49,7 @@ export default function PaymentsMadeIndex({
       const isPaid = bill.status === "PAID" || (parseFloat(bill.paid_amount) || 0) >= (parseFloat(bill.total_amount) || 0);
       const due = isPaid ? 0 : Math.max(0, (parseFloat(bill.total_amount) || 0) - (parseFloat(bill.paid_amount) || 0));
       setModalPayAmount(due > 0 ? due : "");
+      setModalPayDate(todayStr);
       setModalPayAccount(paid_from_accounts?.[0]?.id || "");
       setModalPayMethod("CASH");
       setModalPayRef("");
@@ -65,7 +67,7 @@ export default function PaymentsMadeIndex({
         bill_id: selectedBill.id,
         amount: parseFloat(modalPayAmount),
         account_id: modalPayAccount || paid_from_accounts?.[0]?.id,
-        payment_date: todayStr,
+        payment_date: modalPayDate || todayStr,
         payment_method: modalPayMethod,
         reference_number: modalPayRef,
         notes: `Payment for bill ${selectedBill.bill_number}`,
@@ -812,7 +814,7 @@ export default function PaymentsMadeIndex({
                       {selectedBill.status || "CONFIRMED"}
                     </span>
                     <p className="text-[11px] text-slate-500 mt-1">
-                      Date: {formatDate(selectedBill.bill_date || selectedBill.created_at)}
+                      <span className="font-semibold text-slate-600">Transaction Date:</span> {formatDate(selectedBill.bill_date || selectedBill.created_at)}
                     </p>
                     {selectedBill.due_date && (
                       <p className="text-[11px] text-slate-500">
@@ -909,7 +911,17 @@ export default function PaymentsMadeIndex({
                       </div>
 
                       <form onSubmit={handleModalBillPayment} className="space-y-3">
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 uppercase">Payment Date</label>
+                            <input
+                              type="date"
+                              required
+                              value={modalPayDate}
+                              onChange={(e) => setModalPayDate(e.target.value)}
+                              className="w-full mt-0.5 px-2.5 py-1.5 text-xs font-mono font-medium border border-slate-300 rounded bg-white text-slate-900 focus:ring-1 focus:ring-amber-500"
+                            />
+                          </div>
                           <div>
                             <label className="text-[10px] font-bold text-slate-600 uppercase">Pay Amount (৳)</label>
                             <input

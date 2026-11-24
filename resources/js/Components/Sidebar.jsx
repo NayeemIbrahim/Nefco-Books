@@ -17,12 +17,14 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Receipt,
+  BookOpen,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Sidebar({ isOpen, onClose }) {
-  const { url } = usePage();
+  const { url, props } = usePage();
+  const company = props?.company;
 
   const isSalesActive =
     url.startsWith("/sales") ||
@@ -269,13 +271,43 @@ export function Sidebar({ isOpen, onClose }) {
               onClick={onClose}
               className={cn(
                 "flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition",
-                url === "/reports" || (url.startsWith("/reports") && !url.startsWith("/banking"))
+                url === "/reports"
                   ? "bg-amber-600 text-white font-semibold"
                   : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
               )}
             >
               <BarChart3 className="h-3.5 w-3.5 shrink-0" />
               <span>Reports Center</span>
+            </Link>
+
+            {/* Customer Statement */}
+            <Link
+              href="/reports/customer-statement"
+              onClick={onClose}
+              className={cn(
+                "flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition",
+                url.startsWith("/reports/customer-statement")
+                  ? "bg-amber-600 text-white font-semibold"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              )}
+            >
+              <BookOpen className="h-3.5 w-3.5 shrink-0" />
+              <span>Customer Statement</span>
+            </Link>
+
+            {/* Vendor Statement */}
+            <Link
+              href="/reports/vendor-statement"
+              onClick={onClose}
+              className={cn(
+                "flex items-center gap-2.5 px-2.5 py-1.5 text-xs font-medium rounded-md transition",
+                url.startsWith("/reports/vendor-statement")
+                  ? "bg-amber-600 text-white font-semibold"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              )}
+            >
+              <BookOpen className="h-3.5 w-3.5 shrink-0" />
+              <span>Vendor Statement</span>
             </Link>
 
             {/* Banking & General Ledger */}
@@ -318,12 +350,20 @@ export function Sidebar({ isOpen, onClose }) {
       {/* Desktop Sidebar (hidden on mobile) */}
       <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-slate-200 border-r border-slate-800 min-h-screen shrink-0">
         <div className="flex items-center gap-3 h-16 px-6 bg-slate-950 border-b border-slate-800">
-          <div className="h-8 w-8 rounded-lg bg-amber-600 flex items-center justify-center font-bold text-white shadow-md">
-            NB
-          </div>
-          <div>
-            <h1 className="font-bold text-sm tracking-wide text-white">Nefco Books</h1>
-            <p className="text-[10px] text-slate-400 font-medium">Cloud Accounting</p>
+          {company?.company_logo ? (
+            <img
+              src={company.company_logo}
+              alt={company.company_name || "Company Logo"}
+              className="h-9 max-w-[130px] object-contain rounded"
+            />
+          ) : (
+            <div className="h-8 w-8 rounded-lg bg-amber-600 flex items-center justify-center font-bold text-white shadow-md shrink-0">
+              {(company?.company_name || "NB").slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          <div className="overflow-hidden">
+            <h1 className="font-bold text-sm tracking-wide text-white truncate">{company?.company_name || "Nefco Books"}</h1>
+            <p className="text-[10px] text-slate-400 font-medium truncate">{company?.default_uom ? "Cloud Accounting" : "Accounting ERP"}</p>
           </div>
         </div>
         {renderNavContent()}
@@ -341,13 +381,21 @@ export function Sidebar({ isOpen, onClose }) {
           {/* Slide-in Drawer */}
           <aside className="relative flex flex-col w-72 max-w-[80vw] bg-slate-900 text-slate-200 shadow-2xl h-full z-50">
             <div className="flex items-center justify-between h-16 px-5 bg-slate-950 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-amber-600 flex items-center justify-center font-bold text-white shadow-md">
-                  NB
-                </div>
-                <div>
-                  <h1 className="font-bold text-sm tracking-wide text-white">Nefco Books</h1>
-                  <p className="text-[10px] text-slate-400 font-medium">Cloud Accounting</p>
+              <div className="flex items-center gap-3 overflow-hidden">
+                {company?.company_logo ? (
+                  <img
+                    src={company.company_logo}
+                    alt={company.company_name || "Company Logo"}
+                    className="h-9 max-w-[120px] object-contain rounded"
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-lg bg-amber-600 flex items-center justify-center font-bold text-white shadow-md shrink-0">
+                    {(company?.company_name || "NB").slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div className="overflow-hidden">
+                  <h1 className="font-bold text-sm tracking-wide text-white truncate">{company?.company_name || "Nefco Books"}</h1>
+                  <p className="text-[10px] text-slate-400 font-medium truncate">Cloud Accounting</p>
                 </div>
               </div>
               <button
