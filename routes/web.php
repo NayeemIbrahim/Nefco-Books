@@ -70,9 +70,11 @@ Route::post('invoices/{invoice}/send-whatsapp', [InvoiceController::class, 'send
 // 4.3 Payments Received (Suboption of Sales)
 Route::get('sales/payments-received', [PaymentReceivedController::class, 'index'])->name('sales.payments-received');
 Route::post('sales/payments-received', [PaymentReceivedController::class, 'store'])->name('sales.payments-received.store');
+Route::post('sales/payments-received/{payment}/allocations', [PaymentReceivedController::class, 'updateAllocations'])->name('sales.payments-received.allocations');
 Route::delete('sales/payments-received/{payment}', [PaymentReceivedController::class, 'destroy'])->name('sales.payments-received.destroy');
 Route::get('payments-received', [PaymentReceivedController::class, 'index']);
 Route::post('payments-received', [PaymentReceivedController::class, 'store']);
+Route::post('payments-received/{payment}/allocations', [PaymentReceivedController::class, 'updateAllocations']);
 Route::delete('payments-received/{payment}', [PaymentReceivedController::class, 'destroy']);
 
 // 5. Purchases Module

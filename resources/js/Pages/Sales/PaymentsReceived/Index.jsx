@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import DateField from "@/Components/DateField";
 import Pagination from "@/Components/Pagination";
@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
@@ -100,16 +101,53 @@ export default function PaymentsReceivedIndex({
   const [formPaymentMethod, setFormPaymentMethod] = useState("CASH");
   const [formReferenceNumber, setFormReferenceNumber] = useState("");
   const [formNotes, setFormNotes] = useState("");
+  const [allocationMode, setAllocationMode] = useState("FIFO"); // 'FIFO' | 'MANUAL' | 'ADVANCE'
+  const [manualAllocations, setManualAllocations] = useState({});
+
+  // Modal Allocation Editing State
+  const [isEditingAllocations, setIsEditingAllocations] = useState(false);
+  const [editAllocMap, setEditAllocMap] = useState({});
+  const [isSavingAlloc, setIsSavingAlloc] = useState(false);
 
   const paymentList = payments?.data || payments || [];
   const unpaidInvoicesList = unpaid_invoices || [];
   const customerList = customers || [];
   const accountList = deposit_accounts || [];
 
-  // Filter unpaid invoices for the drawer customer
-  const customerInvoices = unpaidInvoicesList.filter(
-    (inv) => String(inv.contact_id) === String(formCustomerId)
+  // Filter unpaid invoices for the drawer customer (already ordered FIFO by backend)
+  const customerInvoices = useMemo(
+    () => unpaidInvoicesList.filter((inv) => String(inv.contact_id) === String(formCustomerId)),
+    [unpaidInvoicesList, formCustomerId]
   );
+
+  // Compute FIFO allocation map for a given amount and list of invoices
+  const computeFifoMap = (amountVal, invoices) => {
+    let rem = Math.max(0, parseFloat(amountVal) || 0);
+    const map = {};
+    for (const inv of invoices) {
+      if (rem <= 0) break;
+      const due = Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
+      if (due <= 0) continue;
+      const alloc = Math.min(rem, due);
+      map[inv.id] = Number(alloc.toFixed(2));
+      rem = Number((rem - alloc).toFixed(2));
+    }
+    return map;
+  };
+
+  const activeDrawerAllocations = useMemo(() => {
+    if (allocationMode === "ADVANCE") return {};
+    if (allocationMode === "FIFO") return computeFifoMap(formAmount, customerInvoices);
+    return manualAllocations;
+  }, [allocationMode, formAmount, customerInvoices, manualAllocations]);
+
+  const totalDrawerAllocated = useMemo(() => {
+    return Object.values(activeDrawerAllocations).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+  }, [activeDrawerAllocations]);
+
+  const drawerAmountNum = parseFloat(formAmount) || 0;
+  const isDrawerOverAllocated = totalDrawerAllocated > drawerAmountNum + 0.001;
+  const drawerUnallocatedAdvance = Math.max(0, Number((drawerAmountNum - totalDrawerAllocated).toFixed(2)));
 
   const handleOpenCreateDrawer = () => {
     setFormPaymentNumber(next_payment_number || `PAY-${new Date().getFullYear()}-0001`);
@@ -121,18 +159,120 @@ export default function PaymentsReceivedIndex({
     setFormPaymentMethod("CASH");
     setFormReferenceNumber("");
     setFormNotes("");
+    setAllocationMode("FIFO");
+    setManualAllocations({});
     setIsDrawerOpen(true);
   };
 
-  const handleInvoiceChange = (invId) => {
-    setFormInvoiceId(invId);
-    if (invId) {
-      const inv = customerInvoices.find((i) => String(i.id) === String(invId));
-      if (inv) {
-        const remaining = Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
-        setFormAmount(remaining > 0 ? remaining : inv.total_amount);
-      }
+  const handleAutoFillManualFifo = () => {
+    setAllocationMode("MANUAL");
+    setManualAllocations(computeFifoMap(formAmount, customerInvoices));
+  };
+
+  const handleToggleManualInvoice = (inv) => {
+    const due = Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
+    const current = parseFloat(manualAllocations[inv.id]) || 0;
+    if (current > 0) {
+      const next = { ...manualAllocations };
+      delete next[inv.id];
+      setManualAllocations(next);
+    } else {
+      const otherAllocated = Object.entries(manualAllocations).reduce(
+        (sum, [k, v]) => (String(k) === String(inv.id) ? sum : sum + (parseFloat(v) || 0)),
+        0
+      );
+      const avail = Math.max(0, drawerAmountNum - otherAllocated);
+      const fillAmt = avail > 0 ? Math.min(due, avail) : due;
+      setManualAllocations({ ...manualAllocations, [inv.id]: Number(fillAmt.toFixed(2)) });
     }
+  };
+
+  const handleOpenPaymentModal = (pay, startEdit = false) => {
+    setSelectedPayment(pay);
+    if (startEdit) {
+      const map = {};
+      (pay.allocations || []).forEach((al) => {
+        map[al.invoice_id] = parseFloat(al.amount) || 0;
+      });
+      setEditAllocMap(map);
+      setIsEditingAllocations(true);
+    } else {
+      setIsEditingAllocations(false);
+      setEditAllocMap({});
+    }
+  };
+
+  const editableInvoicesForPayment = useMemo(() => {
+    if (!selectedPayment) return [];
+    const map = new Map();
+    // Add all current unpaid invoices for this customer
+    unpaidInvoicesList
+      .filter((inv) => String(inv.contact_id) === String(selectedPayment.contact_id))
+      .forEach((inv) => {
+        map.set(inv.id, { ...inv, existingAllocFromThisPayment: 0 });
+      });
+    // Merge invoices already allocated to this payment (even if fully paid)
+    (selectedPayment.allocations || []).forEach((al) => {
+      if (al.invoice) {
+        const prev = map.get(al.invoice_id);
+        map.set(al.invoice_id, {
+          ...(prev || al.invoice),
+          existingAllocFromThisPayment: parseFloat(al.amount) || 0,
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [selectedPayment, unpaidInvoicesList]);
+
+  const totalEditAllocated = useMemo(() => {
+    return Object.values(editAllocMap).reduce((sum, v) => sum + (parseFloat(v) || 0), 0);
+  }, [editAllocMap]);
+
+  const isEditOverAllocated = selectedPayment
+    ? totalEditAllocated > (parseFloat(selectedPayment.amount) || 0) + 0.001
+    : false;
+
+  const handleAutoFillEditFifo = () => {
+    if (!selectedPayment) return;
+    let rem = parseFloat(selectedPayment.amount) || 0;
+    const next = {};
+    for (const inv of editableInvoicesForPayment) {
+      if (rem <= 0) break;
+      const otherPaid = Math.max(0, (parseFloat(inv.paid_amount) || 0) - (inv.existingAllocFromThisPayment || 0));
+      const maxDue = Math.max(0, (parseFloat(inv.total_amount) || 0) - otherPaid);
+      if (maxDue <= 0) continue;
+      const alloc = Math.min(rem, maxDue);
+      next[inv.id] = Number(alloc.toFixed(2));
+      rem = Number((rem - alloc).toFixed(2));
+    }
+    setEditAllocMap(next);
+  };
+
+  const handleSaveAllocations = (e) => {
+    e.preventDefault();
+    if (!selectedPayment || isEditOverAllocated) return;
+    setIsSavingAlloc(true);
+    const allocations = Object.entries(editAllocMap)
+      .filter(([, amt]) => (parseFloat(amt) || 0) > 0)
+      .map(([invoice_id, amount]) => ({
+        invoice_id: Number(invoice_id),
+        amount: parseFloat(amount),
+      }));
+
+    router.post(
+      `/sales/payments-received/${selectedPayment.id}/allocations`,
+      { allocations, mode: "MANUAL" },
+      {
+        preserveScroll: true,
+        onSuccess: () => {
+          setIsSavingAlloc(false);
+          setIsEditingAllocations(false);
+          setSelectedPayment(null);
+          setNotification(`✅ Allocations updated for Payment #${selectedPayment.payment_number}. Invoices & customer ledger synced!`);
+        },
+        onError: () => setIsSavingAlloc(false),
+      }
+    );
   };
 
   const handleSearch = (e) => {
@@ -147,18 +287,31 @@ export default function PaymentsReceivedIndex({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isDrawerOverAllocated) return;
+
+    const allocationsPayload =
+      allocationMode === "MANUAL"
+        ? Object.entries(manualAllocations)
+            .filter(([, amt]) => (parseFloat(amt) || 0) > 0)
+            .map(([invoice_id, amount]) => ({
+              invoice_id: Number(invoice_id),
+              amount: parseFloat(amount),
+            }))
+        : undefined;
+
     router.post(
       "/sales/payments-received",
       {
         payment_number: formPaymentNumber,
         contact_id: formCustomerId,
-        invoice_id: formInvoiceId || null,
         account_id: formAccountId,
         payment_date: formPaymentDate,
         amount: parseFloat(formAmount) || 0,
         payment_method: formPaymentMethod,
         reference_number: formReferenceNumber || null,
         notes: formNotes || null,
+        allocation_mode: allocationMode,
+        allocations: allocationsPayload,
       },
       {
         onSuccess: () => {
@@ -244,7 +397,7 @@ export default function PaymentsReceivedIndex({
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Total Received</span>
             <div className="text-xl font-bold text-slate-900 mt-1">{formatBDT(metrics?.total_received || 0)}</div>
@@ -254,6 +407,11 @@ export default function PaymentsReceivedIndex({
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">This Month</span>
             <div className="text-xl font-bold text-emerald-600 mt-1">{formatBDT(metrics?.this_month_received || 0)}</div>
             <span className="text-[10px] text-slate-400">Received during current month</span>
+          </div>
+          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Unallocated Advances</span>
+            <div className="text-xl font-bold text-amber-600 mt-1">{formatBDT(metrics?.unallocated_total || 0)}</div>
+            <span className="text-[10px] text-slate-400">Available customer advance credit</span>
           </div>
           <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Outstanding Invoices</span>
@@ -483,19 +641,41 @@ export default function PaymentsReceivedIndex({
                           </div>
                         </td>
                         <td className="py-3 px-4 font-mono">
-                          {pay.invoice ? (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenInvoiceModal(pay.invoice)}
-                              className="text-blue-600 hover:text-blue-900 hover:underline font-semibold flex items-center gap-1.5 cursor-pointer font-mono"
-                              title="Click to view Invoice details & receive payment"
-                            >
-                              <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                              <span>{pay.invoice.invoice_number}</span>
-                            </button>
-                          ) : (
-                            <span className="text-slate-400 italic">Direct Receipt</span>
-                          )}
+                          <div className="flex flex-wrap gap-1 items-center">
+                            {pay.allocations && pay.allocations.length > 0 ? (
+                              pay.allocations.map((al) => (
+                                <button
+                                  key={al.id}
+                                  type="button"
+                                  onClick={() => al.invoice && handleOpenInvoiceModal(al.invoice)}
+                                  className="px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 inline-flex items-center gap-1 cursor-pointer"
+                                  title={`Allocated: ${formatBDT(al.amount)}`}
+                                >
+                                  <FileText className="h-2.5 w-2.5" />
+                                  <span>{al.invoice?.invoice_number || `#${al.invoice_id}`}</span>
+                                  <span className="text-blue-500">({formatBDT(al.amount)})</span>
+                                </button>
+                              ))
+                            ) : pay.invoice ? (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenInvoiceModal(pay.invoice)}
+                                className="text-blue-600 hover:text-blue-900 hover:underline font-semibold flex items-center gap-1.5 cursor-pointer font-mono"
+                                title="Click to view Invoice details & receive payment"
+                              >
+                                <FileText className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                                <span>{pay.invoice.invoice_number}</span>
+                              </button>
+                            ) : null}
+                            {(parseFloat(pay.unallocated_amount) || 0) > 0 && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 rounded">
+                                Advance: {formatBDT(pay.unallocated_amount)}
+                              </span>
+                            )}
+                            {(!pay.allocations || pay.allocations.length === 0) && !pay.invoice && (parseFloat(pay.unallocated_amount) || 0) <= 0 && (
+                              <span className="text-slate-400 italic">Direct Receipt</span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 px-4">
                           <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-700 border border-slate-300">
@@ -508,15 +688,25 @@ export default function PaymentsReceivedIndex({
                         <td className="py-3 px-4 text-right font-bold text-emerald-700 font-mono">
                           {formatBDT(pay.amount)}
                         </td>
-                        <td className="py-3 px-4 text-center space-x-1.5">
+                        <td className="py-3 px-4 text-center space-x-1">
                           <button
-                            onClick={() => setSelectedPayment(pay)}
+                            type="button"
+                            onClick={() => handleOpenPaymentModal(pay, true)}
+                            className="p-1 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded"
+                            title="Manage Invoice Allocations"
+                          >
+                            <SlidersHorizontal className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenPaymentModal(pay, false)}
                             className="p-1 text-slate-500 hover:text-emerald-700 hover:bg-slate-100 rounded"
-                            title="View Receipt"
+                            title="View Receipt & Allocation History"
                           >
                             <Printer className="h-3.5 w-3.5" />
                           </button>
                           <button
+                            type="button"
                             onClick={() => handleDelete(pay.id, pay.payment_number)}
                             className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
                             title="Delete Payment (Reverses Ledger)"
@@ -537,13 +727,14 @@ export default function PaymentsReceivedIndex({
         {/* Drawer Form for manual payment */}
         {isDrawerOpen && (
           <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex justify-end">
-            <div className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col justify-between">
-              <div className="p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+            <div className="w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col justify-between">
+              <div className="p-5 sm:p-6 border-b border-slate-200 flex items-center justify-between bg-slate-50">
                 <div>
                   <h2 className="text-base font-bold text-slate-900">Record Payment Received</h2>
-                  <p className="text-xs text-slate-500">Record customer settlement against an invoice or direct</p>
+                  <p className="text-xs text-slate-500">Record a single customer receipt and allocate across one or multiple invoices</p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setIsDrawerOpen(false)}
                   className="p-1.5 text-slate-400 hover:text-slate-600 rounded-full"
                 >
@@ -551,8 +742,8 @@ export default function PaymentsReceivedIndex({
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-6 space-y-4 flex-1 overflow-y-auto">
-                <div className="grid grid-cols-2 gap-3">
+              <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 flex-1 overflow-y-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-slate-700">Payment Number</label>
                     <input
@@ -579,6 +770,7 @@ export default function PaymentsReceivedIndex({
                     onChange={(e) => {
                       setFormCustomerId(e.target.value);
                       setFormInvoiceId("");
+                      setManualAllocations({});
                     }}
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-md"
                   >
@@ -591,30 +783,9 @@ export default function PaymentsReceivedIndex({
                   </select>
                 </div>
 
-                {customerInvoices.length > 0 && (
-                  <div className="space-y-1 bg-blue-50/50 p-3 rounded-lg border border-blue-200">
-                    <label className="text-xs font-bold text-blue-900">Apply to Outstanding Invoice (Optional)</label>
-                    <select
-                      value={formInvoiceId}
-                      onChange={(e) => handleInvoiceChange(e.target.value)}
-                      className="w-full px-3 py-2 text-xs border border-blue-300 rounded-md bg-white font-mono"
-                    >
-                      <option value="">-- Direct Payment (Not tied to invoice) --</option>
-                      {customerInvoices.map((inv) => {
-                        const rem = Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
-                        return (
-                          <option key={inv.id} value={inv.id}>
-                            {inv.invoice_number} (Total: {formatBDT(inv.total_amount)} | Due: {formatBDT(rem)})
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-slate-700">Payment Amount (BDT) *</label>
+                    <label className="text-xs font-semibold text-slate-700">Amount Received (BDT) *</label>
                     <input
                       type="number"
                       step="0.01"
@@ -640,6 +811,155 @@ export default function PaymentsReceivedIndex({
                     </select>
                   </div>
                 </div>
+
+                {/* Multi-Invoice Allocation Section */}
+                {formCustomerId && (
+                  <div className="space-y-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 block">Invoice Allocation Method</span>
+                        <span className="text-[10px] text-slate-500">Default: FIFO (Oldest Due First)</span>
+                      </div>
+                      <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 text-[11px] font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => setAllocationMode("FIFO")}
+                          className={`px-2.5 py-1 rounded transition ${
+                            allocationMode === "FIFO" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          Auto FIFO
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAutoFillManualFifo}
+                          className={`px-2.5 py-1 rounded transition ${
+                            allocationMode === "MANUAL" ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          Manual
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAllocationMode("ADVANCE")}
+                          className={`px-2.5 py-1 rounded transition ${
+                            allocationMode === "ADVANCE" ? "bg-amber-600 text-white" : "text-slate-600 hover:bg-slate-100"
+                          }`}
+                        >
+                          Advance Only
+                        </button>
+                      </div>
+                    </div>
+
+                    {customerInvoices.length === 0 ? (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-800 font-medium">
+                        No outstanding invoices for this customer. The full amount will be kept as an <strong>Unallocated Customer Advance</strong> for future invoices.
+                      </div>
+                    ) : allocationMode === "ADVANCE" ? (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-800 font-medium">
+                        Recorded as <strong>Unallocated Customer Advance</strong>. You can allocate it to invoices later.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {allocationMode === "MANUAL" && (
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setManualAllocations(computeFifoMap(formAmount, customerInvoices))}
+                              className="text-[11px] font-semibold text-blue-600 hover:underline"
+                            >
+                              Auto-Fill FIFO
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setManualAllocations({})}
+                              className="text-[11px] font-semibold text-slate-500 hover:underline"
+                            >
+                              Clear
+                            </button>
+                          </div>
+                        )}
+                        <div className="border border-slate-200 rounded-lg overflow-x-auto bg-white">
+                          <table className="w-full text-[11px] text-left">
+                            <thead className="bg-slate-100 text-slate-500 uppercase text-[9px] border-b border-slate-200">
+                              <tr>
+                                {allocationMode === "MANUAL" && <th className="p-2 w-7"></th>}
+                                <th className="p-2">Invoice #</th>
+                                <th className="p-2">Due Date</th>
+                                <th className="p-2 text-right">Due Bal</th>
+                                <th className="p-2 text-right">Allocate (৳)</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {customerInvoices.map((inv) => {
+                                const due = Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
+                                const allocVal = activeDrawerAllocations[inv.id] ?? "";
+                                const isSelected = (parseFloat(allocVal) || 0) > 0;
+                                return (
+                                  <tr key={inv.id} className={isSelected ? "bg-blue-50/40" : ""}>
+                                    {allocationMode === "MANUAL" && (
+                                      <td className="p-2 text-center">
+                                        <input
+                                          type="checkbox"
+                                          checked={isSelected}
+                                          onChange={() => handleToggleManualInvoice(inv)}
+                                          className="rounded border-slate-300 text-blue-600"
+                                        />
+                                      </td>
+                                    )}
+                                    <td className="p-2 font-mono font-bold text-blue-700">{inv.invoice_number}</td>
+                                    <td className="p-2 text-slate-500 font-mono">{formatDate(inv.due_date || inv.issue_date)}</td>
+                                    <td className="p-2 text-right font-mono text-slate-700">{formatBDT(due)}</td>
+                                    <td className="p-2 text-right">
+                                      {allocationMode === "FIFO" ? (
+                                        <span className={`font-mono font-bold ${isSelected ? "text-emerald-700" : "text-slate-400"}`}>
+                                          {formatBDT(allocVal || 0)}
+                                        </span>
+                                      ) : (
+                                        <input
+                                          type="number"
+                                          step="0.01"
+                                          min="0"
+                                          max={due}
+                                          value={manualAllocations[inv.id] ?? ""}
+                                          onChange={(e) => {
+                                            const v = e.target.value;
+                                            setManualAllocations({ ...manualAllocations, [inv.id]: v });
+                                          }}
+                                          placeholder="0.00"
+                                          className="w-24 px-2 py-1 text-right font-mono font-bold border border-slate-300 rounded bg-white text-slate-900"
+                                        />
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Allocation Summary */}
+                    <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                      <div>
+                        <span className="text-slate-500">Allocated: </span>
+                        <span className="font-mono font-bold text-blue-700">{formatBDT(totalDrawerAllocated)}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Unallocated Advance: </span>
+                        <span className={`font-mono font-bold ${drawerUnallocatedAdvance > 0 ? "text-amber-700" : "text-slate-600"}`}>
+                          {formatBDT(drawerUnallocatedAdvance)}
+                        </span>
+                      </div>
+                    </div>
+                    {isDrawerOverAllocated && (
+                      <div className="text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 p-2 rounded">
+                        Allocated total ({formatBDT(totalDrawerAllocated)}) cannot exceed Amount Received ({formatBDT(drawerAmountNum)}).
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-slate-700">Deposit To Account *</label>
@@ -689,7 +1009,8 @@ export default function PaymentsReceivedIndex({
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold shadow-xs"
+                    disabled={isDrawerOverAllocated}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold shadow-xs disabled:opacity-50"
                   >
                     Save & Post Receipt
                   </button>
@@ -699,10 +1020,10 @@ export default function PaymentsReceivedIndex({
           </div>
         )}
 
-        {/* Payment Receipt Modal */}
+        {/* Payment Receipt & Allocation History Modal */}
         {selectedPayment && (
-          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl max-w-md w-full overflow-hidden shadow-2xl border border-slate-200">
+          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+            <div className="bg-white rounded-xl max-w-xl w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border border-slate-200">
               <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-emerald-400" />
@@ -713,55 +1034,210 @@ export default function PaymentsReceivedIndex({
                 </button>
               </div>
 
-              <div className="p-6 space-y-4 text-xs text-slate-700">
+              <div className="p-5 sm:p-6 space-y-4 text-xs text-slate-700 overflow-y-auto flex-1">
                 <div className="text-center pb-4 border-b border-slate-200">
-                  <div className="text-xl font-bold text-slate-900 tracking-tight">PAYMENT RECEIPT</div>
-                  <div className="text-xs font-semibold text-emerald-600 mt-1">Nefco Books Cloud Accounting</div>
-                  <div className="text-2xl font-bold text-slate-900 mt-3 font-mono">{formatBDT(selectedPayment.amount)}</div>
-                  <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                    Payment Recorded ✓
-                  </span>
+                  <div className="text-lg font-bold text-slate-900 tracking-tight">PAYMENT RECEIPT & ALLOCATIONS</div>
+                  <div className="text-2xl font-bold text-slate-900 mt-2 font-mono">{formatBDT(selectedPayment.amount)}</div>
+                  <div className="mt-2 flex items-center justify-center gap-2 text-[11px]">
+                    <span className="px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      Allocated: {formatBDT(selectedPayment.allocated_amount || 0)}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full font-bold border ${
+                      (parseFloat(selectedPayment.unallocated_amount) || 0) > 0
+                        ? "bg-amber-50 text-amber-800 border-amber-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    }`}>
+                      Advance / Unallocated: {formatBDT(selectedPayment.unallocated_amount || 0)}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Payment Number:</span>
-                    <span className="font-mono font-semibold">{selectedPayment.payment_number}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Payment Date:</span>
-                    <span className="font-mono">{formatDate(selectedPayment.payment_date)}</span>
+                    <span className="text-slate-400">Date:</span>
+                    <span className="font-mono font-semibold">{formatDate(selectedPayment.payment_date)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-400">Customer:</span>
                     <span className="font-semibold text-slate-800">{selectedPayment.contact?.name}</span>
                   </div>
-                  {selectedPayment.invoice && (
-                    <div className="flex justify-between">
-                      <span className="text-slate-400">Invoice Ref:</span>
-                      <span className="font-mono text-blue-600 font-semibold">{selectedPayment.invoice.invoice_number}</span>
-                    </div>
-                  )}
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Payment Mode:</span>
+                    <span className="text-slate-400">Mode:</span>
                     <span>{selectedPayment.payment_method?.replace("_", " ")}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-400">Deposited To:</span>
+                    <span className="text-slate-400">Account:</span>
                     <span className="font-medium">{selectedPayment.account?.name}</span>
                   </div>
                   {selectedPayment.reference_number && (
-                    <div className="flex justify-between">
+                    <div className="flex justify-between col-span-2">
                       <span className="text-slate-400">Reference #:</span>
-                      <span className="font-mono">{selectedPayment.reference_number}</span>
-                    </div>
-                  )}
-                  {selectedPayment.notes && (
-                    <div className="pt-2 text-slate-500 border-t border-slate-100">
-                      <strong>Notes:</strong> {selectedPayment.notes}
+                      <span className="font-mono font-semibold">{selectedPayment.reference_number}</span>
                     </div>
                   )}
                 </div>
+
+                {/* Allocation History or Edit Allocations */}
+                {!isEditingAllocations ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800 text-xs">Invoice-Wise Allocation History</span>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPaymentModal(selectedPayment, true)}
+                        className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded text-[11px] font-semibold flex items-center gap-1"
+                      >
+                        <SlidersHorizontal className="h-3 w-3" />
+                        <span>Edit / Allocate Invoices</span>
+                      </button>
+                    </div>
+
+                    <div className="border border-slate-200 rounded-lg overflow-hidden">
+                      <table className="w-full text-xs text-left">
+                        <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase border-b border-slate-200">
+                          <tr>
+                            <th className="p-2">Invoice #</th>
+                            <th className="p-2">Issue Date</th>
+                            <th className="p-2 text-right">Invoice Total</th>
+                            <th className="p-2 text-right">Allocated</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {(selectedPayment.allocations && selectedPayment.allocations.length > 0) ? (
+                            selectedPayment.allocations.map((al) => (
+                              <tr key={al.id}>
+                                <td className="p-2 font-mono font-bold text-blue-700">
+                                  {al.invoice?.invoice_number || `INV-${al.invoice_id}`}
+                                </td>
+                                <td className="p-2 text-slate-500 font-mono">
+                                  {formatDate(al.invoice?.issue_date)}
+                                </td>
+                                <td className="p-2 text-right font-mono">
+                                  {formatBDT(al.invoice?.total_amount || 0)}
+                                </td>
+                                <td className="p-2 text-right font-mono font-bold text-emerald-700">
+                                  {formatBDT(al.amount)}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan={4} className="p-4 text-center text-slate-400 italic">
+                                No invoices allocated yet. Full amount is held as Customer Advance.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSaveAllocations} className="space-y-3 bg-blue-50/50 p-3.5 rounded-xl border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-blue-950 text-xs">Update Invoice Allocations</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleAutoFillEditFifo}
+                          className="text-[11px] font-semibold text-blue-700 hover:underline"
+                        >
+                          Auto-Fill FIFO
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditAllocMap({})}
+                          className="text-[11px] font-semibold text-slate-500 hover:underline"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="border border-slate-200 rounded-lg overflow-x-auto bg-white">
+                      <table className="w-full text-[11px] text-left">
+                        <thead className="bg-slate-100 text-slate-500 uppercase text-[9px] border-b border-slate-200">
+                          <tr>
+                            <th className="p-2">Invoice #</th>
+                            <th className="p-2">Due Date</th>
+                            <th className="p-2 text-right">Max Available</th>
+                            <th className="p-2 text-right">Allocate (৳)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {editableInvoicesForPayment.length === 0 ? (
+                            <tr>
+                              <td colSpan={4} className="p-4 text-center text-slate-400 italic">
+                                No outstanding or linked invoices available for this customer.
+                              </td>
+                            </tr>
+                          ) : (
+                            editableInvoicesForPayment.map((inv) => {
+                              const otherPaid = Math.max(0, (parseFloat(inv.paid_amount) || 0) - (inv.existingAllocFromThisPayment || 0));
+                              const maxAvail = Math.max(0, (parseFloat(inv.total_amount) || 0) - otherPaid);
+                              return (
+                                <tr key={inv.id}>
+                                  <td className="p-2 font-mono font-bold text-blue-700">{inv.invoice_number}</td>
+                                  <td className="p-2 text-slate-500 font-mono">{formatDate(inv.due_date || inv.issue_date)}</td>
+                                  <td className="p-2 text-right font-mono text-slate-700">{formatBDT(maxAvail)}</td>
+                                  <td className="p-2 text-right">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      max={maxAvail}
+                                      value={editAllocMap[inv.id] ?? ""}
+                                      onChange={(e) => setEditAllocMap({ ...editAllocMap, [inv.id]: e.target.value })}
+                                      placeholder="0.00"
+                                      className="w-24 px-2 py-1 text-right font-mono font-bold border border-slate-300 rounded bg-white text-slate-900"
+                                    />
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                      <span>
+                        Allocated: <strong className="font-mono text-blue-700">{formatBDT(totalEditAllocated)}</strong> / {formatBDT(selectedPayment.amount)}
+                      </span>
+                      <span>
+                        Advance: <strong className="font-mono text-amber-700">{formatBDT(Math.max(0, (parseFloat(selectedPayment.amount) || 0) - totalEditAllocated))}</strong>
+                      </span>
+                    </div>
+
+                    {isEditOverAllocated && (
+                      <div className="text-[11px] font-bold text-red-600 bg-red-50 border border-red-200 p-2 rounded">
+                        Total allocated cannot exceed receipt amount ({formatBDT(selectedPayment.amount)}).
+                      </div>
+                    )}
+
+                    <div className="flex justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingAllocations(false)}
+                        className="px-3 py-1.5 border border-slate-300 bg-white rounded text-xs font-semibold text-slate-600"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSavingAlloc || isEditOverAllocated}
+                        className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-bold disabled:opacity-50"
+                      >
+                        {isSavingAlloc ? "Saving..." : "Save Updated Allocations"}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {selectedPayment.notes && (
+                  <div className="pt-2 text-slate-500 border-t border-slate-100">
+                    <strong>Notes:</strong> {selectedPayment.notes}
+                  </div>
+                )}
               </div>
 
               <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">

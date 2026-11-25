@@ -277,6 +277,12 @@ class InvoiceController extends Controller
                     ]);
 
                     $this->accountingService->postCustomerPayment($payment);
+
+                    \App\Models\PaymentAllocation::create([
+                        'payment_id' => $payment->id,
+                        'invoice_id' => $invoice->id,
+                        'amount'     => min($depositAmount, (float)$invoice->total_amount),
+                    ]);
                 }
             }
 

@@ -131,7 +131,19 @@ class Contact extends Model
                 ->selectRaw('COALESCE(SUM(total_amount - COALESCE(paid_amount, 0)), 0) as due')
                 ->value('due');
 
-            $calculated = $obContribution + $unpaidInvoices;
+            // Subtract any unallocated customer advances/excess payments
+            $totalCustomerPayments = (float)$this->payments()
+                ->where('type', 'CUSTOMER_PAYMENT')
+                ->sum('amount');
+
+            $totalAllocatedToInvoices = (float)\App\Models\PaymentAllocation::whereIn(
+                'payment_id',
+                $this->payments()->where('type', 'CUSTOMER_PAYMENT')->select('id')
+            )->sum('amount');
+
+            $unallocatedAdvance = max(0.0, round($totalCustomerPayments - $totalAllocatedToInvoices, 2));
+
+            $calculated = $obContribution + $unpaidInvoices - $unallocatedAdvance;
         }
 
         $this->updateQuietly(['current_balance' => $calculated]);

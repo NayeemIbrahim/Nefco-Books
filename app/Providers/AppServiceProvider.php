@@ -73,6 +73,17 @@ class AppServiceProvider extends ServiceProvider
                     $table->unsignedBigInteger('category_id')->nullable()->after('name');
                 });
             }
+
+            if (Schema::hasTable('payments') && !Schema::hasTable('payment_allocations')) {
+                Schema::create('payment_allocations', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    $table->id();
+                    $table->foreignId('payment_id')->constrained('payments')->cascadeOnDelete();
+                    $table->foreignId('invoice_id')->constrained('invoices')->cascadeOnDelete();
+                    $table->decimal('amount', 15, 2);
+                    $table->timestamps();
+                    $table->unique(['payment_id', 'invoice_id']);
+                });
+            }
         } catch (\Throwable $e) {
             Log::warning('Native schema auto-healing notice: ' . $e->getMessage());
         }

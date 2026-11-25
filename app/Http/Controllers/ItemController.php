@@ -354,6 +354,12 @@ class ItemController extends Controller
             ]);
 
             app(AccountingService::class)->postCustomerPayment($payment);
+
+            \App\Models\PaymentAllocation::create([
+                'payment_id' => $payment->id,
+                'invoice_id' => $invoice->id,
+                'amount'     => $totalAmount,
+            ]);
         });
 
         return back()->with('success', "Quick Sale recorded! Invoice #{$invNumber} created for {$customerName} (৳" . number_format($totalAmount, 2) . ").");

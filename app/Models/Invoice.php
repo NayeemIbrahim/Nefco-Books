@@ -48,6 +48,11 @@ class Invoice extends Model
         return $this->hasMany(Payment::class);
     }
 
+    public function allocations(): HasMany
+    {
+        return $this->hasMany(PaymentAllocation::class);
+    }
+
     public function journalEntry(): HasOne
     {
         return $this->hasOne(JournalEntry::class);

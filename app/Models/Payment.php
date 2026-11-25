@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Payment extends Model
@@ -18,6 +19,32 @@ class Payment extends Model
         'payment_date' => 'datetime',
         'amount'       => 'decimal:2',
     ];
+
+    protected $appends = [
+        'allocated_amount',
+        'unallocated_amount',
+    ];
+
+    public function allocations(): HasMany
+    {
+        return $this->hasMany(PaymentAllocation::class);
+    }
+
+    public function getAllocatedAmountAttribute(): float
+    {
+        if (array_key_exists('allocations_sum_amount', $this->attributes)) {
+            return round((float) $this->attributes['allocations_sum_amount'], 2);
+        }
+        if ($this->relationLoaded('allocations')) {
+            return round((float) $this->allocations->sum('amount'), 2);
+        }
+        return round((float) $this->allocations()->sum('amount'), 2);
+    }
+
+    public function getUnallocatedAmountAttribute(): float
+    {
+        return max(0.0, round((float) $this->amount - $this->allocated_amount, 2));
+    }
 
     public function contact(): BelongsTo
     {

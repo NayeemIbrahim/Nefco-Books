@@ -536,21 +536,46 @@ class ReportService
             ]);
         }
 
-        // 3. Payments Received
-        $payments = Payment::where('contact_id', $contact->id)
+        // 3. Payments Received (recorded ONCE per receipt, with invoice-wise allocation details)
+        $payments = Payment::with(['allocations.invoice.lineItems', 'allocations.invoice.contact', 'invoice.lineItems', 'invoice.contact'])
+            ->where('contact_id', $contact->id)
             ->where('type', 'CUSTOMER_PAYMENT')
             ->when($startDate, fn($q) => $q->where('payment_date', '>=', $startDate))
             ->when($endDate,   fn($q) => $q->where('payment_date', '<=', $endDate))
             ->get();
 
         foreach ($payments as $pay) {
+            $allocList = $pay->allocations->map(fn($al) => [
+                'invoice_id'     => $al->invoice_id,
+                'invoice_number' => $al->invoice?->invoice_number ?? ('INV-' . $al->invoice_id),
+                'amount'         => (float) $al->amount,
+                'invoice'        => $al->invoice,
+            ])->values()->all();
+
+            $allocatedSum = round((float) $pay->allocations->sum('amount'), 2);
+            $unallocated  = max(0.0, round((float) $pay->amount - $allocatedSum, 2));
+
+            $refPart = $pay->reference_number ? " (Ref: {$pay->reference_number})" : "";
+            $allocSummary = count($allocList) > 0
+                ? " | Allocated to: " . implode(', ', array_map(fn($a) => "{$a['invoice_number']} (৳" . number_format($a['amount'], 2) . ")", $allocList))
+                : "";
+            $advanceSummary = $unallocated > 0
+                ? " | Customer Advance: ৳" . number_format($unallocated, 2)
+                : "";
+
             $entries->push([
-                'date'        => Carbon::parse($pay->payment_date)->format('Y-m-d'),
-                'type'        => 'PAYMENT',
-                'reference'   => $pay->payment_number,
-                'description' => "Payment #{$pay->payment_number} via " . ($pay->payment_method ?: 'Cash'),
-                'debit'       => 0.00,
-                'credit'      => (float) $pay->amount,
+                'date'               => Carbon::parse($pay->payment_date)->format('Y-m-d'),
+                'type'               => 'PAYMENT',
+                'payment_id'         => $pay->id,
+                'reference'          => $pay->payment_number,
+                'reference_number'   => $pay->reference_number,
+                'payment_method'     => $pay->payment_method ?: 'CASH',
+                'description'        => "Payment #{$pay->payment_number}{$refPart} via " . ($pay->payment_method ?: 'Cash') . $allocSummary . $advanceSummary,
+                'debit'              => 0.00,
+                'credit'             => (float) $pay->amount,
+                'allocations'        => $allocList,
+                'allocated_amount'   => $allocatedSum,
+                'unallocated_amount' => $unallocated,
             ]);
         }
 

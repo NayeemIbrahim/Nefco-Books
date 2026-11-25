@@ -183,14 +183,40 @@ export default function CustomerStatement({
                           <ExternalLink className="h-3 w-3 text-blue-400" />
                         </button>
                       ) : entry.type === "PAYMENT" ? (
-                        <Link href="/sales/payments-received" className="text-emerald-700 hover:text-emerald-900 hover:underline">
-                          {entry.reference}
-                        </Link>
+                        <div>
+                          <Link href="/sales/payments-received" className="text-emerald-700 hover:text-emerald-900 hover:underline font-bold">
+                            {entry.reference}
+                          </Link>
+                          {entry.reference_number && (
+                            <div className="text-[10px] text-slate-400 font-normal">Ref: {entry.reference_number}</div>
+                          )}
+                        </div>
                       ) : (
                         <span className="text-slate-800">{entry.reference}</span>
                       )}
                     </td>
-                    <td className="py-2 px-3 text-slate-600 text-[11px]">{entry.description}</td>
+                    <td className="py-2 px-3 text-slate-600 text-[11px]">
+                      <div>{entry.description}</div>
+                      {entry.type === "PAYMENT" && (entry.allocations?.length > 0 || (entry.unallocated_amount || 0) > 0) && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {(entry.allocations || []).map((al, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => al.invoice && handleOpenInvoiceModal(al.invoice)}
+                              className="px-1.5 py-0.5 text-[10px] font-mono font-semibold bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 cursor-pointer"
+                            >
+                              {al.invoice_number} ({formatBDT(al.amount)})
+                            </button>
+                          ))}
+                          {(entry.unallocated_amount || 0) > 0 && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 rounded">
+                              Advance: {formatBDT(entry.unallocated_amount)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </td>
                     <td className="py-2 px-3 text-right font-mono text-slate-900">
                       {entry.debit > 0 ? formatBDT(entry.debit) : "-"}
                     </td>
