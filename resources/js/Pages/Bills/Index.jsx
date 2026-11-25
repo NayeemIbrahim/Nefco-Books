@@ -1015,15 +1015,13 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
                   </a>
                 </div>
 
-                {selectedBill.id && selectedBill.status !== "PAID" && (
-                  <button
-                    onClick={() => handleMarkAsPaid(selectedBill.id)}
-                    className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2 rounded-md shadow-xs"
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>Mark as PAID</span>
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedBill(null)}
+                  className="px-4 py-1.5 text-xs font-semibold bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-md transition"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
