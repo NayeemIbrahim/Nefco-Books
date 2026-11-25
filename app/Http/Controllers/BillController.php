@@ -22,7 +22,7 @@ class BillController extends Controller
 
     public function index(Request $request): Response
     {
-        $query = Bill::with(['contact', 'lineItems']);
+        $query = Bill::with(['contact', 'lineItems', 'payments.account']);
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {

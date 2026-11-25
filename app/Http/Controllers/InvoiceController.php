@@ -23,7 +23,7 @@ class InvoiceController extends Controller
 
     public function index(Request $request): Response
     {
-        $query = Invoice::with(['contact', 'lineItems.item']);
+        $query = Invoice::with(['contact', 'lineItems.item', 'allocations.payment.account', 'payments.account']);
 
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {

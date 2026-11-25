@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import DateField from "@/Components/DateField";
 import Pagination from "@/Components/Pagination";
-import { formatBDT, formatDate } from "@/lib/utils";
+import { formatBDT, formatDate, getPaymentWhatsAppShareUrl } from "@/lib/utils";
 import {
   Plus,
   Search,
@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   Clock,
   AlertCircle,
+  MessageSquare,
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
@@ -27,7 +28,7 @@ export default function PaymentsMadeIndex({
   metrics,
   filters,
 }) {
-  const { flash } = usePage().props;
+  const { flash, company } = usePage().props;
   const todayStr = new Date().toISOString().split("T")[0];
   const [activeTab, setActiveTab] = useState("UNPAID_BILLS"); // 'UNPAID_BILLS' | 'HISTORY'
   const [notification, setNotification] = useState(flash?.success || null);
@@ -504,7 +505,16 @@ export default function PaymentsMadeIndex({
                         <td className="py-3 px-4 text-right font-bold text-amber-700 font-mono">
                           {formatBDT(pay.amount)}
                         </td>
-                        <td className="py-3 px-4 text-center space-x-1.5">
+                        <td className="py-3 px-4 text-center space-x-1">
+                          <a
+                            href={getPaymentWhatsAppShareUrl(pay, { company, isVendor: true })}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded"
+                            title="Share Payment Voucher on WhatsApp"
+                          >
+                            <MessageSquare className="h-3.5 w-3.5" />
+                          </a>
                           <button
                             onClick={() => setSelectedPayment(pay)}
                             className="p-1 text-slate-500 hover:text-amber-700 hover:bg-slate-100 rounded"
@@ -760,14 +770,25 @@ export default function PaymentsMadeIndex({
                 </div>
               </div>
 
-              <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-                <button
-                  onClick={() => window.print()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-md hover:bg-slate-100 transition shadow-xs"
-                >
-                  <Printer className="h-3.5 w-3.5" />
-                  <span>Print Voucher</span>
-                </button>
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-md hover:bg-slate-100 transition shadow-xs"
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    <span>Print Voucher</span>
+                  </button>
+                  <a
+                    href={getPaymentWhatsAppShareUrl(selectedPayment, { company, isVendor: true })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition shadow-xs"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    <span>WhatsApp</span>
+                  </a>
+                </div>
                 <button
                   onClick={() => setSelectedPayment(null)}
                   className="px-4 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white rounded-md transition"

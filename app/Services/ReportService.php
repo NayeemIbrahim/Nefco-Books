@@ -517,7 +517,7 @@ class ReportService
         }
 
         // 2. Invoices
-        $invoices = Invoice::with(['lineItems', 'contact'])
+        $invoices = Invoice::with(['lineItems', 'contact', 'allocations.payment.account', 'payments.account'])
             ->where('contact_id', $contact->id)
             ->when($startDate, fn($q) => $q->where('issue_date', '>=', $startDate))
             ->when($endDate,   fn($q) => $q->where('issue_date', '<=', $endDate))
@@ -832,7 +832,7 @@ class ReportService
         }
 
         // 2. Bills
-        $bills = Bill::with(['lineItems', 'contact'])
+        $bills = Bill::with(['lineItems', 'contact', 'payments.account'])
             ->where('contact_id', $contact->id)
             ->when($startDate, fn($q) => $q->where('issue_date', '>=', $startDate))
             ->when($endDate,   fn($q) => $q->where('issue_date', '<=', $endDate))

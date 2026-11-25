@@ -1171,6 +1171,67 @@ export default function InvoicesIndex({ invoices, contacts, items, filters, next
                   </div>
                 </div>
 
+                {/* Payment History with Dates */}
+                {(() => {
+                  const allocs = selectedInvoice.allocations || [];
+                  const directPays = selectedInvoice.payments || [];
+                  const historyRows = allocs.length > 0
+                    ? allocs.map((al) => ({
+                        id: al.id,
+                        date: al.payment?.payment_date,
+                        number: al.payment?.payment_number || `PAY-${al.payment_id}`,
+                        method: al.payment?.payment_method,
+                        account: al.payment?.account?.name,
+                        reference: al.payment?.reference_number,
+                        amount: al.amount,
+                      }))
+                    : directPays.map((p) => ({
+                        id: p.id,
+                        date: p.payment_date,
+                        number: p.payment_number,
+                        method: p.payment_method,
+                        account: p.account?.name,
+                        reference: p.reference_number,
+                        amount: p.amount,
+                      }));
+
+                  if (historyRows.length === 0) return null;
+
+                  return (
+                    <div className="border border-slate-200 rounded-md overflow-hidden">
+                      <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 text-[10px] font-bold uppercase text-slate-600 flex items-center justify-between">
+                        <span>Payment History ({historyRows.length})</span>
+                      </div>
+                      <table className="w-full text-left text-[11px]">
+                        <thead className="bg-slate-50/60 border-b border-slate-100 text-slate-500 text-[10px]">
+                          <tr>
+                            <th className="p-2">Payment Date</th>
+                            <th className="p-2">Receipt #</th>
+                            <th className="p-2">Method / Account</th>
+                            <th className="p-2 text-right">Amount (৳)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {historyRows.map((row) => (
+                            <tr key={row.id}>
+                              <td className="p-2 font-mono text-slate-600">{formatDate(row.date)}</td>
+                              <td className="p-2 font-mono font-bold text-emerald-700">
+                                {row.number}
+                                {row.reference && <span className="block text-[9px] text-slate-400 font-normal">Ref: {row.reference}</span>}
+                              </td>
+                              <td className="p-2 text-slate-600">
+                                {row.method?.replace("_", " ") || "Cash"}
+                                {row.account && <span className="text-slate-400"> ({row.account})</span>}
+                              </td>
+                              <td className="p-2 text-right font-mono font-bold text-emerald-700">{formatBDT(row.amount)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+
                 {/* Direct Customer Payment / Invoice Settlement Form */}
                 {(() => {
                   const due = Math.max(0, (parseFloat(selectedInvoice.total_amount) || 0) - (parseFloat(selectedInvoice.paid_amount) || 0));

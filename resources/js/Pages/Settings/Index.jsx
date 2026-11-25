@@ -59,7 +59,7 @@ export default function SettingsIndex({
   const [iconFile, setIconFile] = useState(null);
   const [iconPreview, setIconPreview] = useState(company?.company_icon || null);
 
-  const DEFAULT_WHATSAPP_TEMPLATE = `*{company_name}*
+  const DEFAULT_INVOICE_TEMPLATE = `*{company_name}*
 Invoice #{invoice_number}
 
 Dear {customer_name},
@@ -79,8 +79,70 @@ Thank you for doing business with {company_name}. Here is the breakdown of your 
 For any inquiries, please contact us.
 _{company_name}_`;
 
+  const DEFAULT_BILL_TEMPLATE = `*{company_name}*
+Bill #{bill_number}
+
+Dear {customer_name},
+Here is the summary for Vendor Bill #{bill_number}:
+
+*Items:*
+{items}
+
+*Summary:*
+• Bill Total: ৳{total_amount}
+• Paid Amount: ৳{paid_amount}
+• Balance Due: ৳{due_amount}
+• Previous Due: ৳{previous_due}
+━━━━━━━━━━━━━━━━━━
+*Total Payable Due: ৳{grand_total_due}*
+
+_{company_name}_`;
+
+  const DEFAULT_RECEIPT_TEMPLATE = `*{company_name}*
+*Payment Receipt #{payment_number}*
+
+Dear {customer_name},
+Thank you! We have received your payment:
+
+• Payment Date: {payment_date}
+• Amount Received: ৳{amount}
+• Method: {payment_method}
+• Reference #: {reference_number}
+• Applied To: {allocated_invoices}
+━━━━━━━━━━━━━━━━━━
+*Current Due Balance: {current_due}*
+
+Thank you for your business!
+_{company_name}_`;
+
+  const DEFAULT_PAYMENT_MADE_TEMPLATE = `*{company_name}*
+*Payment Voucher #{payment_number}*
+
+Dear {vendor_name},
+We have made a payment to your account:
+
+• Payment Date: {payment_date}
+• Amount Paid: ৳{amount}
+• Method: {payment_method}
+• Reference #: {reference_number}
+• Against: {bill_number}
+━━━━━━━━━━━━━━━━━━
+*Remaining Payable Due: {current_due}*
+
+Thank you!
+_{company_name}_`;
+
   const [whatsappTemplate, setWhatsappTemplate] = useState(
-    company?.whatsapp_template || DEFAULT_WHATSAPP_TEMPLATE
+    company?.whatsapp_template || DEFAULT_INVOICE_TEMPLATE
+  );
+  const [whatsappBillTemplate, setWhatsappBillTemplate] = useState(
+    company?.whatsapp_bill_template || DEFAULT_BILL_TEMPLATE
+  );
+  const [whatsappReceiptTemplate, setWhatsappReceiptTemplate] = useState(
+    company?.whatsapp_receipt_template || DEFAULT_RECEIPT_TEMPLATE
+  );
+  const [whatsappPaymentMadeTemplate, setWhatsappPaymentMadeTemplate] = useState(
+    company?.whatsapp_payment_made_template || DEFAULT_PAYMENT_MADE_TEMPLATE
   );
 
   useEffect(() => {
@@ -88,6 +150,9 @@ _{company_name}_`;
     if (company?.company_logo) setLogoPreview(company.company_logo);
     if (company?.company_icon) setIconPreview(company.company_icon);
     if (company?.whatsapp_template) setWhatsappTemplate(company.whatsapp_template);
+    if (company?.whatsapp_bill_template) setWhatsappBillTemplate(company.whatsapp_bill_template);
+    if (company?.whatsapp_receipt_template) setWhatsappReceiptTemplate(company.whatsapp_receipt_template);
+    if (company?.whatsapp_payment_made_template) setWhatsappPaymentMadeTemplate(company.whatsapp_payment_made_template);
   }, [company]);
   const [whatsappPhoneId, setWhatsappPhoneId] = useState(company?.whatsapp_phone_number_id || "");
   const [whatsappToken, setWhatsappToken] = useState(company?.whatsapp_access_token || "");
@@ -154,7 +219,24 @@ _{company_name}_`;
       {
         preserveScroll: true,
         forceFormData: true,
-        onSuccess: () => setNotification("✅ Organization profile, branding & WhatsApp template saved!"),
+        onSuccess: () => setNotification("✅ Organization profile and branding saved!"),
+      }
+    );
+  };
+
+  const handleUpdateTemplates = (e) => {
+    e.preventDefault();
+    router.post(
+      "/settings/templates",
+      {
+        whatsapp_template: whatsappTemplate || "",
+        whatsapp_bill_template: whatsappBillTemplate || "",
+        whatsapp_receipt_template: whatsappReceiptTemplate || "",
+        whatsapp_payment_made_template: whatsappPaymentMadeTemplate || "",
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => setNotification("✅ WhatsApp / SMS Message Templates saved successfully!"),
       }
     );
   };
@@ -368,6 +450,18 @@ _{company_name}_`;
             >
               <Building2 className="h-4 w-4" />
               <span>Business Info</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab("templates")}
+              className={`flex items-center gap-2 py-2.5 px-4 font-bold border-b-2 transition ${
+                activeTab === "templates"
+                  ? "border-amber-600 text-amber-700 bg-white rounded-t-md"
+                  : "border-transparent text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span>Message Template</span>
             </button>
 
             <button
@@ -627,69 +721,179 @@ _{company_name}_`;
                   </div>
                 </div>
 
-                {/* WhatsApp Message Template Customization */}
-                <div className="pt-3 border-t border-slate-100 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <MessageSquare className="h-4 w-4 text-emerald-600" />
-                      <h4 className="font-bold text-slate-800 text-xs">Custom WhatsApp Message Template</h4>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setWhatsappTemplate(DEFAULT_WHATSAPP_TEMPLATE)}
-                      className="flex items-center gap-1 text-[11px] text-amber-700 hover:text-amber-900 font-semibold"
-                    >
-                      <RotateCcw className="h-3 w-3" />
-                      <span>Reset to Default Template</span>
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    Customize the pre-filled message text sent via WhatsApp / WhatsApp Business. Click any placeholder below to insert it at your cursor:
-                  </p>
-
-                  {/* Placeholder Chips */}
-                  <div className="flex flex-wrap gap-1.5 text-[10px]">
-                    {[
-                      { tag: "{company_name}", label: "🏢 Company Name" },
-                      { tag: "{customer_name}", label: "👤 Customer Name" },
-                      { tag: "{invoice_number}", label: "🔢 Invoice #" },
-                      { tag: "{items}", label: "📦 Product Items" },
-                      { tag: "{total_amount}", label: "💰 Invoice Total" },
-                      { tag: "{paid_amount}", label: "💵 Paid Amount" },
-                      { tag: "{due_amount}", label: "⏳ Invoice Due" },
-                      { tag: "{previous_due}", label: "📊 Previous Due" },
-                      { tag: "{grand_total_due}", label: "🔴 Total Due" },
-                    ].map((chip) => (
-                      <button
-                        key={chip.tag}
-                        type="button"
-                        onClick={() => setWhatsappTemplate((prev) => prev + " " + chip.tag)}
-                        className="px-2 py-0.5 bg-slate-100 hover:bg-emerald-100 hover:text-emerald-800 text-slate-700 font-mono rounded border border-slate-200 transition"
-                      >
-                        {chip.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <textarea
-                    rows={8}
-                    value={whatsappTemplate}
-                    onChange={(e) => setWhatsappTemplate(e.target.value)}
-                    placeholder="Enter custom WhatsApp template..."
-                    className="w-full text-xs font-mono p-3 border border-slate-300 rounded-md focus:ring-1 focus:ring-emerald-500 bg-white"
-                  />
-                  <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded text-[11px] text-emerald-800 flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                    <span>WhatsApp messages will automatically use your Company Profile Name and include product items with quantities, prices, previous due, and total outstanding due.</span>
-                  </div>
-                </div>
-
                 <button
                   type="submit"
                   className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-md shadow-xs transition"
                 >
                   <Save className="h-4 w-4" />
                   <span>Save Organization & Branding Details</span>
+                </button>
+              </form>
+            )}
+
+            {/* TAB: Message Template */}
+            {activeTab === "templates" && (
+              <form onSubmit={handleUpdateTemplates} className="max-w-3xl space-y-6 text-xs">
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-900 flex items-start gap-2.5">
+                  <MessageSquare className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-bold text-xs">WhatsApp & SMS Message Templates</h4>
+                    <p className="text-[11px] text-emerald-800 mt-0.5">
+                      Customize the default messages sent via WhatsApp for Invoices, Vendor Bills, Payment Receipts, and Payments Made. Click any placeholder tag to append it.
+                    </p>
+                  </div>
+                </div>
+
+                {/* 1. Invoice Template */}
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-800 text-xs">1. Invoice Message Template</h4>
+                    <button
+                      type="button"
+                      onClick={() => setWhatsappTemplate(DEFAULT_INVOICE_TEMPLATE)}
+                      className="flex items-center gap-1 text-[11px] text-amber-700 hover:text-amber-900 font-semibold"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span>Reset Default</span>
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 text-[10px]">
+                    {[
+                      "{company_name}", "{customer_name}", "{invoice_number}", "{items}",
+                      "{total_amount}", "{paid_amount}", "{due_amount}", "{previous_due}", "{grand_total_due}",
+                    ].map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => setWhatsappTemplate((p) => p + " " + tag)}
+                        className="px-2 py-0.5 bg-white hover:bg-emerald-100 text-slate-700 font-mono rounded border border-slate-200 transition"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    rows={7}
+                    value={whatsappTemplate}
+                    onChange={(e) => setWhatsappTemplate(e.target.value)}
+                    className="w-full text-xs font-mono p-3 border border-slate-300 rounded-md focus:ring-1 focus:ring-emerald-500 bg-white"
+                  />
+                </div>
+
+                {/* 2. Bill Template */}
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-800 text-xs">2. Vendor Bill Message Template</h4>
+                    <button
+                      type="button"
+                      onClick={() => setWhatsappBillTemplate(DEFAULT_BILL_TEMPLATE)}
+                      className="flex items-center gap-1 text-[11px] text-amber-700 hover:text-amber-900 font-semibold"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span>Reset Default</span>
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 text-[10px]">
+                    {[
+                      "{company_name}", "{customer_name}", "{bill_number}", "{items}",
+                      "{total_amount}", "{paid_amount}", "{due_amount}", "{previous_due}", "{grand_total_due}",
+                    ].map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => setWhatsappBillTemplate((p) => p + " " + tag)}
+                        className="px-2 py-0.5 bg-white hover:bg-amber-100 text-slate-700 font-mono rounded border border-slate-200 transition"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    rows={7}
+                    value={whatsappBillTemplate}
+                    onChange={(e) => setWhatsappBillTemplate(e.target.value)}
+                    className="w-full text-xs font-mono p-3 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500 bg-white"
+                  />
+                </div>
+
+                {/* 3. Payment Receipt Template (Payments Received) */}
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-800 text-xs">3. Payment Receipt Template (Received from Customer)</h4>
+                    <button
+                      type="button"
+                      onClick={() => setWhatsappReceiptTemplate(DEFAULT_RECEIPT_TEMPLATE)}
+                      className="flex items-center gap-1 text-[11px] text-amber-700 hover:text-amber-900 font-semibold"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span>Reset Default</span>
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 text-[10px]">
+                    {[
+                      "{company_name}", "{customer_name}", "{payment_number}", "{payment_date}",
+                      "{amount}", "{payment_method}", "{reference_number}", "{allocated_invoices}", "{current_due}",
+                    ].map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => setWhatsappReceiptTemplate((p) => p + " " + tag)}
+                        className="px-2 py-0.5 bg-white hover:bg-emerald-100 text-slate-700 font-mono rounded border border-slate-200 transition"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    rows={7}
+                    value={whatsappReceiptTemplate}
+                    onChange={(e) => setWhatsappReceiptTemplate(e.target.value)}
+                    className="w-full text-xs font-mono p-3 border border-slate-300 rounded-md focus:ring-1 focus:ring-emerald-500 bg-white"
+                  />
+                </div>
+
+                {/* 4. Payment Made Template (Payments Made to Vendor) */}
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-800 text-xs">4. Payment Voucher Template (Paid to Vendor)</h4>
+                    <button
+                      type="button"
+                      onClick={() => setWhatsappPaymentMadeTemplate(DEFAULT_PAYMENT_MADE_TEMPLATE)}
+                      className="flex items-center gap-1 text-[11px] text-amber-700 hover:text-amber-900 font-semibold"
+                    >
+                      <RotateCcw className="h-3 w-3" />
+                      <span>Reset Default</span>
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 text-[10px]">
+                    {[
+                      "{company_name}", "{vendor_name}", "{payment_number}", "{payment_date}",
+                      "{amount}", "{payment_method}", "{reference_number}", "{bill_number}", "{current_due}",
+                    ].map((tag) => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => setWhatsappPaymentMadeTemplate((p) => p + " " + tag)}
+                        className="px-2 py-0.5 bg-white hover:bg-amber-100 text-slate-700 font-mono rounded border border-slate-200 transition"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    rows={7}
+                    value={whatsappPaymentMadeTemplate}
+                    onChange={(e) => setWhatsappPaymentMadeTemplate(e.target.value)}
+                    className="w-full text-xs font-mono p-3 border border-slate-300 rounded-md focus:ring-1 focus:ring-amber-500 bg-white"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-5 py-2.5 rounded-md shadow-xs transition"
+                >
+                  <Save className="h-4 w-4" />
+                  <span>Save All Message Templates</span>
                 </button>
               </form>
             )}

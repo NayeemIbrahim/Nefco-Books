@@ -76,9 +76,12 @@ export function getWhatsAppShareUrl(doc, options = {}) {
   // Support legacy parameter passing: getWhatsAppShareUrl(invoice, companyNameString)
   const config = typeof options === "string" ? { companyName: options } : (options || {});
   const companyName = config.companyName || config.company?.company_name || config.company?.name || "Our Company";
-  const customTemplate = config.template || config.company?.whatsapp_template || "";
-
   const isBill = Boolean(config.isBill || doc.bill_number);
+  const customTemplate =
+    config.template ||
+    (isBill ? config.company?.whatsapp_bill_template : config.company?.whatsapp_template) ||
+    "";
+
   const docType = isBill ? "Bill" : "Invoice";
   const docNumber = doc.invoice_number || doc.bill_number || docType;
   const customerName = doc.contact?.name || (isBill ? "Valued Vendor" : "Valued Customer");
@@ -154,4 +157,102 @@ export function getWhatsAppShareUrl(doc, options = {}) {
 
   const encoded = encodeURIComponent(message);
   return cleanPhone ? `https://wa.me/${cleanPhone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+}
+
+/**
+ * Generate a direct WhatsApp URL for a Payment Receipt (Customer) or Payment Made (Vendor),
+ * including payment date, amount, reference, allocated invoices/bill, and current due if due > 0.
+ */
+export function getPaymentWhatsAppShareUrl(payment, options = {}) {
+  if (!payment) return "#";
+
+  const config = options || {};
+  const companyName = config.companyName || config.company?.company_name || config.company?.name || "Our Company";
+  const isVendorPayment = Boolean(config.isVendor || payment.type === "VENDOR_PAYMENT");
+
+  const customTemplate =
+    config.template ||
+    (isVendorPayment
+      ? config.company?.whatsapp_payment_made_template
+      : config.company?.whatsapp_receipt_template) ||
+    "";
+
+  const contactName = payment.contact?.name || (isVendorPayment ? "Valued Vendor" : "Valued Customer");
+  const rawPhone = payment.contact?.whatsapp_number || payment.contact?.phone || "";
+  let cleanPhone = rawPhone.replace(/\D/g, "");
+  if (cleanPhone.startsWith("01") && cleanPhone.length === 11) {
+    cleanPhone = "88" + cleanPhone;
+  }
+
+  const payNumber = payment.payment_number || "Receipt";
+  const payDate = formatDate(payment.payment_date);
+  const amountNum = parseFloat(payment.amount) || 0;
+  const amountStr = amountNum.toLocaleString("en-BD", { minimumFractionDigits: 2 });
+  const methodStr = (payment.payment_method || "CASH").replace("_", " ");
+  const refStr = payment.reference_number || "N/A";
+
+  const currentDueNum = Math.max(0, parseFloat(payment.contact?.current_balance) || 0);
+  const currentDueStr = currentDueNum.toLocaleString("en-BD", { minimumFractionDigits: 2 });
+
+  // Format allocated invoices or bill
+  let allocatedDocsStr = "";
+  if (isVendorPayment) {
+    allocatedDocsStr = payment.bill?.bill_number ? `Bill #${payment.bill.bill_number}` : "Direct Vendor Payment";
+  } else if (Array.isArray(payment.allocations) && payment.allocations.length > 0) {
+    allocatedDocsStr = payment.allocations
+      .map((al) => {
+        const invNum = al.invoice?.invoice_number || `INV-${al.invoice_id}`;
+        const amt = Number(al.amount || 0).toLocaleString("en-BD", { minimumFractionDigits: 2 });
+        return `${invNum} (৳${amt})`;
+      })
+      .join(", ");
+  } else if (payment.invoice?.invoice_number) {
+    allocatedDocsStr = payment.invoice.invoice_number;
+  } else {
+    allocatedDocsStr = "Unallocated / Account Payment";
+  }
+
+  let message = "";
+  if (customTemplate && customTemplate.trim()) {
+    const dueLine = currentDueNum > 0 ? `৳${currentDueStr}` : "৳0.00 (Settled)";
+    message = customTemplate
+      .replaceAll("{company_name}", companyName)
+      .replaceAll("{customer_name}", contactName)
+      .replaceAll("{vendor_name}", contactName)
+      .replaceAll("{payment_number}", payNumber)
+      .replaceAll("{payment_date}", payDate)
+      .replaceAll("{amount}", amountStr)
+      .replaceAll("{payment_method}", methodStr)
+      .replaceAll("{reference_number}", refStr)
+      .replaceAll("{allocated_invoices}", allocatedDocsStr)
+      .replaceAll("{bill_number}", allocatedDocsStr)
+      .replaceAll("{current_due}", dueLine);
+  } else if (isVendorPayment) {
+    message = `*${companyName}*\n` +
+      `*Payment Voucher #${payNumber}*\n\n` +
+      `Dear ${contactName},\n` +
+      `We have made a payment to your account:\n\n` +
+      `• Payment Date: ${payDate}\n` +
+      `• Amount Paid: ৳${amountStr}\n` +
+      `• Method: ${methodStr}\n` +
+      (payment.reference_number ? `• Reference #: ${refStr}\n` : "") +
+      `• Against: ${allocatedDocsStr}\n` +
+      (currentDueNum > 0 ? `━━━━━━━━━━━━━━━━━━\n*Remaining Payable Due: ৳${currentDueStr}*\n` : "") +
+      `\nThank you!\n_${companyName}_`;
+  } else {
+    message = `*${companyName}*\n` +
+      `*Payment Receipt #${payNumber}*\n\n` +
+      `Dear ${contactName},\n` +
+      `Thank you! We have received your payment:\n\n` +
+      `• Payment Date: ${payDate}\n` +
+      `• Amount Received: ৳${amountStr}\n` +
+      `• Method: ${methodStr}\n` +
+      (payment.reference_number ? `• Reference #: ${refStr}\n` : "") +
+      `• Applied To: ${allocatedDocsStr}\n` +
+      (currentDueNum > 0 ? `━━━━━━━━━━━━━━━━━━\n*Current Due Balance: ৳${currentDueStr}*\n` : "") +
+      `\nThank you for your business!\n_${companyName}_`;
+  }
+
+  const encodedText = encodeURIComponent(message);
+  return cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodedText}` : `https://wa.me/?text=${encodedText}`;
 }

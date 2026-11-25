@@ -27,6 +27,9 @@ class User extends Authenticatable
         'company_logo',
         'company_icon',
         'whatsapp_template',
+        'whatsapp_bill_template',
+        'whatsapp_receipt_template',
+        'whatsapp_payment_made_template',
         'whatsapp_phone_number_id',
         'whatsapp_access_token',
     ];

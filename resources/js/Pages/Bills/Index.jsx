@@ -856,6 +856,41 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
                 })()}
               </div>
 
+              {/* Payment History with Dates */}
+              {Array.isArray(selectedBill.payments) && selectedBill.payments.length > 0 && (
+                <div className="border border-slate-200 rounded-md overflow-hidden">
+                  <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 text-[10px] font-bold uppercase text-slate-600">
+                    Payment History ({selectedBill.payments.length})
+                  </div>
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="bg-slate-50/60 border-b border-slate-100 text-slate-500 text-[10px]">
+                      <tr>
+                        <th className="p-2">Payment Date</th>
+                        <th className="p-2">Voucher #</th>
+                        <th className="p-2">Method / Account</th>
+                        <th className="p-2 text-right">Amount (৳)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {selectedBill.payments.map((p) => (
+                        <tr key={p.id}>
+                          <td className="p-2 font-mono text-slate-600">{formatDate(p.payment_date)}</td>
+                          <td className="p-2 font-mono font-bold text-amber-700">
+                            {p.payment_number}
+                            {p.reference_number && <span className="block text-[9px] text-slate-400 font-normal">Ref: {p.reference_number}</span>}
+                          </td>
+                          <td className="p-2 text-slate-600">
+                            {p.payment_method?.replace("_", " ") || "Cash"}
+                            {p.account?.name && <span className="text-slate-400"> ({p.account.name})</span>}
+                          </td>
+                          <td className="p-2 text-right font-mono font-bold text-amber-700">{formatBDT(p.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
               {/* Direct Bill Payment / Settlement Form */}
               {(() => {
                 const isPaid = selectedBill.status === "PAID" || (parseFloat(selectedBill.paid_amount) || 0) >= (parseFloat(selectedBill.total_amount) || 0);

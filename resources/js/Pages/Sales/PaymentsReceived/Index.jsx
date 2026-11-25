@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import DateField from "@/Components/DateField";
 import Pagination from "@/Components/Pagination";
-import { formatBDT, formatDate } from "@/lib/utils";
+import { formatBDT, formatDate, getPaymentWhatsAppShareUrl } from "@/lib/utils";
 import {
   Plus,
   Search,
@@ -16,6 +16,7 @@ import {
   Clock,
   AlertCircle,
   SlidersHorizontal,
+  MessageSquare,
 } from "lucide-react";
 import { Head, router, usePage } from "@inertiajs/react";
 
@@ -28,7 +29,7 @@ export default function PaymentsReceivedIndex({
   metrics,
   filters,
 }) {
-  const { flash } = usePage().props;
+  const { flash, company } = usePage().props;
   const todayStr = new Date().toISOString().split("T")[0];
   const [activeTab, setActiveTab] = useState("UNPAID_INVOICES"); // 'UNPAID_INVOICES' | 'HISTORY'
   const [notification, setNotification] = useState(flash?.success || null);
@@ -667,11 +668,27 @@ export default function PaymentsReceivedIndex({
                                 <span>{pay.invoice.invoice_number}</span>
                               </button>
                             ) : null}
-                            {(parseFloat(pay.unallocated_amount) || 0) > 0 && (
-                              <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 rounded">
-                                Advance: {formatBDT(pay.unallocated_amount)}
-                              </span>
-                            )}
+                            {(parseFloat(pay.unallocated_amount) || 0) > 0 && (() => {
+                              const payDateStr = (pay.payment_date || "").slice(0, 10);
+                              const hasDueOrAfterDue =
+                                (parseFloat(pay.contact?.current_balance) || 0) > 0 ||
+                                unpaidInvoicesList.some(
+                                  (inv) =>
+                                    String(inv.contact_id) === String(pay.contact_id) &&
+                                    ((inv.due_date || inv.issue_date || "").slice(0, 10) <= payDateStr)
+                                );
+                              return (
+                                <span
+                                  className={`px-1.5 py-0.5 text-[10px] font-semibold border rounded ${
+                                    hasDueOrAfterDue
+                                      ? "bg-orange-50 text-orange-800 border-orange-200"
+                                      : "bg-amber-50 text-amber-800 border-amber-200"
+                                  }`}
+                                >
+                                  {hasDueOrAfterDue ? "Unallocated" : "Advance"}: {formatBDT(pay.unallocated_amount)}
+                                </span>
+                              );
+                            })()}
                             {(!pay.allocations || pay.allocations.length === 0) && !pay.invoice && (parseFloat(pay.unallocated_amount) || 0) <= 0 && (
                               <span className="text-slate-400 italic">Direct Receipt</span>
                             )}
@@ -689,6 +706,15 @@ export default function PaymentsReceivedIndex({
                           {formatBDT(pay.amount)}
                         </td>
                         <td className="py-3 px-4 text-center space-x-1">
+                          <a
+                            href={getPaymentWhatsAppShareUrl(pay, { company })}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex p-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded"
+                            title="Share Receipt on WhatsApp"
+                          >
+                            <MessageSquare className="h-3.5 w-3.5" />
+                          </a>
                           <button
                             type="button"
                             onClick={() => handleOpenPaymentModal(pay, true)}
@@ -1240,14 +1266,25 @@ export default function PaymentsReceivedIndex({
                 )}
               </div>
 
-              <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-                <button
-                  onClick={() => window.print()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-md hover:bg-slate-100 transition shadow-xs"
-                >
-                  <Printer className="h-3.5 w-3.5" />
-                  <span>Print Receipt</span>
-                </button>
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-md hover:bg-slate-100 transition shadow-xs"
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    <span>Print Receipt</span>
+                  </button>
+                  <a
+                    href={getPaymentWhatsAppShareUrl(selectedPayment, { company })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition shadow-xs"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    <span>WhatsApp Receipt</span>
+                  </a>
+                </div>
                 <button
                   onClick={() => setSelectedPayment(null)}
                   className="px-4 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-900 text-white rounded-md transition"

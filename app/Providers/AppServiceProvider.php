@@ -66,6 +66,21 @@ class AppServiceProvider extends ServiceProvider
                         $table->text('whatsapp_template')->nullable();
                     });
                 }
+                if (! Schema::hasColumn('users', 'whatsapp_bill_template')) {
+                    Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+                        $table->text('whatsapp_bill_template')->nullable();
+                    });
+                }
+                if (! Schema::hasColumn('users', 'whatsapp_receipt_template')) {
+                    Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+                        $table->text('whatsapp_receipt_template')->nullable();
+                    });
+                }
+                if (! Schema::hasColumn('users', 'whatsapp_payment_made_template')) {
+                    Schema::table('users', function (\Illuminate\Database\Schema\Blueprint $table) {
+                        $table->text('whatsapp_payment_made_template')->nullable();
+                    });
+                }
             }
 
             if (Schema::hasTable('items') && !Schema::hasColumn('items', 'category_id')) {

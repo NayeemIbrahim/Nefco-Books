@@ -122,11 +122,14 @@ class SettingsController extends Controller
                 'currency_code'          => $user->currency_code ?? 'BDT',
                 'default_uom'            => $user->default_uom ?? 'Pcs',
                 'enable_stock'           => (bool)($user->enable_stock ?? false),
-                'company_logo'           => $user->company_logo ?? '',
-                'company_icon'           => $user->company_icon ?? '',
-                'whatsapp_template'      => $user->whatsapp_template ?? '',
-                'whatsapp_phone_number_id'=> $user->whatsapp_phone_number_id ?? '',
-                'whatsapp_access_token'  => $user->whatsapp_access_token ?? '',
+                'company_logo'                   => $user->company_logo ?? '',
+                'company_icon'                   => $user->company_icon ?? '',
+                'whatsapp_template'              => $user->whatsapp_template ?? '',
+                'whatsapp_bill_template'         => $user->whatsapp_bill_template ?? '',
+                'whatsapp_receipt_template'      => $user->whatsapp_receipt_template ?? '',
+                'whatsapp_payment_made_template' => $user->whatsapp_payment_made_template ?? '',
+                'whatsapp_phone_number_id'       => $user->whatsapp_phone_number_id ?? '',
+                'whatsapp_access_token'          => $user->whatsapp_access_token ?? '',
             ],
             'users'              => $users,
             'accounts'           => $accounts,
@@ -262,6 +265,36 @@ class SettingsController extends Controller
         }
 
         return back()->with('success', 'Organization and business settings saved!');
+    }
+
+    public function updateTemplates(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'whatsapp_template'              => 'nullable|string|max:5000',
+            'whatsapp_bill_template'         => 'nullable|string|max:5000',
+            'whatsapp_receipt_template'      => 'nullable|string|max:5000',
+            'whatsapp_payment_made_template' => 'nullable|string|max:5000',
+        ]);
+
+        try {
+            $user = $this->resolveUser();
+            if ($user && Schema::hasTable('users')) {
+                $existingColumns = Schema::getColumnListing('users');
+                $dataToUpdate = array_filter(
+                    $validated,
+                    fn ($key) => in_array($key, $existingColumns),
+                    ARRAY_FILTER_USE_KEY
+                );
+                if (! empty($dataToUpdate)) {
+                    $user->update($dataToUpdate);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('updateTemplates error: ' . $e->getMessage());
+            return back()->with('error', 'Could not save message templates.');
+        }
+
+        return back()->with('success', 'Message templates saved successfully!');
     }
 
     public function toggleStock(Request $request): RedirectResponse

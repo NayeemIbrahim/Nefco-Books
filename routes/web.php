@@ -159,6 +159,7 @@ Route::prefix('reports')->name('reports.')->group(function () {
 Route::get('settings', [SettingsController::class, 'index'])->name('settings.index');
 Route::post('settings/profile', [SettingsController::class, 'updateProfile'])->name('settings.profile');
 Route::post('settings/company', [SettingsController::class, 'updateCompany'])->name('settings.company');
+Route::post('settings/templates', [SettingsController::class, 'updateTemplates'])->name('settings.templates');
 Route::post('settings/toggle-stock', [SettingsController::class, 'toggleStock'])->name('settings.toggle-stock');
 Route::post('settings/accounts', [SettingsController::class, 'storeAccount'])->name('settings.accounts.store');
 Route::post('settings/accounts/{account}', [SettingsController::class, 'updateAccount'])->name('settings.accounts.update');

@@ -266,4 +266,21 @@ class PaymentAllocationTest extends TestCase
         $this->assertEquals(0.00, (float) $inv2->paid_amount);
         $this->assertEquals('SENT', $inv2->status);
     }
+
+    public function test_message_templates_can_be_saved_in_settings(): void
+    {
+        $response = $this->actingAs($this->user)->post('/settings/templates', [
+            'whatsapp_template'              => 'Custom Invoice {invoice_number}',
+            'whatsapp_bill_template'         => 'Custom Bill {bill_number}',
+            'whatsapp_receipt_template'      => 'Custom Receipt {payment_number} Due {current_due}',
+            'whatsapp_payment_made_template' => 'Custom Voucher {payment_number} Due {current_due}',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->user->refresh();
+        $this->assertEquals('Custom Invoice {invoice_number}', $this->user->whatsapp_template);
+        $this->assertEquals('Custom Bill {bill_number}', $this->user->whatsapp_bill_template);
+        $this->assertEquals('Custom Receipt {payment_number} Due {current_due}', $this->user->whatsapp_receipt_template);
+        $this->assertEquals('Custom Voucher {payment_number} Due {current_due}', $this->user->whatsapp_payment_made_template);
+    }
 }
