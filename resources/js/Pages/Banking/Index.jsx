@@ -95,7 +95,8 @@ export default function BankingIndex({ accounts, allAccounts, recentJournals }) 
             <span className="text-xs text-slate-400 font-medium">Double-Entry Equilibrium Verified</span>
           </div>
 
-          <table className="w-full text-left border-collapse text-xs text-slate-600">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[650px] text-left border-collapse text-xs text-slate-600">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 uppercase tracking-wider font-semibold text-[10px] text-slate-500">
                 <th className="py-3 px-4">Entry #</th>
@@ -159,6 +160,7 @@ export default function BankingIndex({ accounts, allAccounts, recentJournals }) 
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
 

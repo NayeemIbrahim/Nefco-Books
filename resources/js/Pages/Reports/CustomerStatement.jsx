@@ -307,8 +307,8 @@ export default function CustomerStatement({
               </div>
 
               {/* Line Items Table */}
-              <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full text-left text-xs">
+              <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                <table className="w-full min-w-[420px] text-left text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[10px]">
                     <tr>
                       <th className="p-2.5">Item / Description</th>

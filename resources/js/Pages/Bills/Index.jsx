@@ -364,7 +364,7 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left text-slate-600">
+            <table className="w-full min-w-[700px] text-xs text-left text-slate-600">
               <thead className="bg-slate-100/70 uppercase font-semibold text-[10px] text-slate-500 border-b border-slate-200">
                 <tr>
                   <th className="py-2.5 px-4">Bill #</th>
@@ -805,8 +805,8 @@ export default function BillsIndex({ bills, vendors, items, deposit_accounts, fi
               </div>
 
               {/* Line Items */}
-              <div className="border border-slate-200 rounded-md overflow-hidden">
-                <table className="w-full text-left text-xs">
+              <div className="border border-slate-200 rounded-md overflow-x-auto">
+                <table className="w-full min-w-[420px] text-left text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[10px]">
                     <tr>
                       <th className="p-2">Item</th>

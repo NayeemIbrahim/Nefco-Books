@@ -451,8 +451,8 @@ export default function BookingsIndex({ bookings, contacts, items, filters, draf
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
-          <table className="w-full text-xs text-left text-slate-600">
+        <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-x-auto">
+          <table className="w-full min-w-[700px] text-xs text-left text-slate-600">
             <thead className="bg-slate-50 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
               <tr>
                 <th className="py-3 px-4">Quote / Deal #</th>

@@ -227,11 +227,10 @@ export default function ContactsIndex({ contacts, filters }) {
               <button
                 key={tab.id}
                 onClick={() => handleFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${
-                  activeTab === tab.id
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${activeTab === tab.id
                     ? "bg-slate-900 text-white font-semibold"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                }`}
+                  }`}
               >
                 {tab.label}
               </button>
@@ -251,8 +250,8 @@ export default function ContactsIndex({ contacts, filters }) {
         </div>
 
         {/* Contacts Table */}
-        <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
-          <table className="w-full text-xs text-left text-slate-600">
+        <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-x-auto">
+          <table className="w-full min-w-[700px] text-xs text-left text-slate-600">
             <thead className="bg-slate-50 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
               <tr>
                 <th className="py-3 px-4">Contact Name & Company</th>
@@ -295,13 +294,12 @@ export default function ContactsIndex({ contacts, filters }) {
                     </td>
                     <td className="py-3 px-4">
                       <span
-                        className={`px-2 py-0.5 text-[10px] font-bold rounded ${
-                          contact.type === "CUSTOMER"
+                        className={`px-2 py-0.5 text-[10px] font-bold rounded ${contact.type === "CUSTOMER"
                             ? "bg-blue-100 text-blue-800"
                             : contact.type === "VENDOR"
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-purple-100 text-purple-800"
-                        }`}
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-purple-100 text-purple-800"
+                          }`}
                       >
                         {contact.type}
                       </span>
@@ -327,8 +325,8 @@ export default function ContactsIndex({ contacts, filters }) {
                           parseFloat(contact.current_balance) > 0
                             ? "text-blue-600"
                             : parseFloat(contact.current_balance) < 0
-                            ? "text-amber-600"
-                            : "text-slate-500"
+                              ? "text-amber-600"
+                              : "text-slate-500"
                         }
                       >
                         {formatBDT(contact.current_balance)}
@@ -337,11 +335,10 @@ export default function ContactsIndex({ contacts, filters }) {
                         <div className="text-[10px] font-normal text-slate-400 mt-0.5 flex items-center justify-end gap-1">
                           <span>OB: {formatBDT(contact.opening_balance)}</span>
                           <span
-                            className={`px-1 py-0.2 rounded text-[9px] font-semibold ${
-                              contact.opening_balance_type === "TO_PAY"
+                            className={`px-1 py-0.2 rounded text-[9px] font-semibold ${contact.opening_balance_type === "TO_PAY"
                                 ? "bg-amber-100 text-amber-800"
                                 : "bg-blue-100 text-blue-800"
-                            }`}
+                              }`}
                           >
                             {contact.opening_balance_type === "TO_PAY" ? "To Pay" : "To Receive"}
                           </span>
@@ -433,11 +430,10 @@ export default function ContactsIndex({ contacts, filters }) {
                     <button
                       type="button"
                       onClick={() => setDrawerTab("DETAILS")}
-                      className={`px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${
-                        drawerTab === "DETAILS"
+                      className={`px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${drawerTab === "DETAILS"
                           ? "bg-blue-600 text-white shadow-xs"
                           : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
-                      }`}
+                        }`}
                     >
                       <Building2 className="h-3.5 w-3.5" />
                       <span>Contact Details</span>
@@ -448,11 +444,10 @@ export default function ContactsIndex({ contacts, filters }) {
                         setDrawerTab("LEDGER");
                         fetchLedger(editingContact.id);
                       }}
-                      className={`px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${
-                        drawerTab === "LEDGER"
+                      className={`px-3 py-1.5 rounded-md text-xs font-semibold transition flex items-center gap-1.5 ${drawerTab === "LEDGER"
                           ? "bg-blue-600 text-white shadow-xs"
                           : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
-                      }`}
+                        }`}
                     >
                       <BookOpen className="h-3.5 w-3.5" />
                       <span>Statement & Ledger</span>
@@ -469,13 +464,12 @@ export default function ContactsIndex({ contacts, filters }) {
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
                       <span className="text-[11px] font-medium text-slate-500 block">Current Balance</span>
                       <span
-                        className={`text-base font-bold ${
-                          parseFloat(editingContact.current_balance) > 0
+                        className={`text-base font-bold ${parseFloat(editingContact.current_balance) > 0
                             ? "text-blue-600"
                             : parseFloat(editingContact.current_balance) < 0
-                            ? "text-amber-600"
-                            : "text-slate-800"
-                        }`}
+                              ? "text-amber-600"
+                              : "text-slate-800"
+                          }`}
                       >
                         {formatBDT(editingContact.current_balance)}
                       </span>
@@ -493,11 +487,10 @@ export default function ContactsIndex({ contacts, filters }) {
                           {formatBDT(editingContact.opening_balance || 0)}
                         </span>
                         <span
-                          className={`px-1.5 py-0.2 rounded text-[10px] font-semibold ${
-                            editingContact.opening_balance_type === "TO_PAY"
+                          className={`px-1.5 py-0.2 rounded text-[10px] font-semibold ${editingContact.opening_balance_type === "TO_PAY"
                               ? "bg-amber-100 text-amber-800"
                               : "bg-blue-100 text-blue-800"
-                          }`}
+                            }`}
                         >
                           {editingContact.opening_balance_type === "TO_PAY" ? "To Pay" : "To Receive"}
                         </span>
@@ -555,15 +548,14 @@ export default function ContactsIndex({ contacts, filters }) {
                                 <td className="py-2 px-3">
                                   <div className="flex items-center gap-1.5">
                                     <span
-                                      className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
-                                        entry.type === "OPENING_BALANCE"
+                                      className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${entry.type === "OPENING_BALANCE"
                                           ? "bg-purple-100 text-purple-800"
                                           : entry.type === "INVOICE"
-                                          ? "bg-blue-100 text-blue-800"
-                                          : entry.type === "BILL"
-                                          ? "bg-amber-100 text-amber-800"
-                                          : "bg-emerald-100 text-emerald-800"
-                                      }`}
+                                            ? "bg-blue-100 text-blue-800"
+                                            : entry.type === "BILL"
+                                              ? "bg-amber-100 text-amber-800"
+                                              : "bg-emerald-100 text-emerald-800"
+                                        }`}
                                     >
                                       {entry.type === "OPENING_BALANCE" ? "OPENING BAL" : entry.type}
                                     </span>
@@ -609,9 +601,8 @@ export default function ContactsIndex({ contacts, filters }) {
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="e.g. Rahim Chowdhury"
-                      className={`w-full px-3 py-2 text-xs border rounded-md ${
-                        errors?.name ? "border-rose-500 bg-rose-50/50" : "border-slate-300"
-                      } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
+                      className={`w-full px-3 py-2 text-xs border rounded-md ${errors?.name ? "border-rose-500 bg-rose-50/50" : "border-slate-300"
+                        } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
                     />
                     {errors?.name && (
                       <p className="text-[11px] font-medium text-rose-600 mt-0.5">{errors.name}</p>
@@ -652,9 +643,8 @@ export default function ContactsIndex({ contacts, filters }) {
                           setFormData({ ...formData, whatsapp_number: e.target.value, phone: e.target.value })
                         }
                         placeholder="e.g. 01700000000 or +8801700000000"
-                        className={`w-full px-3 py-2 text-xs border rounded-md font-mono ${
-                          errors?.whatsapp_number ? "border-rose-500 bg-rose-50/50" : "border-slate-300"
-                        } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
+                        className={`w-full px-3 py-2 text-xs border rounded-md font-mono ${errors?.whatsapp_number ? "border-rose-500 bg-rose-50/50" : "border-slate-300"
+                          } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
                       />
                       {errors?.whatsapp_number && (
                         <p className="text-[11px] font-medium text-rose-600 mt-0.5">{errors.whatsapp_number}</p>
@@ -667,7 +657,7 @@ export default function ContactsIndex({ contacts, filters }) {
                     <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                       <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
                         <DollarSign className="h-4 w-4 text-emerald-600" />
-                        <span>Opening Balance (Zoho Books Style)</span>
+                        <span>Opening Balance</span>
                       </div>
                       <span className="text-[10px] text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200 font-semibold">
                         Offset: Equity 3010
@@ -749,9 +739,8 @@ export default function ContactsIndex({ contacts, filters }) {
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       placeholder="rahim@example.bd"
-                      className={`w-full px-3 py-2 text-xs border rounded-md ${
-                        errors?.email ? "border-rose-500 bg-rose-50/50" : "border-slate-300"
-                      } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
+                      className={`w-full px-3 py-2 text-xs border rounded-md ${errors?.email ? "border-rose-500 bg-rose-50/50" : "border-slate-300"
+                        } focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500`}
                     />
                     {errors?.email && (
                       <p className="text-[11px] font-medium text-rose-600 mt-0.5">{errors.email}</p>

@@ -38,11 +38,11 @@ export default function SalesSummary({
         </div>
 
         {/* Detailed Breakdown Table */}
-        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+        <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-xs">
           <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 font-bold text-xs uppercase tracking-wider text-slate-700">
             Sales Breakdown
           </div>
-          <table className="w-full text-xs text-left text-slate-600">
+          <table className="w-full min-w-[400px] text-xs text-left text-slate-600">
             <tbody className="divide-y divide-slate-100">
               <tr className="hover:bg-slate-50">
                 <td className="py-2.5 px-4 font-medium text-slate-700">Subtotal (Gross Item Sales)</td>

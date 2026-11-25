@@ -17,8 +17,9 @@ import {
   AlertCircle,
   SlidersHorizontal,
   MessageSquare,
+  Edit,
 } from "lucide-react";
-import { Head, router, usePage } from "@inertiajs/react";
+import { Head, Link, router, usePage } from "@inertiajs/react";
 
 export default function PaymentsReceivedIndex({
   payments,
@@ -468,7 +469,7 @@ export default function PaymentsReceivedIndex({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left text-slate-600">
+              <table className="w-full min-w-[650px] text-xs text-left text-slate-600">
                 <thead className="bg-slate-100/70 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
                   <tr>
                     <th className="py-3 px-4">Invoice #</th>
@@ -476,15 +477,13 @@ export default function PaymentsReceivedIndex({
                     <th className="py-3 px-4">Due Date</th>
                     <th className="py-3 px-4 text-right">Total (BDT)</th>
                     <th className="py-3 px-4 text-right">Balance Due (BDT)</th>
-                    <th className="py-3 px-4">Pay Amount (BDT)</th>
-                    <th className="py-3 px-4">Deposit Account</th>
                     <th className="py-3 px-4 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {unpaidInvoicesList.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-10 text-center text-slate-400">
+                      <td colSpan={6} className="py-10 text-center text-slate-400">
                         🎉 All customer invoices are fully settled! No pending balances.
                       </td>
                     </tr>
@@ -492,9 +491,6 @@ export default function PaymentsReceivedIndex({
                     unpaidInvoicesList.map((inv) => {
                       const balDue = Math.max(0, (parseFloat(inv.total_amount) || 0) - (parseFloat(inv.paid_amount) || 0));
                       const isOverdue = inv.due_date && new Date(inv.due_date) < new Date(todayStr);
-                      const currentAmount = inlineAmounts[inv.id] !== undefined ? inlineAmounts[inv.id] : balDue;
-                      const currentAccount = inlineAccounts[inv.id] || accountList[0]?.id;
-                      const currentMethod = inlineMethods[inv.id] || "CASH";
 
                       return (
                         <tr key={inv.id} className="hover:bg-emerald-50/30 transition">
@@ -532,48 +528,25 @@ export default function PaymentsReceivedIndex({
                           <td className="py-3 px-4 text-right font-mono font-bold text-amber-700">
                             {formatBDT(balDue)}
                           </td>
-                          <td className="py-3 px-4">
-                            <input
-                              type="number"
-                              min="0.01"
-                              max={balDue}
-                              step="any"
-                              value={currentAmount}
-                              onChange={(e) =>
-                                setInlineAmounts({
-                                  ...inlineAmounts,
-                                  [inv.id]: e.target.value,
-                                })
-                              }
-                              className="w-28 px-2 py-1 text-xs border border-slate-300 rounded font-mono font-bold text-right focus:ring-1 focus:ring-emerald-500"
-                            />
-                          </td>
-                          <td className="py-3 px-4">
-                            <select
-                              value={currentAccount}
-                              onChange={(e) =>
-                                setInlineAccounts({
-                                  ...inlineAccounts,
-                                  [inv.id]: e.target.value,
-                                })
-                              }
-                              className="w-32 px-2 py-1 text-xs border border-slate-300 rounded focus:ring-1 focus:ring-emerald-500"
+                          <td className="py-3 px-4 text-center whitespace-nowrap space-x-1">
+                            <Link
+                              href={`/sales/invoices?search=${encodeURIComponent(inv.invoice_number)}`}
+                              className="inline-flex p-1.5 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded transition"
+                              title="Edit Invoice"
                             >
-                              {accountList.map((acc) => (
-                                <option key={acc.id} value={acc.id}>
-                                  {acc.code} - {acc.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="py-3 px-4 text-center">
+                              <Edit className="h-3.5 w-3.5" />
+                            </Link>
                             <button
-                              onClick={() => handleInlineReceivePayment(inv)}
-                              className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-bold transition shadow-xs"
-                              title="Record payment for this invoice"
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`Delete invoice #${inv.invoice_number}?`)) {
+                                  router.delete(`/invoices/${inv.id}`, { preserveScroll: true });
+                                }
+                              }}
+                              className="inline-flex p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                              title="Delete Invoice"
                             >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              <span>Receive</span>
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </td>
                         </tr>
@@ -603,7 +576,8 @@ export default function PaymentsReceivedIndex({
             </div>
 
             <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
-              <table className="w-full text-xs text-left text-slate-600">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left text-slate-600 min-w-[750px]">
                 <thead className="bg-slate-50 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
                   <tr>
                     <th className="py-3 px-4">Payment #</th>
@@ -745,6 +719,7 @@ export default function PaymentsReceivedIndex({
                   )}
                 </tbody>
               </table>
+              </div>
               <Pagination meta={payments} />
             </div>
           </div>
@@ -1118,8 +1093,8 @@ export default function PaymentsReceivedIndex({
                       </button>
                     </div>
 
-                    <div className="border border-slate-200 rounded-lg overflow-hidden">
-                      <table className="w-full text-xs text-left">
+                    <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                      <table className="w-full min-w-[420px] text-xs text-left">
                         <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase border-b border-slate-200">
                           <tr>
                             <th className="p-2">Invoice #</th>
@@ -1342,8 +1317,8 @@ export default function PaymentsReceivedIndex({
                 </div>
 
                 {/* Line Items */}
-                <div className="border border-slate-200 rounded-md overflow-hidden">
-                  <table className="w-full text-left text-xs">
+                <div className="border border-slate-200 rounded-md overflow-x-auto">
+                  <table className="w-full min-w-[420px] text-left text-xs">
                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[10px]">
                       <tr>
                         <th className="p-2">Item / Description</th>

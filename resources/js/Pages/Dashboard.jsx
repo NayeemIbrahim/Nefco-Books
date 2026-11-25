@@ -166,8 +166,8 @@ export default function Dashboard({ receivables, payables, recentBookings }) {
                   🎉 No outstanding customer invoices due!
                 </div>
               ) : (
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-xs text-left text-slate-600">
+                <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                  <table className="w-full min-w-[480px] text-xs text-left text-slate-600">
                     <thead className="bg-slate-50 uppercase text-[10px] font-semibold text-slate-400 border-b border-slate-200">
                       <tr>
                         <th className="py-2 px-3">Invoice #</th>
@@ -262,8 +262,8 @@ export default function Dashboard({ receivables, payables, recentBookings }) {
                   🎉 No outstanding vendor bills due!
                 </div>
               ) : (
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-xs text-left text-slate-600">
+                <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                  <table className="w-full min-w-[480px] text-xs text-left text-slate-600">
                     <thead className="bg-slate-50 uppercase text-[10px] font-semibold text-slate-400 border-b border-slate-200">
                       <tr>
                         <th className="py-2 px-3">Bill #</th>

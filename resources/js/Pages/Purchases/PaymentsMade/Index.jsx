@@ -16,8 +16,9 @@ import {
   Clock,
   AlertCircle,
   MessageSquare,
+  Edit,
 } from "lucide-react";
-import { Head, router, usePage } from "@inertiajs/react";
+import { Head, Link, router, usePage } from "@inertiajs/react";
 
 export default function PaymentsMadeIndex({
   payments,
@@ -310,7 +311,7 @@ export default function PaymentsMadeIndex({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left text-slate-600">
+              <table className="w-full min-w-[650px] text-xs text-left text-slate-600">
                 <thead className="bg-slate-100/70 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
                   <tr>
                     <th className="py-3 px-4">Bill #</th>
@@ -318,15 +319,13 @@ export default function PaymentsMadeIndex({
                     <th className="py-3 px-4">Due Date</th>
                     <th className="py-3 px-4 text-right">Total (BDT)</th>
                     <th className="py-3 px-4 text-right">Balance Due (BDT)</th>
-                    <th className="py-3 px-4">Pay Amount (BDT)</th>
-                    <th className="py-3 px-4">Paid From Account</th>
                     <th className="py-3 px-4 text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {unpaidBillsList.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-10 text-center text-slate-400">
+                      <td colSpan={6} className="py-10 text-center text-slate-400">
                         🎉 All vendor bills are fully paid! No pending liabilities.
                       </td>
                     </tr>
@@ -334,8 +333,6 @@ export default function PaymentsMadeIndex({
                     unpaidBillsList.map((bill) => {
                       const balDue = Math.max(0, (parseFloat(bill.total_amount) || 0) - (parseFloat(bill.paid_amount) || 0));
                       const isOverdue = bill.due_date && new Date(bill.due_date) < new Date(todayStr);
-                      const currentAmount = inlineAmounts[bill.id] !== undefined ? inlineAmounts[bill.id] : balDue;
-                      const currentAccount = inlineAccounts[bill.id] || accountList[0]?.id;
 
                       return (
                         <tr key={bill.id} className="hover:bg-amber-50/30 transition">
@@ -370,48 +367,25 @@ export default function PaymentsMadeIndex({
                           <td className="py-3 px-4 text-right font-mono font-bold text-amber-700">
                             {formatBDT(balDue)}
                           </td>
-                          <td className="py-3 px-4">
-                            <input
-                              type="number"
-                              min="0.01"
-                              max={balDue}
-                              step="any"
-                              value={currentAmount}
-                              onChange={(e) =>
-                                setInlineAmounts({
-                                  ...inlineAmounts,
-                                  [bill.id]: e.target.value,
-                                })
-                              }
-                              className="w-28 px-2 py-1 text-xs border border-slate-300 rounded font-mono font-bold text-right focus:ring-1 focus:ring-amber-500"
-                            />
-                          </td>
-                          <td className="py-3 px-4">
-                            <select
-                              value={currentAccount}
-                              onChange={(e) =>
-                                setInlineAccounts({
-                                  ...inlineAccounts,
-                                  [bill.id]: e.target.value,
-                                })
-                              }
-                              className="w-32 px-2 py-1 text-xs border border-slate-300 rounded focus:ring-1 focus:ring-amber-500"
+                          <td className="py-3 px-4 text-center whitespace-nowrap space-x-1">
+                            <Link
+                              href={`/purchases/bills?search=${encodeURIComponent(bill.bill_number)}`}
+                              className="inline-flex p-1.5 text-slate-500 hover:text-amber-700 hover:bg-amber-50 rounded transition"
+                              title="Edit Bill"
                             >
-                              {accountList.map((acc) => (
-                                <option key={acc.id} value={acc.id}>
-                                  {acc.code} - {acc.name}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="py-3 px-4 text-center">
+                              <Edit className="h-3.5 w-3.5" />
+                            </Link>
                             <button
-                              onClick={() => handleInlinePayBill(bill)}
-                              className="inline-flex items-center gap-1 px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-xs font-bold transition shadow-xs"
-                              title="Pay this bill"
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`Delete bill #${bill.bill_number}?`)) {
+                                  router.delete(`/purchases/bills/${bill.id}`, { preserveScroll: true });
+                                }
+                              }}
+                              className="inline-flex p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                              title="Delete Bill"
                             >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              <span>Pay Bill</span>
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </td>
                         </tr>
@@ -441,7 +415,8 @@ export default function PaymentsMadeIndex({
             </div>
 
             <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
-              <table className="w-full text-xs text-left text-slate-600">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left text-slate-600 min-w-[750px]">
                 <thead className="bg-slate-50 border-b border-slate-200 uppercase font-semibold text-[10px] text-slate-500">
                   <tr>
                     <th className="py-3 px-4">Payment #</th>
@@ -535,6 +510,7 @@ export default function PaymentsMadeIndex({
                   )}
                 </tbody>
               </table>
+              </div>
               <Pagination meta={payments} />
             </div>
           </div>
@@ -846,8 +822,8 @@ export default function PaymentsMadeIndex({
                 </div>
 
                 {/* Line Items */}
-                <div className="border border-slate-200 rounded-md overflow-hidden">
-                  <table className="w-full text-left text-xs">
+                <div className="border border-slate-200 rounded-md overflow-x-auto">
+                  <table className="w-full min-w-[420px] text-left text-xs">
                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[10px]">
                       <tr>
                         <th className="p-2">Item / Description</th>

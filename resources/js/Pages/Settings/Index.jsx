@@ -915,8 +915,8 @@ _{company_name}_`;
                   </button>
                 </div>
 
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-xs">
+                <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                  <table className="w-full min-w-[550px] text-left text-xs">
                     <thead className="bg-slate-100 uppercase text-[10px] text-slate-500 font-bold border-b border-slate-200">
                       <tr>
                         <th className="py-2.5 px-4">Code</th>
@@ -1040,8 +1040,8 @@ _{company_name}_`;
                     </button>
                   </div>
 
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <table className="w-full text-left text-xs">
+                  <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                    <table className="w-full min-w-[450px] text-left text-xs">
                       <thead className="bg-slate-50 uppercase text-[10px] text-slate-500 font-bold border-b border-slate-200">
                         <tr>
                           <th className="py-2.5 px-4">Category Name</th>
@@ -1109,8 +1109,8 @@ _{company_name}_`;
                     </button>
                   </div>
 
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <table className="w-full text-left text-xs">
+                  <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                    <table className="w-full min-w-[450px] text-left text-xs">
                       <thead className="bg-slate-50 uppercase text-[10px] text-slate-500 font-bold border-b border-slate-200">
                         <tr>
                           <th className="py-2.5 px-4">Category Name</th>
@@ -1220,8 +1220,8 @@ _{company_name}_`;
                   <span className="text-slate-500">Administrators can approve/reject registrations</span>
                 </div>
 
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-left text-xs">
+                <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                  <table className="w-full min-w-[550px] text-left text-xs">
                     <thead className="bg-slate-100 uppercase text-[10px] text-slate-500 font-bold border-b border-slate-200">
                       <tr>
                         <th className="py-2.5 px-4">User Name</th>
